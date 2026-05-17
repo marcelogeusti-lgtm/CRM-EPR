@@ -19,13 +19,13 @@ import { useAuth } from '@/contexts/AuthContext';
 
 const menuItems = [
   { icon: LayoutDashboard, label: 'Painel', href: '/dashboard' },
-  { icon: MessageSquare, label: 'Mensagens', href: '/dashboard/inbox' },
-  { icon: Kanban, label: 'Pipeline', href: '/dashboard/pipeline' },
-  { icon: Users, label: 'Contatos', href: '/dashboard/contacts' },
-  { icon: CreditCard, label: 'Financeiro', href: '/dashboard/finance' },
-  { icon: Package, label: 'Produtos', href: '/dashboard/products' },
-  { icon: BarChart3, label: 'Relatórios', href: '/dashboard/reports' },
-  { icon: Zap, label: 'Assinatura', href: '/dashboard/billing' },
+  { icon: MessageSquare, label: 'Mensagens', href: '/inbox' },
+  { icon: Kanban, label: 'Pipeline', href: '/pipeline' },
+  { icon: Users, label: 'Contatos', href: '/contacts' },
+  { icon: CreditCard, label: 'Financeiro', href: '/finance' },
+  { icon: Package, label: 'Produtos', href: '/products' },
+  { icon: BarChart3, label: 'Relatórios', href: '/reports' },
+  { icon: Zap, label: 'Assinatura', href: '/billing' },
 ];
 
 export function Sidebar() {
