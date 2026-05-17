@@ -11,4 +11,10 @@ export class AnalyticsController {
   async getDashboardStats(@Request() req: any) {
     return this.analyticsService.getDashboardStats(req.user.tenantId);
   }
+
+  @Get('report')
+  async getExecutiveReport(@Request() req: any) {
+    return this.analyticsService.getExecutiveReport(req.user.tenantId);
+  }
 }
+
