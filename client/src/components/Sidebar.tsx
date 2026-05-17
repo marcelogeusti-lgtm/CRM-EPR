@@ -12,7 +12,8 @@ import {
   Settings, 
   LogOut,
   CreditCard,
-  Package
+  Package,
+  Zap
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 
@@ -24,6 +25,7 @@ const menuItems = [
   { icon: CreditCard, label: 'Financeiro', href: '/dashboard/finance' },
   { icon: Package, label: 'Produtos', href: '/dashboard/products' },
   { icon: BarChart3, label: 'Relatórios', href: '/dashboard/reports' },
+  { icon: Zap, label: 'Assinatura', href: '/dashboard/billing' },
 ];
 
 export function Sidebar() {

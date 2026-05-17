@@ -16,6 +16,7 @@ interface Tenant {
   id: string;
   name: string;
   slug: string;
+  plan?: string;
 }
 
 interface AuthContextType {

@@ -6,10 +6,14 @@ import { tenantContext } from './tenant.context';
 export class TenantMiddleware implements NestMiddleware {
   use(req: Request, res: Response, next: NextFunction) {
     const tenantId = req.headers['x-tenant-id'] as string;
+    
+    // Rotas públicas que não precisam de tenantId
+    const publicRoutes = ['/auth/login', '/auth/register', '/billing/webhook'];
+    const isPublic = publicRoutes.some(route => req.path.startsWith(route));
 
-    if (!tenantId && req.path !== '/auth/login' && req.path !== '/auth/register') {
-      // Para fins de desenvolvimento, não vamos barrar tudo ainda, mas em produção isso seria obrigatório
-      // throw new UnauthorizedException('Tenant ID is required');
+    if (!tenantId && !isPublic) {
+      // Bloqueio rigoroso em produção para evitar vazamento de dados
+      throw new UnauthorizedException('Acesso negado: Tenant ID é obrigatório para esta requisição.');
     }
 
     if (tenantId) {
@@ -21,3 +25,4 @@ export class TenantMiddleware implements NestMiddleware {
     }
   }
 }
+

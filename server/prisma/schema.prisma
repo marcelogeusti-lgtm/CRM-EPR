@@ -50,11 +50,13 @@ model Tenant {
   id        String   @id @default(uuid())
   name      String
   slug      String   @unique
-  plan      String   @default("FREE")
+  plan      String   @default("STARTER") // STARTER, PRO, ENTERPRISE
   settings  Json?
+  isActive  Boolean  @default(true)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  subscription        Subscription?
   users               User[]
   contacts            Contact[]
   waInstances         WhatsAppInstance[]
@@ -64,6 +66,20 @@ model Tenant {
   transactions        Transaction[]
   workflows           Workflow[]
   conversations       Conversation[]
+}
+
+model Subscription {
+  id                String   @id @default(uuid())
+  tenantId          String   @unique
+  tenant            Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  billingCustomerId String?  // ID do cliente no Asaas/Stripe
+  billingSubId      String?  // ID da assinatura no gateway
+  status            String   @default("ACTIVE") // ACTIVE, PAST_DUE, CANCELED, INCOMPLETE
+  planId            String   // Identificador do plano
+  currentPeriodEnd  DateTime?
+  cancelAtPeriodEnd Boolean  @default(false)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
 }
 
 model User {
