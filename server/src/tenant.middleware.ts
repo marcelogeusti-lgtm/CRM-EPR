@@ -8,7 +8,7 @@ export class TenantMiddleware implements NestMiddleware {
     const tenantId = req.headers['x-tenant-id'] as string;
     
     // Rotas públicas que não precisam de tenantId
-    const publicRoutes = ['/auth/login', '/auth/register', '/billing/webhook'];
+    const publicRoutes = ['/auth/login', '/auth/register', '/billing/webhook', '/webhooks/asaas'];
     const isPublic = publicRoutes.some(route => req.path.startsWith(route));
 
     if (!tenantId && !isPublic) {
