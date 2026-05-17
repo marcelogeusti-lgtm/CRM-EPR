@@ -32,6 +32,7 @@ import { AutomationService } from './automation.service';
 import { AutomationController } from './automation.controller';
 import { BillingModule } from './billing/billing.module';
 import { WorkflowModule } from './workflow/workflow.module';
+import { AuditLogModule } from './audit-log.module';
 
 import { EventEmitterModule } from '@nestjs/event-emitter';
 import { AnalyticsModule } from './analytics.module';
@@ -51,6 +52,7 @@ import { AnalyticsModule } from './analytics.module';
     AnalyticsModule,
     BillingModule,
     WorkflowModule,
+    AuditLogModule,
   ],
   controllers: [AppController],
   providers: [AppService, PrismaService],

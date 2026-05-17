@@ -78,13 +78,13 @@ export function Sidebar() {
 
       {/* Ações de Rodapé */}
       <div className="p-4 mt-auto space-y-1 border-t border-slate-100">
-        <button
-          onClick={() => {}}
+        <Link
+          href="/settings"
           className="flex items-center gap-3 px-3 py-2.5 w-full rounded-lg text-sm font-medium text-slate-500 hover:bg-slate-50 hover:text-slate-900 transition-all"
         >
           <Settings className="h-[18px] w-[18px] text-slate-400" />
           <span>Configurações</span>
-        </button>
+        </Link>
         <button
           onClick={logout}
           className="flex items-center gap-3 px-3 py-2.5 w-full rounded-lg text-sm font-medium text-red-500 hover:bg-red-50 hover:text-red-600 transition-all"

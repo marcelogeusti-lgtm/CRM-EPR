@@ -1,6 +1,7 @@
 import { Injectable, UnauthorizedException, ConflictException, NotFoundException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { PrismaService } from './prisma.service';
+import { AuditLogService } from './audit-log.service';
 import * as bcrypt from 'bcrypt';
 
 @Injectable()
@@ -8,6 +9,7 @@ export class AuthService {
   constructor(
     private prisma: PrismaService,
     private jwtService: JwtService,
+    private auditLog: AuditLogService,
   ) {}
 
   async register(data: any) {
@@ -58,6 +60,16 @@ export class AuthService {
       });
 
       return { user, token, tenant };
+    }).then(async (result) => {
+      await this.auditLog.log(
+        result.tenant.id,
+        'user.register',
+        `Nova organização registrada com sucesso: ${result.tenant.name} | Admin: ${result.user.name}`,
+        result.user.id,
+        data.ip || '127.0.0.1',
+        data.userAgent || 'Server Agent'
+      );
+      return result;
     });
   }
 
@@ -77,6 +89,15 @@ export class AuthService {
       tenantId: user.tenantId,
       role: user.role,
     });
+
+    await this.auditLog.log(
+      user.tenantId,
+      'user.login',
+      `Usuário ${user.name} realizou login com sucesso no sistema`,
+      user.id,
+      data.ip || '127.0.0.1',
+      data.userAgent || 'Unknown Device'
+    );
 
     return {
       user: {
