@@ -13,7 +13,8 @@ import {
   LogOut,
   CreditCard,
   Package,
-  Zap
+  Zap,
+  Bot
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 
@@ -24,6 +25,7 @@ const menuItems = [
   { icon: Users, label: 'Contatos', href: '/contacts' },
   { icon: CreditCard, label: 'Financeiro', href: '/finance' },
   { icon: Package, label: 'Produtos', href: '/products' },
+  { icon: Bot, label: 'Automações', href: '/automations' },
   { icon: BarChart3, label: 'Relatórios', href: '/reports' },
   { icon: Zap, label: 'Assinatura', href: '/billing' },
 ];

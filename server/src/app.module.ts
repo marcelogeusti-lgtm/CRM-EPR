@@ -31,6 +31,7 @@ import { AutomationModule } from './automation.module';
 import { AutomationService } from './automation.service';
 import { AutomationController } from './automation.controller';
 import { BillingModule } from './billing/billing.module';
+import { WorkflowModule } from './workflow/workflow.module';
 
 import { EventEmitterModule } from '@nestjs/event-emitter';
 import { AnalyticsModule } from './analytics.module';
@@ -49,6 +50,7 @@ import { AnalyticsModule } from './analytics.module';
     AutomationModule,
     AnalyticsModule,
     BillingModule,
+    WorkflowModule,
   ],
   controllers: [AppController],
   providers: [AppService, PrismaService],
@@ -58,3 +60,4 @@ export class AppModule implements NestModule {
     consumer.apply(TenantMiddleware).forRoutes('*');
   }
 }
+
