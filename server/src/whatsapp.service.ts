@@ -105,7 +105,7 @@ export class WhatsappService {
     return message;
   }
 
-  async sendMessage(tenantId: string, instanceId: string, contactId: string, content: string) {
+  async sendMessage(tenantId: string, instanceId: string, contactId: string, content: string, customMetadata?: any) {
     const instance = await this.prisma.whatsAppInstance.findUnique({
       where: { id: instanceId, tenantId },
     });
@@ -149,7 +149,10 @@ export class WhatsappService {
             direction: 'OUTBOUND',
             content,
             type: 'text',
-            metadata: response.data,
+            metadata: {
+              ...(response.data as any),
+              ...customMetadata,
+            },
           },
         });
 

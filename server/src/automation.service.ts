@@ -2,6 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { OnEvent } from '@nestjs/event-emitter';
 import { PrismaService } from './prisma.service';
 import { WhatsappService } from './whatsapp.service';
+import { AIService } from './ai.service';
 
 @Injectable()
 export class AutomationService {
@@ -10,6 +11,7 @@ export class AutomationService {
   constructor(
     private prisma: PrismaService,
     private whatsappService: WhatsappService,
+    private aiService: AIService,
   ) {}
 
   @OnEvent('whatsapp.message_received')
@@ -17,7 +19,66 @@ export class AutomationService {
     const { tenantId, contact, message } = payload;
     this.logger.log(`Processing automation for message from ${contact.name} (Tenant: ${tenantId})`);
 
-    // Rule 1: Auto-reply to first message
+    // Evitar loops: Não processar mensagens outbound
+    if (message.direction === 'OUTBOUND') {
+      return;
+    }
+
+    // 1. Verificar se o Copiloto de IA está ativo para o Tenant
+    const tenant = await this.prisma.tenant.findUnique({
+      where: { id: tenantId }
+    });
+
+    const settings = (tenant?.settings as any) || {};
+    const aiEnabled = settings.aiEnabled === true || settings.aiEnabled === 'true';
+
+    if (aiEnabled) {
+      this.logger.log(`Autopiloto de IA ativo para ${tenant?.name}. Gerando resposta de alta fidelidade...`);
+
+      // Buscar histórico das últimas 10 mensagens para manter o contexto
+      const history = await this.prisma.message.findMany({
+        where: { conversationId: message.conversationId },
+        orderBy: { createdAt: 'asc' },
+        take: 10
+      });
+
+      const systemPrompt = settings.aiPrompt || `Você é um assistente virtual atencioso do ${tenant?.name || 'PulseERP'}. Responda com simpatia e objetividade.`;
+      const aiModel = settings.aiModel || 'gemini';
+      const aiApiKey = settings.aiApiKey || '';
+
+      try {
+        const replyText = await this.aiService.generateReply(
+          tenant?.name || 'PulseERP',
+          history,
+          systemPrompt,
+          aiModel,
+          aiApiKey
+        );
+
+        const instance = await this.prisma.whatsAppInstance.findFirst({
+          where: { tenantId, isActive: true }
+        });
+
+        if (instance && replyText && replyText.trim()) {
+          this.logger.log(`[PulseAI] Enviando resposta gerada pela IA: "${replyText.substring(0, 40)}..."`);
+          
+          await this.whatsappService.sendMessage(
+            tenantId,
+            instance.id,
+            contact.id,
+            replyText,
+            { aiGenerated: true }
+          );
+
+          // Interromper fluxo para não disparar auto-respostas estáticas
+          return;
+        }
+      } catch (err: any) {
+        this.logger.error(`[PulseAI] Falha ao processar resposta: ${err.message}`);
+      }
+    }
+
+    // Rule 1: Auto-reply to first message (Se a IA estiver inativa)
     const isFirstMessage = await this.prisma.message.count({
       where: { 
         conversation: { contactId: contact.id },
