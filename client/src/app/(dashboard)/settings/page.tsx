@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { toast } from 'sonner';
 import { PageHeader } from '@/components/system/PageHeader';
+import { useAuth } from '@/contexts/AuthContext';
 import { 
   Settings2, 
   Smartphone, 
@@ -36,8 +37,10 @@ interface Instance {
 }
 
 export default function SettingsPage() {
+  const { tenant } = useAuth();
   const [activeTab, setActiveTab] = useState<'whatsapp' | 'general'>('whatsapp');
   const [instances, setInstances] = useState<Instance[]>([]);
+  const [auditLogs, setAuditLogs] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   // Form State
@@ -57,44 +60,44 @@ export default function SettingsPage() {
   const [qrCodeData, setQrCodeData] = useState<string | null>(null);
 
   useEffect(() => {
-    fetchInstances();
-  }, []);
+    if (tenant?.id) {
+      fetchInstances();
+      fetchAuditLogs();
+    }
+  }, [tenant?.id]);
 
   const fetchInstances = async () => {
+    if (!tenant?.id) return;
     try {
       const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
-      const res = await axios.get(`${apiUrl}/workflows`); // We'll mock if API fails
-      // Simulated instances to provide an exceptional premium experience
-      setInstances([
-        {
-          id: 'inst-1',
-          name: 'Meta Cloud API - Matriz',
-          phoneNumber: '5511999998888',
-          connectionType: 'OFFICIAL',
-          waBusinessId: '109283749283',
-          accessToken: 'EAAd....78B',
-          isActive: true
-        }
-      ]);
+      const res = await axios.get(`${apiUrl}/whatsapp/instances`, {
+        headers: { 'x-tenant-id': tenant.id }
+      });
+      setInstances(res.data);
     } catch (err) {
-      setInstances([
-        {
-          id: 'inst-1',
-          name: 'Meta Cloud API - Matriz',
-          phoneNumber: '5511999998888',
-          connectionType: 'OFFICIAL',
-          waBusinessId: '109283749283',
-          accessToken: 'EAAd....78B',
-          isActive: true
-        }
-      ]);
+      toast.error('Erro ao carregar instâncias de WhatsApp');
     } finally {
       setIsLoading(false);
     }
   };
 
+  const fetchAuditLogs = async () => {
+    if (!tenant?.id) return;
+    try {
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+      const res = await axios.get(`${apiUrl}/audit-logs`, {
+        headers: { 'x-tenant-id': tenant.id }
+      });
+      setAuditLogs(res.data);
+    } catch (err) {
+      console.error('Erro ao carregar logs de auditoria:', err);
+    }
+  };
+
   const handleCreateInstance = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!tenant?.id) return;
+    
     if (!name.trim() || !phoneNumber.trim()) {
       toast.error('Preencha os dados principais da conexão');
       return;
@@ -111,27 +114,29 @@ export default function SettingsPage() {
     }
 
     setGeneratingQr(true);
-    toast.loading('Gerando credenciais da instância...');
+    const toastId = toast.loading('Gerando credenciais da instância...');
 
-    // Simulate Evolution/Baileys QR Generation or Official binding
-    setTimeout(() => {
-      toast.dismiss();
-      const newInst: Instance = {
-        id: 'inst-' + Date.now(),
+    try {
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+      const payload = {
         name,
         phoneNumber,
         connectionType,
-        waBusinessId,
-        accessToken,
-        unofficialUrl,
-        unofficialToken,
-        qrCode: connectionType === 'UNOFFICIAL' ? 'MOCK_QR_CODE' : undefined,
-        isActive: true
+        waBusinessId: connectionType === 'OFFICIAL' ? waBusinessId : undefined,
+        accessToken: connectionType === 'OFFICIAL' ? accessToken : undefined,
+        unofficialUrl: connectionType === 'UNOFFICIAL' ? unofficialUrl : undefined,
+        unofficialToken: connectionType === 'UNOFFICIAL' ? unofficialToken : undefined,
       };
 
-      setInstances([...instances, newInst]);
+      const res = await axios.post(`${apiUrl}/whatsapp/instances`, payload, {
+        headers: { 'x-tenant-id': tenant.id }
+      });
+
+      toast.dismiss(toastId);
+      
+      setInstances([...instances, res.data]);
       setQrCodeData(connectionType === 'UNOFFICIAL' ? 'https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=PulseERPHybridEvolutionQRCodeScanSuccess' : null);
-      setGeneratingQr(false);
+      
       toast.success(connectionType === 'OFFICIAL' ? 'Conexão criada com sucesso!' : 'Instância criada! Escaneie o QR Code abaixo.');
       
       // Reset form fields
@@ -139,13 +144,36 @@ export default function SettingsPage() {
       setPhoneNumber('');
       setWaBusinessId('');
       setAccessToken('');
-    }, 1500);
+
+      // Refresh Audit Logs
+      fetchAuditLogs();
+    } catch (err: any) {
+      toast.dismiss(toastId);
+      const errorMessage = err.response?.data?.message || 'Erro ao criar canal do WhatsApp';
+      toast.error(errorMessage);
+    } finally {
+      setGeneratingQr(false);
+    }
   };
 
-  const handleDeleteInstance = (id: string) => {
+  const handleDeleteInstance = async (id: string) => {
+    if (!tenant?.id) return;
     if (!confirm('Deseja desconectar este número?')) return;
-    setInstances(instances.filter(item => item.id !== id));
-    toast.success('WhatsApp desconectado com sucesso');
+
+    const toastId = toast.loading('Desconectando WhatsApp...');
+    try {
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+      await axios.delete(`${apiUrl}/whatsapp/instances/${id}`, {
+        headers: { 'x-tenant-id': tenant.id }
+      });
+      toast.dismiss(toastId);
+      setInstances(instances.filter(item => item.id !== id));
+      toast.success('WhatsApp desconectado com sucesso');
+      fetchAuditLogs();
+    } catch (err: any) {
+      toast.dismiss(toastId);
+      toast.error('Erro ao desconectar WhatsApp');
+    }
   };
 
   const handleSimulateScan = () => {
@@ -156,6 +184,7 @@ export default function SettingsPage() {
       setScanned(true);
       setQrCodeData(null);
       toast.success('WhatsApp Não-Oficial conectado com sucesso!');
+      fetchAuditLogs();
     }, 2000);
   };
 
@@ -485,6 +514,63 @@ export default function SettingsPage() {
                       </p>
                     </div>
                   </div>
+                </div>
+
+                {/* Audit Logs Section */}
+                <div className="border-t border-zinc-100 pt-6 mt-6">
+                  <div className="flex justify-between items-center mb-4">
+                    <div>
+                      <h4 className="text-sm font-bold text-zinc-800">Logs de Auditoria de Segurança</h4>
+                      <p className="text-[10px] text-zinc-400">Linha do tempo em tempo real de ações críticas executadas.</p>
+                    </div>
+                    <button 
+                      onClick={fetchAuditLogs}
+                      className="p-1.5 hover:bg-zinc-100 rounded-lg text-zinc-400 hover:text-zinc-600 border border-zinc-200 transition-all shadow-xs"
+                      title="Atualizar Logs"
+                    >
+                      <RefreshCw className="size-3.5 animate-spin-hover" />
+                    </button>
+                  </div>
+
+                  {auditLogs.length === 0 ? (
+                    <div className="p-8 text-center border border-dashed border-zinc-200 rounded-xl bg-zinc-50/50 text-zinc-400 text-xs">
+                      Nenhum registro de auditoria encontrado para este workspace.
+                    </div>
+                  ) : (
+                    <div className="space-y-4 max-h-[350px] overflow-y-auto pr-2 custom-scrollbar">
+                      {auditLogs.map((log) => (
+                        <div key={log.id} className="flex gap-3 text-xs border-b border-zinc-50 pb-3 last:border-b-0">
+                          <div className="shrink-0 mt-0.5">
+                            {log.action.includes('login') ? (
+                              <span className="size-6 rounded-full bg-emerald-50 text-emerald-600 border border-emerald-100 flex items-center justify-center font-bold text-[9px]">LG</span>
+                            ) : log.action.includes('deal') ? (
+                              <span className="size-6 rounded-full bg-blue-50 text-blue-600 border border-blue-100 flex items-center justify-center font-bold text-[9px]">DL</span>
+                            ) : (
+                              <span className="size-6 rounded-full bg-purple-50 text-purple-600 border border-purple-100 flex items-center justify-center font-bold text-[9px]">SYS</span>
+                            )}
+                          </div>
+                          <div className="space-y-1 flex-1">
+                            <div className="flex justify-between items-start">
+                              <span className="font-bold text-zinc-800 uppercase tracking-wide text-[9px]">
+                                {log.action}
+                              </span>
+                              <span className="text-[9px] text-zinc-400">
+                                {new Date(log.createdAt).toLocaleString('pt-BR')}
+                              </span>
+                            </div>
+                            <p className="text-zinc-500 text-[10px] leading-relaxed">{log.details}</p>
+                            {(log.ip || log.userAgent) && (
+                              <div className="flex items-center gap-2 text-[8px] text-zinc-400 bg-zinc-50 border border-zinc-100/50 py-0.5 px-2 rounded-md w-fit">
+                                {log.ip && <span>IP: {log.ip}</span>}
+                                {log.ip && log.userAgent && <span>•</span>}
+                                {log.userAgent && <span className="truncate max-w-[150px]">{log.userAgent}</span>}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
               </motion.div>
             )}

@@ -72,4 +72,18 @@ export class AppController {
       },
     };
   }
+
+  @Get('audit-logs')
+  async getAuditLogs() {
+    const tenantId = getTenantId();
+    if (!tenantId) {
+      throw new UnauthorizedException('Tenant ID não fornecido no contexto.');
+    }
+
+    return this.prisma.auditLog.findMany({
+      where: { tenantId },
+      orderBy: { createdAt: 'desc' },
+      take: 30,
+    });
+  }
 }
