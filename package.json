@@ -1,0 +1,19 @@
+{
+  "name": "pulse-erp-monorepo",
+  "private": true,
+  "workspaces": [
+    "client",
+    "server"
+  ],
+  "scripts": {
+    "dev": "concurrently \"npm run dev -w client\" \"npm run start:dev -w server\"",
+    "build": "npm run build -w client",
+    "install-all": "npm install"
+  },
+  "dependencies": {
+    "next": "^15.2.0"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2"
+  }
+}

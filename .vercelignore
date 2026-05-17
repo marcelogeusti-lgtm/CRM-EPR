@@ -1,0 +1,6 @@
+server/
+.agents/
+.claude/
+docker-compose.yml
+README.md
+prisma/
