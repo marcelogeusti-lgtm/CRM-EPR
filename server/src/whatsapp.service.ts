@@ -297,4 +297,39 @@ export class WhatsappService {
       throw error;
     }
   }
+
+  // CRUD de Instâncias para Painel e Configurações
+  async listInstances(tenantId: string) {
+    return this.prisma.whatsAppInstance.findMany({
+      where: { tenantId },
+    });
+  }
+
+  async createInstance(tenantId: string, data: any) {
+    return this.prisma.whatsAppInstance.create({
+      data: {
+        tenantId,
+        name: data.name,
+        phoneNumber: data.phoneNumber,
+        connectionType: data.connectionType || 'OFFICIAL',
+        waBusinessId: data.waBusinessId || '',
+        accessToken: data.accessToken || '',
+        unofficialUrl: data.unofficialUrl || '',
+        unofficialToken: data.unofficialToken || '',
+        isActive: true,
+      },
+    });
+  }
+
+  async deleteInstance(tenantId: string, id: string) {
+    const instance = await this.prisma.whatsAppInstance.findFirst({
+      where: { id, tenantId },
+    });
+
+    if (!instance) throw new NotFoundException('WhatsApp instance not found');
+
+    return this.prisma.whatsAppInstance.delete({
+      where: { id },
+    });
+  }
 }

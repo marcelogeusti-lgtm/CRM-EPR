@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { WhatsappController } from './whatsapp.controller';
+import { WhatsappInstanceController } from './whatsapp-instance.controller';
 import { WhatsappService } from './whatsapp.service';
 import { ChatGateway } from './chat.gateway';
 import { PrismaService } from './prisma.service';
@@ -11,7 +12,7 @@ import { BaileysProvider } from './whatsapp/providers/baileys/baileys.provider';
 import { WppconnectProvider } from './whatsapp/providers/wppconnect/wppconnect.provider';
 
 @Module({
-  controllers: [WhatsappController],
+  controllers: [WhatsappController, WhatsappInstanceController],
   providers: [
     WhatsappService, 
     ChatGateway, 
