@@ -1,8 +1,13 @@
-import { Injectable, Logger, NotFoundException, Inject, forwardRef } from '@nestjs/common';
+import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { PrismaService } from './prisma.service';
 import { ChatGateway } from './chat.gateway';
 import { EventEmitter2 } from '@nestjs/event-emitter';
-import axios from 'axios';
+
+// Importação das classes especializadas (Strategy Pattern)
+import { MetaProvider } from './whatsapp/providers/meta/meta.provider';
+import { EvolutionProvider } from './whatsapp/providers/evolution/evolution.provider';
+import { BaileysProvider } from './whatsapp/providers/baileys/baileys.provider';
+import { WppconnectProvider } from './whatsapp/providers/wppconnect/wppconnect.provider';
 
 @Injectable()
 export class WhatsappService {
@@ -12,6 +17,10 @@ export class WhatsappService {
     private prisma: PrismaService,
     private chatGateway: ChatGateway,
     private eventEmitter: EventEmitter2,
+    private metaProvider: MetaProvider,
+    private evolutionProvider: EvolutionProvider,
+    private baileysProvider: BaileysProvider,
+    private wppconnectProvider: WppconnectProvider,
   ) {}
 
   async handleIncomingMessage(phoneNumberId: string, contactData: any, messageData: any) {
@@ -225,87 +234,36 @@ export class WhatsappService {
 
     if (!contact) throw new NotFoundException('Contact not found');
 
-    // ROTEAMENTO HÍBRIDO (Caso Não-Oficial/Evolution/Baileys)
-    if (instance.connectionType === 'UNOFFICIAL') {
-      try {
-        let responseData = { status: 'mocked' };
+    let responseData: any;
+    
+    // Objeto padrão de configuração passado ao provedor
+    const providerConfig = {
+      accessToken: instance.accessToken || undefined,
+      waBusinessId: instance.waBusinessId || undefined,
+      unofficialUrl: instance.unofficialUrl || undefined,
+      unofficialToken: instance.unofficialToken || undefined,
+      instanceName: instance.name,
+    };
 
-        if (instance.unofficialUrl) {
-          const cleanUrl = instance.unofficialUrl.replace(/\/$/, '');
-          const response = await axios.post(
-            `${cleanUrl}/message/sendText/${instance.name}`,
-            {
-              number: contact.phone,
-              options: {
-                delay: 500,
-                presence: "composing"
-              },
-              textMessage: { text: content }
-            },
-            {
-              headers: {
-                apikey: instance.unofficialToken || '',
-                'Content-Type': 'application/json',
-              },
-            }
-          );
-          responseData = response.data;
-        } else {
-          this.logger.warn(`Evolution API url is empty on unofficial instance ${instance.name}. Simulating send...`);
-        }
-
-        const conversation = await this.prisma.conversation.findFirst({
-          where: { tenantId, contactId: contact.id, channel: 'WHATSAPP', status: 'OPEN' },
-        });
-
-        if (conversation) {
-          const message = await this.prisma.message.create({
-            data: {
-              conversationId: conversation.id,
-              direction: 'OUTBOUND',
-              content,
-              type: 'text',
-              metadata: {
-                ...responseData,
-                ...customMetadata,
-                connectionType: 'UNOFFICIAL'
-              },
-            },
-          });
-
-          this.chatGateway.sendToTenant(tenantId, 'newMessage', {
-            message,
-            contact,
-            conversationId: conversation.id,
-          });
-        }
-
-        return responseData;
-      } catch (error) {
-        this.logger.error('Error sending Unofficial WhatsApp message:', error.response?.data || error.message);
-        throw error;
-      }
-    }
-
-    // FLUXO PADRÃO OFICIAL (Meta API Graph)
     try {
-      const response = await axios.post(
-        `https://graph.facebook.com/v17.0/${instance.waBusinessId}/messages`,
-        {
-          messaging_product: 'whatsapp',
-          recipient_type: 'individual',
-          to: contact.phone,
-          type: 'text',
-          text: { body: content },
-        },
-        {
-          headers: {
-            Authorization: `Bearer ${instance.accessToken}`,
-            'Content-Type': 'application/json',
-          },
-        },
-      );
+      if (instance.connectionType === 'OFFICIAL') {
+        // Envia através da API Oficial da Meta
+        responseData = await this.metaProvider.sendMessage(contact.phone || '', content, providerConfig);
+      } else {
+        // Roteamento de Provedor Não-Oficial dinâmico baseado no endereço
+        const urlLower = (instance.unofficialUrl || '').toLowerCase();
+        
+        if (urlLower.includes('wppconnect')) {
+          responseData = await this.wppconnectProvider.sendMessage(contact.phone || '', content, providerConfig);
+        } else if (urlLower.includes('baileys') || urlLower.includes('3002')) {
+          responseData = await this.baileysProvider.sendMessage(contact.phone || '', content, providerConfig);
+        } else {
+          // Provedor padrão/fallback da indústria: Evolution API
+          responseData = await this.evolutionProvider.sendMessage(contact.phone || '', content, providerConfig);
+        }
+      }
 
+      // Salva a mensagem de saída (Outbound) em nosso banco de dados
       const conversation = await this.prisma.conversation.findFirst({
         where: { tenantId, contactId: contact.id, channel: 'WHATSAPP', status: 'OPEN' },
       });
@@ -318,12 +276,14 @@ export class WhatsappService {
             content,
             type: 'text',
             metadata: {
-              ...(response.data as any),
+              ...responseData,
               ...customMetadata,
+              connectionType: instance.connectionType,
             },
           },
         });
 
+        // Notifica o frontend via WebSockets em tempo real
         this.chatGateway.sendToTenant(tenantId, 'newMessage', {
           message,
           contact,
@@ -331,9 +291,9 @@ export class WhatsappService {
         });
       }
 
-      return response.data;
+      return responseData;
     } catch (error) {
-      this.logger.error('Error sending WhatsApp message:', error.response?.data || error.message);
+      this.logger.error(`Error sending message via ${instance.connectionType} Provider:`, error.response?.data || error.message);
       throw error;
     }
   }
