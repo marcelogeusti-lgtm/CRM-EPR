@@ -17,24 +17,27 @@ export function KanbanColumn({ stage }: { stage: any }) {
   const dealIds = stage.deals.map((d: any) => d.id);
 
   return (
-    <div className="w-[300px] flex flex-col h-full bg-[#111] rounded-2xl border border-white/5 overflow-hidden">
-      <div className="p-4 flex items-center justify-between border-b border-white/5 bg-[#1a1a1a]">
+    <div className="w-[300px] flex flex-col h-full bg-zinc-50 border border-zinc-200 rounded-2xl overflow-hidden shadow-sm">
+      
+      {/* Header da Coluna */}
+      <div className="p-4 flex items-center justify-between border-b border-zinc-100 bg-white">
         <div className="flex items-center gap-2">
-          <h3 className="font-bold text-white text-sm uppercase tracking-wider">{stage.name}</h3>
-          <span className="bg-white/5 text-gray-500 text-[10px] px-2 py-0.5 rounded-full border border-white/5">
+          <h3 className="font-bold text-zinc-800 text-xs uppercase tracking-wider">{stage.name}</h3>
+          <span className="bg-zinc-100 text-zinc-500 text-[10px] px-2 py-0.5 rounded-full border border-zinc-200 font-bold">
             {stage.deals.length}
           </span>
         </div>
         <div className="flex gap-1">
-          <Button variant="ghost" size="icon" className="h-7 w-7 text-gray-500 hover:text-white">
-            <Plus className="h-3.5 w-3.5" />
+          <Button variant="ghost" size="icon" className="h-8 w-8 text-zinc-400 hover:text-zinc-700 hover:bg-zinc-100 rounded-lg">
+            <Plus className="size-4" />
           </Button>
-          <Button variant="ghost" size="icon" className="h-7 w-7 text-gray-500 hover:text-white">
-            <MoreHorizontal className="h-3.5 w-3.5" />
+          <Button variant="ghost" size="icon" className="h-8 w-8 text-zinc-400 hover:text-zinc-700 hover:bg-zinc-100 rounded-lg">
+            <MoreHorizontal className="size-4" />
           </Button>
         </div>
       </div>
 
+      {/* Área de Drop de Cards */}
       <div 
         ref={setNodeRef}
         className="flex-1 p-3 space-y-3 overflow-y-auto custom-scrollbar"
@@ -46,8 +49,8 @@ export function KanbanColumn({ stage }: { stage: any }) {
         </SortableContext>
         
         {stage.deals.length === 0 && (
-          <div className="h-24 border-2 border-dashed border-white/5 rounded-xl flex items-center justify-center text-gray-600 text-xs italic">
-            Solte aqui
+          <div className="h-28 border border-dashed border-zinc-200 rounded-2xl flex items-center justify-center text-zinc-400 text-xs italic bg-white/40">
+            Solte negócios aqui
           </div>
         )}
       </div>

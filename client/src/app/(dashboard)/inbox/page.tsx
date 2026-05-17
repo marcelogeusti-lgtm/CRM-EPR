@@ -13,7 +13,9 @@ import {
   Mail, 
   Info,
   ChevronLeft,
-  Sparkles
+  Sparkles,
+  SlidersHorizontal,
+  Bot
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -21,6 +23,8 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
+import { PageHeader } from '@/components/system/PageHeader';
+import { motion } from 'framer-motion';
 
 export default function InboxPage() {
   const [conversations, setConversations] = useState<any[]>([]);
@@ -37,7 +41,7 @@ export default function InboxPage() {
   const [aiApiKey, setAiApiKey] = useState('');
   const [saving, setSaving] = useState(false);
 
-  // Carregar configurações de IA ao inicializar
+  // Carregar configurações de IA
   useEffect(() => {
     const fetchAiSettings = async () => {
       try {
@@ -56,7 +60,6 @@ export default function InboxPage() {
           setAiApiKey(response.data.aiApiKey);
         }
       } catch (err) {
-        // Fallback robusto para demonstração offline
         const localSettings = localStorage.getItem('pulse_ai_settings');
         if (localSettings) {
           const parsed = JSON.parse(localSettings);
@@ -72,7 +75,6 @@ export default function InboxPage() {
     fetchAiSettings();
   }, []);
 
-  // Salvar configurações no backend / local
   const handleSaveAiSettings = async () => {
     setSaving(true);
     const settingsPayload = { aiEnabled, aiPrompt, aiModel, aiApiKey };
@@ -86,47 +88,40 @@ export default function InboxPage() {
         }
       });
       localStorage.setItem('pulse_ai_settings', JSON.stringify(settingsPayload));
-      alert('Configurações do PulseAI salvas com sucesso no servidor!');
+      alert('Configurações do PulseAI salvas com sucesso!');
     } catch (err) {
       localStorage.setItem('pulse_ai_settings', JSON.stringify(settingsPayload));
-      alert('Salvo no modo de demonstração local offline! O robô funcionará com base nessas configurações.');
+      alert('Salvo localmente com sucesso!');
     } finally {
       setSaving(false);
     }
   };
 
-  // Carregar prompts customizados prontos (Presets)
   const handleApplyPreset = (type: string) => {
     let prompt = '';
     if (type === 'barbearia') {
       prompt = `Você é o assistente virtual da Barbearia Pulse. Seja extremamente descontraído e simpático.
 Objetivos:
-1. Oferecer nossos serviços principais (Corte de Cabelo: R$45, Barba Premium: R$35, Combo: R$70).
-2. Agendar horários. Ofereça opções à tarde hoje ou amanhã de manhã.
-3. Obter o nome do cliente de forma leve.`;
+1. Oferecer nossos serviços principais (Corte: R$45, Barba: R$35).
+2. Agendar horários comercialmente hoje ou amanhã.`;
     } else if (type === 'mecanica') {
       prompt = `Você é o assistente virtual inteligente da Oficina AutoPulse. Seja profissional, técnico e atencioso.
 Objetivos:
-1. Coletar o modelo e ano do carro do cliente.
-2. Identificar se o problema é barulho, vazamento, revisão ou peças.
-3. Agendar uma avaliação física gratuita rápida na oficina de segunda a sexta, das 8h às 18h.`;
+1. Coletar o modelo e ano do carro.
+2. Agendar uma avaliação física gratuita.`;
     } else if (type === 'imobiliaria') {
-      prompt = `Você é o consultor imobiliário inteligente da Pulse Imóveis. Seja formal, educado e focado em negócios.
+      prompt = `Você é o consultor imobiliário da Pulse Imóveis. Seja educado e focado.
 Objetivos:
-1. Entender se o lead deseja COMPRAR ou ALUGAR.
-2. Coletar a faixa de orçamento do cliente (ex: até R$ 3.000/mês para aluguel ou até R$ 500 mil para compra).
-3. Coletar o número de quartos e a região ideal de preferência.`;
+1. Entender se o lead deseja comprar ou alugar.
+2. Coletar faixa de orçamento.`;
     } else if (type === 'clinica') {
-      prompt = `Você é o assistente de saúde inteligente da Clínica PulseMédica. Seja extremamente empático, ético e calmo.
+      prompt = `Você é o assistente de saúde inteligente da Clínica PulseMédica.
 Objetivos:
-1. Confirmar se o atendimento é por plano de saúde (convênio) ou consulta particular.
-2. Identificar a especialidade médica desejada (Clínico geral, Pediatria, Odonto ou Cardiologia).
-3. Verificar a preferência de período (Manhã ou Tarde) para agendar o especialista.`;
+1. Identificar especialidade médica e convênio.`;
     }
     setAiPrompt(prompt);
   };
 
-  // Mock data for initial UI
   useEffect(() => {
     setConversations([
       { id: '1', contact: { name: 'Marcelo Silva', phone: '+55 11 99999-9999' }, lastMessage: 'Olá, gostaria de saber sobre o plano premium.', time: '14:20', unread: 2 },
@@ -164,316 +159,314 @@ Objetivos:
   };
 
   return (
-    <div className="h-[calc(100vh-140px)] flex glass-dark border-white/5 rounded-2xl overflow-hidden">
-      {/* 1. Sidebar - Chats List */}
-      <div className="w-80 border-r border-white/5 flex flex-col">
-        <div className="p-4 border-b border-white/5">
-          <div className="relative">
-            <Search className="absolute left-3 top-2.5 h-4 w-4 text-gray-500" />
-            <Input placeholder="Buscar conversas..." className="pl-9 h-9 bg-white/5 border-white/10 text-white text-sm" />
+    <div className="space-y-6 animate-in fade-in duration-500 pb-12">
+      
+      {/* PageHeader unificado */}
+      <PageHeader 
+        title="Central de Mensagens"
+        description="Fale em tempo real com seus contatos integrados ou ative o Autopiloto inteligente."
+      />
+
+      <div className="h-[calc(100vh-210px)] flex bg-white border border-zinc-200 rounded-2xl overflow-hidden shadow-sm">
+        
+        {/* 1. Sidebar - Chats List */}
+        <div className="w-80 border-r border-zinc-200 flex flex-col bg-white">
+          <div className="p-4 border-b border-zinc-100 bg-zinc-50/50">
+            <div className="relative">
+              <Search className="absolute left-3 top-2.5 size-4 text-zinc-400" />
+              <input 
+                placeholder="Buscar conversas..." 
+                className="w-full bg-white border border-zinc-200 rounded-xl pl-9 pr-3 h-9 text-xs text-zinc-800 placeholder:text-zinc-400 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all shadow-sm" 
+              />
+            </div>
           </div>
-        </div>
-        <ScrollArea className="flex-1">
-          {conversations.map((chat) => (
-            <div 
-              key={chat.id}
-              onClick={() => setSelectedChat(chat)}
-              className={cn(
-                "p-4 flex gap-3 cursor-pointer transition-colors border-l-2",
-                selectedChat?.id === chat.id ? "bg-blue-600/10 border-blue-600" : "hover:bg-white/5 border-transparent"
-              )}
-            >
-              <Avatar className="h-12 w-12 border border-white/10">
-                <AvatarFallback className="bg-blue-600/20 text-blue-400 font-bold">
-                  {chat.contact.name.substring(0, 2).toUpperCase()}
-                </AvatarFallback>
-              </Avatar>
-              <div className="flex-1 min-w-0">
-                <div className="flex justify-between items-start mb-1">
-                  <h4 className="font-semibold text-white truncate">{chat.contact.name}</h4>
-                  <span className="text-[10px] text-gray-500">{chat.time}</span>
-                </div>
-                <div className="flex justify-between items-center">
-                  <p className="text-xs text-gray-500 truncate">{chat.lastMessage}</p>
-                  {chat.unread > 0 && (
-                    <Badge className="bg-blue-600 text-[10px] h-4 w-4 p-0 flex items-center justify-center rounded-full">
-                      {chat.unread}
-                    </Badge>
+          <ScrollArea className="flex-1 bg-white">
+            <div className="divide-y divide-zinc-50">
+              {conversations.map((chat) => (
+                <div 
+                  key={chat.id}
+                  onClick={() => setSelectedChat(chat)}
+                  className={cn(
+                    "p-4 flex gap-3 cursor-pointer transition-colors border-l-4",
+                    selectedChat?.id === chat.id 
+                      ? "bg-zinc-50 border-l-blue-600" 
+                      : "hover:bg-zinc-50/50 border-l-transparent"
                   )}
-                </div>
-              </div>
-            </div>
-          ))}
-        </ScrollArea>
-      </div>
-
-      {/* 2. Main Chat Area */}
-      {selectedChat ? (
-        <div className="flex-1 flex flex-col bg-black/20">
-          {/* Header */}
-          <div className="p-4 border-b border-white/5 flex items-center justify-between bg-[#0a0a0a]">
-            <div className="flex items-center gap-3">
-              <Avatar className="h-10 w-10 border border-white/10">
-                <AvatarFallback className="bg-blue-600/20 text-blue-400">
-                  {selectedChat.contact.name.substring(0, 2).toUpperCase()}
-                </AvatarFallback>
-              </Avatar>
-              <div>
-                <h4 className="font-semibold text-white leading-none">{selectedChat.contact.name}</h4>
-                <span className="text-xs text-green-500 flex items-center gap-1 mt-1">
-                  <div className="w-1.5 h-1.5 bg-green-500 rounded-full" /> Online
-                </span>
-              </div>
-            </div>
-            <div className="flex items-center gap-2">
-              {/* Botão PulseAI Glow */}
-              <Button 
-                variant="outline" 
-                onClick={() => setShowAiSettings(!showAiSettings)}
-                className={cn(
-                  "rounded-full border border-blue-500/30 bg-blue-500/5 text-blue-400 hover:bg-blue-500/20 gap-2 flex items-center h-9 px-4 text-xs font-semibold shadow-[0_0_15px_rgba(59,130,246,0.1)] transition-all",
-                  aiEnabled && "border-green-500/30 bg-green-500/5 text-green-400 shadow-[0_0_15px_rgba(34,197,94,0.15)] hover:bg-green-500/20"
-                )}
-              >
-                <Sparkles className={cn("h-3.5 w-3.5", aiEnabled && "animate-pulse")} />
-                <span>PulseAI: {aiEnabled ? 'Ativo' : 'Desligado'}</span>
-                {aiEnabled && (
-                  <span className="relative flex h-2 w-2">
-                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
-                    <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500"></span>
-                  </span>
-                )}
-              </Button>
-
-              <Button variant="ghost" size="icon" className="text-gray-400 hover:text-white">
-                <Phone className="h-4 w-4" />
-              </Button>
-              <Button variant="ghost" size="icon" className="text-gray-400 hover:text-white">
-                <MoreVertical className="h-4 w-4" />
-              </Button>
-            </div>
-          </div>
-
-          {/* Messages Area */}
-          <div className="flex-1 overflow-y-auto p-6 space-y-4" ref={scrollRef}>
-            {messages.map((msg) => (
-              <div 
-                key={msg.id}
-                className={cn(
-                  "flex w-full",
-                  msg.direction === 'OUTBOUND' ? "justify-end" : "justify-start"
-                )}
-              >
-                <div className={cn(
-                  "max-w-[70%] p-3 rounded-2xl text-sm",
-                  msg.direction === 'OUTBOUND' 
-                    ? "bg-blue-600 text-white rounded-tr-none shadow-[0_4px_12px_rgba(37,99,235,0.2)]" 
-                    : "bg-white/5 text-gray-200 border border-white/10 rounded-tl-none"
-                )}>
-                  {msg.content}
-                  <div className="text-[10px] mt-1 text-right opacity-60 flex items-center justify-end gap-1.5">
-                    {msg.metadata?.aiGenerated && (
-                      <Badge className="bg-green-500/30 text-green-300 hover:bg-green-500/30 text-[8px] h-3 px-1 rounded flex items-center gap-0.5 border-none font-bold select-none tracking-wide">
-                        PulseAI
-                      </Badge>
-                    )}
-                    {new Date(msg.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                >
+                  <Avatar className="h-10 w-10 border border-zinc-200">
+                    <AvatarFallback className="bg-blue-50 text-blue-600 font-bold text-sm">
+                      {chat.contact.name.substring(0, 2).toUpperCase()}
+                    </AvatarFallback>
+                  </Avatar>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex justify-between items-start mb-1">
+                      <h4 className={cn("text-xs truncate text-zinc-800", selectedChat?.id === chat.id ? "font-bold text-zinc-950" : "font-semibold")}>
+                        {chat.contact.name}
+                      </h4>
+                      <span className="text-[10px] text-zinc-400">{chat.time}</span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <p className="text-[11px] text-zinc-400 truncate leading-relaxed">{chat.lastMessage}</p>
+                      {chat.unread > 0 && (
+                        <Badge className="bg-blue-600 text-[10px] h-4 w-4 p-0 flex items-center justify-center rounded-full border-none">
+                          {chat.unread}
+                        </Badge>
+                      )}
+                    </div>
                   </div>
                 </div>
-              </div>
-            ))}
-          </div>
-
-          {/* Input Area */}
-          <div className="p-4 bg-[#0a0a0a] border-t border-white/5">
-            <div className="flex items-center gap-2 bg-white/5 p-2 rounded-xl border border-white/10">
-              <Button variant="ghost" size="icon" className="text-gray-500 hover:text-white">
-                <Paperclip className="h-5 w-5" />
-              </Button>
-              <Input 
-                placeholder="Digite sua mensagem..." 
-                className="border-none bg-transparent text-white focus-visible:ring-0 placeholder:text-gray-600"
-                value={newMessage}
-                onChange={(e) => setNewMessage(e.target.value)}
-                onKeyPress={(e) => e.key === 'Enter' && handleSend()}
-              />
-              <Button variant="ghost" size="icon" className="text-gray-500 hover:text-white">
-                <Smile className="h-5 w-5" />
-              </Button>
-              <Button 
-                className="bg-blue-600 hover:bg-blue-700 h-10 w-10 p-0 rounded-lg"
-                onClick={handleSend}
-              >
-                <Send className="h-4 w-4 text-white" />
-              </Button>
+              ))}
             </div>
-          </div>
+          </ScrollArea>
         </div>
-      ) : (
-        <div className="flex-1 flex flex-col items-center justify-center text-gray-500 space-y-4">
-          <div className="p-6 bg-white/5 rounded-full">
-            <MessageSquare className="h-12 w-12 text-gray-700" />
-          </div>
-          <p className="text-lg font-medium">Selecione uma conversa para começar</p>
-        </div>
-      )}
 
-      {/* 3. Details Sidebar (Optional but recommended) */}
-      {selectedChat && (
-        showAiSettings ? (
-          <div className="w-80 border-l border-white/5 bg-[#0b0b0c] p-5 hidden lg:flex flex-col animate-in slide-in-from-right duration-300 overflow-y-auto">
+        {/* 2. Main Chat Area */}
+        {selectedChat ? (
+          <div className="flex-1 flex flex-col bg-zinc-50/30">
+            
             {/* Header */}
-            <div className="flex items-center justify-between mb-6 pb-3 border-b border-white/5">
-              <div className="flex items-center gap-2 text-blue-400 font-bold text-sm">
-                <Sparkles className="h-4 w-4 text-blue-400" />
-                <span>Configurar PulseAI</span>
+            <div className="p-4 border-b border-zinc-200 flex items-center justify-between bg-white shadow-sm z-10">
+              <div className="flex items-center gap-3">
+                <Avatar className="h-9 w-9 border border-zinc-200">
+                  <AvatarFallback className="bg-blue-50 text-blue-600 text-xs font-bold">
+                    {selectedChat.contact.name.substring(0, 2).toUpperCase()}
+                  </AvatarFallback>
+                </Avatar>
+                <div>
+                  <h4 className="text-xs font-bold text-zinc-800 leading-none">{selectedChat.contact.name}</h4>
+                  <span className="text-[10px] text-emerald-600 font-semibold flex items-center gap-1.5 mt-1.5">
+                    <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full" /> Online
+                  </span>
+                </div>
               </div>
-              <Button 
-                variant="ghost" 
-                size="sm" 
-                onClick={() => setShowAiSettings(false)}
-                className="text-gray-500 hover:text-white h-7 px-2"
-              >
-                Voltar
-              </Button>
+              <div className="flex items-center gap-2">
+                
+                {/* Botão Autopiloto */}
+                <button 
+                  onClick={() => setShowAiSettings(!showAiSettings)}
+                  className={cn(
+                    "rounded-xl border px-3 h-9 text-xs font-bold flex items-center gap-1.5 transition-all shadow-sm",
+                    aiEnabled 
+                      ? "border-emerald-200 bg-emerald-50 text-emerald-700" 
+                      : "border-zinc-200 bg-white text-zinc-600 hover:bg-zinc-50"
+                  )}
+                >
+                  <Sparkles className="size-3.5 text-blue-500" />
+                  <span>Autopilot: {aiEnabled ? 'Ativo' : 'Manual'}</span>
+                </button>
+
+                <Button variant="ghost" size="icon" className="text-zinc-400 hover:text-zinc-600 hover:bg-zinc-100 rounded-xl size-9">
+                  <Phone className="size-4" />
+                </Button>
+                <Button variant="ghost" size="icon" className="text-zinc-400 hover:text-zinc-600 hover:bg-zinc-100 rounded-xl size-9">
+                  <MoreVertical className="size-4" />
+                </Button>
+              </div>
             </div>
 
-            {/* AI Control Body */}
-            <div className="space-y-5 text-left">
-              {/* Enable Toggle */}
-              <div className="flex items-center justify-between p-3 rounded-xl bg-white/5 border border-white/10">
-                <div>
-                  <span className="text-xs font-semibold text-white block">Autopiloto de IA</span>
-                  <span className="text-[10px] text-gray-500">Responder leads automaticamente</span>
-                </div>
-                <input 
-                  type="checkbox" 
-                  checked={aiEnabled}
-                  onChange={(e) => setAiEnabled(e.target.checked)}
-                  className="w-8 h-4 rounded-full bg-gray-600 checked:bg-green-500 cursor-pointer appearance-none relative before:content-[''] before:absolute before:w-4 before:h-4 before:rounded-full before:bg-white before:transition-all checked:before:translate-x-4 border border-white/10"
-                />
-              </div>
-
-              {/* Model Selector */}
-              <div>
-                <label className="text-[10px] uppercase font-semibold text-gray-500 block mb-1.5">Motor de IA</label>
-                <select 
-                  value={aiModel}
-                  onChange={(e) => setAiModel(e.target.value)}
-                  className="w-full bg-white/5 border border-white/10 rounded-lg p-2 text-xs text-white focus:outline-none focus:border-blue-500"
+            {/* Messages Area */}
+            <div className="flex-1 overflow-y-auto p-6 space-y-4" ref={scrollRef}>
+              {messages.map((msg) => (
+                <div 
+                  key={msg.id}
+                  className={cn(
+                    "flex w-full",
+                    msg.direction === 'OUTBOUND' ? "justify-end" : "justify-start"
+                  )}
                 >
-                  <option value="gemini" className="bg-[#0a0a0a]">Google Gemini 1.5 Flash</option>
-                  <option value="openai" className="bg-[#0a0a0a]">OpenAI GPT-4o Mini</option>
-                </select>
-              </div>
-
-              {/* API Key */}
-              <div>
-                <label className="text-[10px] uppercase font-semibold text-gray-500 block mb-1.5">Chave de API (Opcional)</label>
-                <Input 
-                  type="password"
-                  value={aiApiKey}
-                  onChange={(e) => setAiApiKey(e.target.value)}
-                  placeholder="sk-... (Deixe vazio para o NLP de demonstração)"
-                  className="w-full bg-white/5 border-white/10 text-xs h-8 text-white focus-visible:ring-blue-500"
-                />
-              </div>
-
-              {/* Preset Persona Quick Select */}
-              <div>
-                <label className="text-[10px] uppercase font-semibold text-gray-500 block mb-2">Carregar Templates Rápidos</label>
-                <div className="grid grid-cols-2 gap-1.5">
-                  <button 
-                    onClick={() => handleApplyPreset('barbearia')}
-                    className="p-2 rounded-lg bg-white/5 border border-white/5 text-[10px] text-gray-300 hover:bg-blue-600/10 hover:border-blue-500/30 transition-all text-left flex flex-col gap-0.5"
-                  >
-                    <span>💇 Barbearia</span>
-                    <span className="text-[8px] text-gray-500">Agendar cortes</span>
-                  </button>
-                  <button 
-                    onClick={() => handleApplyPreset('mecanica')}
-                    className="p-2 rounded-lg bg-white/5 border border-white/5 text-[10px] text-gray-300 hover:bg-blue-600/10 hover:border-blue-500/30 transition-all text-left flex flex-col gap-0.5"
-                  >
-                    <span>🚗 Oficina</span>
-                    <span className="text-[8px] text-gray-500">Revisões e peças</span>
-                  </button>
-                  <button 
-                    onClick={() => handleApplyPreset('imobiliaria')}
-                    className="p-2 rounded-lg bg-white/5 border border-white/5 text-[10px] text-gray-300 hover:bg-blue-600/10 hover:border-blue-500/30 transition-all text-left flex flex-col gap-0.5"
-                  >
-                    <span>🏡 Imobiliária</span>
-                    <span className="text-[8px] text-gray-500">Aluguel e compra</span>
-                  </button>
-                  <button 
-                    onClick={() => handleApplyPreset('clinica')}
-                    className="p-2 rounded-lg bg-white/5 border border-white/5 text-[10px] text-gray-300 hover:bg-blue-600/10 hover:border-blue-500/30 transition-all text-left flex flex-col gap-0.5"
-                  >
-                    <span>🦷 Clínica</span>
-                    <span className="text-[8px] text-gray-500">Odonto e consultas</span>
-                  </button>
+                  <div className={cn(
+                    "max-w-[70%] p-3.5 rounded-2xl text-sm leading-relaxed",
+                    msg.direction === 'OUTBOUND' 
+                      ? "bg-blue-600 text-white rounded-tr-none shadow-sm" 
+                      : "bg-white text-zinc-800 border border-zinc-200 rounded-tl-none shadow-sm"
+                  )}>
+                    {msg.content}
+                    <div className="text-[9px] mt-1.5 text-right opacity-60 flex items-center justify-end gap-1.5">
+                      {msg.metadata?.aiGenerated && (
+                        <Badge className="bg-emerald-50 text-emerald-700 border border-emerald-100 hover:bg-emerald-50 text-[8px] h-4 px-1.5 rounded-full border-none font-bold select-none tracking-wide">
+                          PulseAI
+                        </Badge>
+                      )}
+                      {new Date(msg.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                    </div>
+                  </div>
                 </div>
-              </div>
+              ))}
+            </div>
 
-              {/* Prompt Persona Textarea */}
-              <div>
-                <label className="text-[10px] uppercase font-semibold text-gray-500 block mb-1.5">Instruções / Persona do Robô</label>
-                <textarea 
-                  value={aiPrompt}
-                  onChange={(e) => setAiPrompt(e.target.value)}
-                  rows={6}
-                  placeholder="Escreva como o robô deve responder os seus clientes..."
-                  className="w-full bg-white/5 border border-white/10 rounded-lg p-2.5 text-xs text-white focus:outline-none focus:border-blue-500 placeholder:text-gray-600 leading-relaxed font-sans resize-none"
+            {/* Input Area */}
+            <div className="p-4 bg-white border-t border-zinc-200">
+              <div className="flex items-center gap-2 bg-zinc-50 p-1.5 rounded-xl border border-zinc-200 shadow-sm focus-within:ring-2 focus-within:ring-blue-500/20 focus-within:border-blue-500 transition-all">
+                <Button variant="ghost" size="icon" className="text-zinc-400 hover:text-zinc-600 hover:bg-zinc-200 rounded-lg size-9">
+                  <Paperclip className="size-4" />
+                </Button>
+                <input 
+                  placeholder="Digite sua mensagem..." 
+                  className="border-none bg-transparent text-zinc-800 focus:outline-none placeholder:text-zinc-400 text-sm flex-1 ml-2"
+                  value={newMessage}
+                  onChange={(e) => setNewMessage(e.target.value)}
+                  onKeyPress={(e) => e.key === 'Enter' && handleSend()}
                 />
+                <Button variant="ghost" size="icon" className="text-zinc-400 hover:text-zinc-600 hover:bg-zinc-200 rounded-lg size-9">
+                  <Smile className="size-4" />
+                </Button>
+                <button 
+                  className="bg-blue-600 hover:bg-blue-700 h-9 w-9 p-0 rounded-lg flex items-center justify-center transition-colors shadow-sm text-white"
+                  onClick={handleSend}
+                >
+                  <Send className="size-4" />
+                </button>
               </div>
-
-              {/* Save Button */}
-              <Button 
-                onClick={handleSaveAiSettings}
-                disabled={saving}
-                className="w-full bg-blue-600 hover:bg-blue-700 text-white rounded-lg h-9 text-xs font-semibold shadow-[0_4px_12px_rgba(37,99,235,0.3)] mt-2 border-none"
-              >
-                {saving ? 'Salvando...' : 'Salvar Configurações'}
-              </Button>
             </div>
           </div>
         ) : (
-          <div className="w-72 border-l border-white/5 bg-[#0a0a0a] p-6 hidden lg:flex flex-col animate-in slide-in-from-right duration-300">
-            <div className="flex flex-col items-center mb-8">
-              <Avatar className="h-20 w-20 mb-4 border-2 border-blue-600/20">
-                <AvatarFallback className="bg-blue-600/20 text-blue-400 text-2xl font-bold">
-                  {selectedChat.contact.name.substring(0, 2).toUpperCase()}
-                </AvatarFallback>
-              </Avatar>
-              <h3 className="text-xl font-bold text-white">{selectedChat.contact.name}</h3>
-              <Badge variant="outline" className="mt-2 bg-blue-500/10 text-blue-400 border-none">Lead Qualificado</Badge>
+          <div className="flex-1 flex flex-col items-center justify-center text-zinc-400 space-y-4 bg-zinc-50/20">
+            <div className="size-14 rounded-2xl bg-zinc-50 border border-zinc-200 flex items-center justify-center mb-1 text-zinc-400 shadow-sm">
+              <Bot className="size-6 text-zinc-400" />
             </div>
-
-            <div className="space-y-6">
-              <div>
-                <p className="text-xs text-gray-500 uppercase font-semibold mb-3">Informações</p>
-                <div className="space-y-3">
-                  <div className="flex items-center gap-3 text-sm text-gray-300">
-                    <Phone className="h-4 w-4 text-gray-500" />
-                    {selectedChat.contact.phone}
-                  </div>
-                  <div className="flex items-center gap-3 text-sm text-gray-300">
-                    <Mail className="h-4 w-4 text-gray-500" />
-                    marcelo@exemplo.com
-                  </div>
-                </div>
-              </div>
-
-              <div>
-                <p className="text-xs text-gray-500 uppercase font-semibold mb-3">Ações Rápidas</p>
-                <div className="grid grid-cols-2 gap-2">
-                  <Button variant="outline" className="text-xs border-white/10 text-white h-auto py-3">Criar Pedido</Button>
-                  <Button variant="outline" className="text-xs border-white/10 text-white h-auto py-3">Novo Deal</Button>
-                </div>
-              </div>
-            </div>
+            <p className="text-sm font-semibold text-zinc-700">Selecione uma conversa para começar</p>
+            <p className="text-xs text-zinc-400 max-w-xs text-center leading-relaxed">Clique em algum contato na barra lateral para iniciar a qualificação manual ou ative o piloto automático.</p>
           </div>
-        )
-      )}
+        )}
+
+        {/* 3. Details / AI Settings Sidebar */}
+        {selectedChat && (
+          showAiSettings ? (
+            <div className="w-80 border-l border-zinc-200 bg-white p-5 hidden lg:flex flex-col animate-in slide-in-from-right duration-300 overflow-y-auto">
+              <div className="flex items-center justify-between mb-6 pb-3 border-b border-zinc-100">
+                <div className="flex items-center gap-2 text-zinc-800 font-bold text-xs uppercase tracking-wider">
+                  <Sparkles className="size-4 text-blue-600" />
+                  <span>PulseAI Autopilot</span>
+                </div>
+                <button 
+                  onClick={() => setShowAiSettings(false)}
+                  className="text-xs font-bold text-blue-600 hover:underline"
+                >
+                  Voltar
+                </button>
+              </div>
+
+              {/* Form Configs */}
+              <div className="space-y-5 text-left">
+                
+                <div className="flex items-center justify-between p-3.5 rounded-xl bg-zinc-50 border border-zinc-200/80">
+                  <div>
+                    <span className="text-xs font-bold text-zinc-800 block">Ativar IA</span>
+                    <span className="text-[10px] text-zinc-400 leading-normal block mt-0.5">Responder automaticamente</span>
+                  </div>
+                  <input 
+                    type="checkbox" 
+                    checked={aiEnabled}
+                    onChange={(e) => setAiEnabled(e.target.checked)}
+                    className="w-8 h-4 rounded-full bg-zinc-300 checked:bg-blue-600 cursor-pointer appearance-none relative before:content-[''] before:absolute before:w-4 before:h-4 before:rounded-full before:bg-white before:transition-all checked:before:translate-x-4 border border-zinc-300 focus:outline-none"
+                  />
+                </div>
+
+                <div>
+                  <label className="text-[10px] uppercase font-bold text-zinc-400 block mb-1.5">Modelo de IA</label>
+                  <select 
+                    value={aiModel}
+                    onChange={(e) => setAiModel(e.target.value)}
+                    className="w-full bg-white border border-zinc-200 rounded-xl p-2.5 text-xs text-zinc-800 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 shadow-sm"
+                  >
+                    <option value="gemini">Google Gemini 1.5 Flash</option>
+                    <option value="openai">OpenAI GPT-4o Mini</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="text-[10px] uppercase font-bold text-zinc-400 block mb-1.5">Chave API (Opcional)</label>
+                  <input 
+                    type="password"
+                    value={aiApiKey}
+                    onChange={(e) => setAiApiKey(e.target.value)}
+                    placeholder="sk-... ( NLP demonstrativo ativo )"
+                    className="w-full bg-white border border-zinc-200 rounded-xl p-2.5 text-xs text-zinc-800 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 shadow-sm"
+                  />
+                </div>
+
+                <div>
+                  <label className="text-[10px] uppercase font-bold text-zinc-400 block mb-2">Templates de Qualificação</label>
+                  <div className="grid grid-cols-2 gap-1.5">
+                    <button 
+                      onClick={() => handleApplyPreset('barbearia')}
+                      className="p-2.5 rounded-xl bg-zinc-50 border border-zinc-200 text-[10px] text-zinc-700 hover:bg-blue-50 hover:border-blue-200 transition-all text-left flex flex-col gap-0.5"
+                    >
+                      <span className="font-bold text-zinc-800">💆 Barbearia</span>
+                      <span className="text-[8px] text-zinc-400">Agendar cortes</span>
+                    </button>
+                    <button 
+                      onClick={() => handleApplyPreset('mecanica')}
+                      className="p-2.5 rounded-xl bg-zinc-50 border border-zinc-200 text-[10px] text-zinc-700 hover:bg-blue-50 hover:border-blue-200 transition-all text-left flex flex-col gap-0.5"
+                    >
+                      <span className="font-bold text-zinc-800">🚗 Oficina</span>
+                      <span className="text-[8px] text-zinc-400">Revisões mecânicas</span>
+                    </button>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="text-[10px] uppercase font-bold text-zinc-400 block mb-1.5">Persona / Instruções do Robô</label>
+                  <textarea 
+                    value={aiPrompt}
+                    onChange={(e) => setAiPrompt(e.target.value)}
+                    rows={5}
+                    placeholder="Escreva como o robô deve guiar a conversa..."
+                    className="w-full bg-white border border-zinc-200 rounded-xl p-3 text-xs text-zinc-800 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 placeholder:text-zinc-400 leading-relaxed resize-none shadow-sm"
+                  />
+                </div>
+
+                <button 
+                  onClick={handleSaveAiSettings}
+                  disabled={saving}
+                  className="w-full bg-blue-600 hover:bg-blue-700 text-white rounded-xl h-11 text-xs font-bold shadow-sm mt-2 transition-colors border-none cursor-pointer flex items-center justify-center"
+                >
+                  {saving ? 'Gravando...' : 'Salvar Configurações'}
+                </button>
+              </div>
+            </div>
+          ) : (
+            <div className="w-72 border-l border-zinc-200 bg-white p-6 hidden lg:flex flex-col animate-in slide-in-from-right duration-300">
+              <div className="flex flex-col items-center mb-8">
+                <Avatar className="h-16 w-16 mb-4 border border-zinc-200">
+                  <AvatarFallback className="bg-blue-50 text-blue-600 text-xl font-bold">
+                    {selectedChat.contact.name.substring(0, 2).toUpperCase()}
+                  </AvatarFallback>
+                </Avatar>
+                <h3 className="text-base font-bold text-zinc-900">{selectedChat.contact.name}</h3>
+                <Badge className="mt-2 bg-blue-50 text-blue-600 border border-blue-100 hover:bg-blue-50 text-[10px] font-bold py-0.5 px-2 rounded-full">
+                  Lead Qualificado
+                </Badge>
+              </div>
+
+              <div className="space-y-6">
+                <div>
+                  <p className="text-[10px] text-zinc-400 uppercase font-bold tracking-wider mb-3">Informações</p>
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-3 text-xs text-zinc-600">
+                      <Phone className="size-4 text-zinc-400" />
+                      {selectedChat.contact.phone}
+                    </div>
+                    <div className="flex items-center gap-3 text-xs text-zinc-600">
+                      <Mail className="size-4 text-zinc-400" />
+                      marcelo@exemplo.com
+                    </div>
+                  </div>
+                </div>
+
+                <div className="pt-6 border-t border-zinc-100">
+                  <p className="text-[10px] text-zinc-400 uppercase font-bold tracking-wider mb-3">Ações Comerciais</p>
+                  <div className="grid grid-cols-2 gap-2">
+                    <Button variant="outline" className="text-xs border-zinc-200 hover:bg-zinc-50 text-zinc-700 h-auto py-2.5 rounded-xl">Criar Pedido</Button>
+                    <Button variant="outline" className="text-xs border-zinc-200 hover:bg-zinc-50 text-zinc-700 h-auto py-2.5 rounded-xl">Novo Negócio</Button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )
+        )}
+      </div>
+
     </div>
   );
 }

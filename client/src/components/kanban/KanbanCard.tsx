@@ -39,7 +39,7 @@ export function KanbanCard({ deal, isOverlay }: KanbanCardProps) {
       <div 
         ref={setNodeRef}
         style={style}
-        className="h-32 bg-blue-600/5 border-2 border-dashed border-blue-600/20 rounded-xl opacity-50"
+        className="h-32 bg-blue-50/50 border-2 border-dashed border-blue-200 rounded-2xl opacity-40 transition-all"
       />
     );
   }
@@ -49,38 +49,42 @@ export function KanbanCard({ deal, isOverlay }: KanbanCardProps) {
       ref={setNodeRef}
       style={style}
       className={cn(
-        "bg-[#1a1a1a] border-white/5 hover:border-blue-600/30 transition-all cursor-grab active:cursor-grabbing group",
-        isOverlay && "rotate-3 scale-105 border-blue-600 shadow-[0_10px_30px_rgba(37,99,235,0.3)] z-50"
+        "bg-white border-zinc-200 hover:border-blue-500/50 hover:shadow-md transition-all duration-200 cursor-grab active:cursor-grabbing group rounded-xl shadow-sm",
+        isOverlay && "rotate-2 scale-105 border-blue-600 shadow-md z-50"
       )}
     >
       <CardContent className="p-4 space-y-3">
         <div className="flex items-start justify-between">
-          <div className="flex items-center gap-2">
-            <div {...attributes} {...listeners} className="opacity-0 group-hover:opacity-100 transition-opacity p-1 hover:bg-white/5 rounded cursor-grab">
-              <GripVertical className="h-4 w-4 text-gray-600" />
+          <div className="flex items-center gap-2 min-w-0">
+            <div 
+              {...attributes} 
+              {...listeners} 
+              className="opacity-0 group-hover:opacity-100 transition-opacity p-0.5 hover:bg-zinc-100 rounded cursor-grab shrink-0"
+            >
+              <GripVertical className="size-3.5 text-zinc-400" />
             </div>
-            <h4 className="font-bold text-white text-sm leading-tight">{deal.title}</h4>
+            <h4 className="font-bold text-zinc-800 text-xs leading-snug truncate">{deal.title}</h4>
           </div>
-          <Avatar className="h-6 w-6 border border-white/10 flex-shrink-0">
-            <AvatarFallback className="bg-blue-600/20 text-blue-400 text-[10px]">
+          <Avatar className="size-6 border border-zinc-200 flex-shrink-0">
+            <AvatarFallback className="bg-blue-50 text-blue-600 text-[10px] font-bold">
               {deal.contact?.name?.substring(0, 2).toUpperCase() || '??'}
             </AvatarFallback>
           </Avatar>
         </div>
 
         <div className="flex items-center gap-2">
-          <Badge variant="outline" className="bg-blue-500/10 text-blue-400 border-none text-[10px] py-0">
+          <Badge className="bg-blue-50 text-blue-600 border border-blue-100 hover:bg-blue-50 text-[10px] py-0 px-2 rounded-full font-semibold">
             {deal.contact?.name || 'Sem Contato'}
           </Badge>
         </div>
 
-        <div className="flex items-center justify-between pt-2 border-t border-white/5">
-          <div className="flex items-center gap-1 text-gray-500 text-[10px]">
-            <DollarSign className="h-3 w-3" />
-            <span className="font-bold text-blue-400">{formatCurrency(deal.value)}</span>
+        <div className="flex items-center justify-between pt-2 border-t border-zinc-100 text-[11px] text-zinc-400">
+          <div className="flex items-center gap-1 font-bold text-blue-600">
+            <DollarSign className="size-3" />
+            <span>{formatCurrency(deal.value)}</span>
           </div>
-          <div className="flex items-center gap-1 text-gray-500 text-[10px]">
-            <Calendar className="h-3 w-3" />
+          <div className="flex items-center gap-1">
+            <Calendar className="size-3" />
             <span>2d atrás</span>
           </div>
         </div>

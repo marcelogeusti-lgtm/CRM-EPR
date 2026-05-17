@@ -1,83 +1,88 @@
 'use client';
 
 import React from 'react';
-import { Users, Search, Plus, MoreVertical } from 'lucide-react';
+import { Search, Plus, MoreVertical, SlidersHorizontal, Users } from 'lucide-react';
+import { PageHeader } from '@/components/system/PageHeader';
+import { motion } from 'framer-motion';
 
 export default function ContactsPage() {
   return (
-    <div className="flex-1 p-8 overflow-auto">
-      <div className="max-w-6xl mx-auto space-y-8">
-        
-        {/* Header */}
-        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-          <div>
-            <h1 className="text-4xl font-bold text-white tracking-tight flex items-center gap-3">
-              <Users className="h-10 w-10 text-blue-500" />
-              Gestão de Contatos
-            </h1>
-            <p className="text-gray-400 mt-2 text-lg">
-              Gerencie sua base de clientes e leads.
-            </p>
-          </div>
-          <button className="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-xl transition-all shadow-[0_0_20px_rgba(37,99,235,0.3)] flex items-center gap-2">
-            <Plus className="h-5 w-5" />
+    <div className="space-y-6 animate-in fade-in duration-500 pb-12">
+      
+      {/* PageHeader unificado */}
+      <PageHeader 
+        title="Gestão de Contatos"
+        description="Gerencie sua base de clientes e leads com facilidade."
+        actions={
+          <button className="h-11 px-5 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-xl transition-all shadow-sm flex items-center gap-2 text-sm">
+            <Plus className="size-[18px]" />
             Novo Contato
+          </button>
+        }
+      />
+
+      {/* Tabela de Contatos */}
+      <motion.div 
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.3, delay: 0.1 }}
+        className="bg-white border border-zinc-200 rounded-2xl p-6 shadow-sm"
+      >
+        {/* Barra de Filtros e Busca */}
+        <div className="flex flex-col md:flex-row items-center gap-4 mb-6">
+          <div className="relative flex-1 w-full">
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 size-[18px] text-zinc-400" />
+            <input 
+              type="text" 
+              placeholder="Buscar contatos por nome, email ou telefone..." 
+              className="w-full bg-white border border-zinc-200 rounded-xl pl-12 pr-4 h-11 text-sm text-zinc-800 placeholder:text-zinc-400 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all shadow-sm"
+            />
+          </div>
+          <button className="h-11 px-4 bg-white hover:bg-zinc-50 text-zinc-600 rounded-xl transition-all font-medium border border-zinc-200 flex items-center gap-2 text-sm shadow-sm">
+            <SlidersHorizontal className="size-[18px] text-zinc-400" />
+            Filtros
           </button>
         </div>
 
-        {/* Content */}
-        <div className="bg-[#111111]/80 backdrop-blur-xl border border-white/5 rounded-2xl p-6 shadow-xl">
-          <div className="flex items-center gap-4 mb-6">
-            <div className="relative flex-1">
-              <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
-              <input 
-                type="text" 
-                placeholder="Buscar contatos por nome, email ou telefone..." 
-                className="w-full bg-[#1a1a1a] border border-white/10 rounded-xl pl-12 pr-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all"
-              />
-            </div>
-            <button className="px-4 py-3 bg-white/5 hover:bg-white/10 text-white rounded-xl transition-all font-medium border border-white/10">
-              Filtros
-            </button>
-          </div>
-
-          <div className="overflow-x-auto">
-            <table className="w-full text-left">
-              <thead>
-                <tr className="border-b border-white/10 text-gray-400 text-sm">
-                  <th className="pb-4 font-semibold">Nome</th>
-                  <th className="pb-4 font-semibold">Contato</th>
-                  <th className="pb-4 font-semibold">Tags</th>
-                  <th className="pb-4 font-semibold">Data Cadastro</th>
-                  <th className="pb-4 font-semibold">Ações</th>
-                </tr>
-              </thead>
-              <tbody className="text-gray-300">
-                <tr className="border-b border-white/5 hover:bg-white/5 transition-colors">
-                  <td className="py-4">
-                    <div className="font-semibold text-white">João Silva</div>
-                    <div className="text-sm text-gray-500">Empresa Alpha</div>
-                  </td>
-                  <td className="py-4">
-                    <div>joao@alpha.com</div>
-                    <div className="text-sm text-gray-500">+55 11 99999-9999</div>
-                  </td>
-                  <td className="py-4">
-                    <span className="px-2 py-1 bg-blue-500/20 text-blue-400 text-xs rounded-md">Lead Quente</span>
-                  </td>
-                  <td className="py-4 text-sm">Hoje, 10:45</td>
-                  <td className="py-4">
-                    <button className="p-2 hover:bg-white/10 rounded-lg transition-colors text-gray-400">
-                      <MoreVertical className="h-5 w-5" />
-                    </button>
-                  </td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
+        {/* Tabela Física */}
+        <div className="overflow-x-auto">
+          <table className="w-full text-left border-collapse">
+            <thead>
+              <tr className="border-b border-zinc-100 text-zinc-400 text-xs font-bold uppercase tracking-wider">
+                <th className="pb-4 font-semibold">Nome</th>
+                <th className="pb-4 font-semibold">Contato</th>
+                <th className="pb-4 font-semibold">Tags</th>
+                <th className="pb-4 font-semibold">Data Cadastro</th>
+                <th className="pb-4 font-semibold text-right">Ações</th>
+              </tr>
+            </thead>
+            <tbody className="text-zinc-600 text-sm divide-y divide-zinc-50">
+              <tr className="hover:bg-zinc-50/50 transition-colors">
+                <td className="py-4">
+                  <div className="font-bold text-zinc-900">João Silva</div>
+                  <div className="text-xs text-zinc-400">Empresa Alpha</div>
+                </td>
+                <td className="py-4">
+                  <div className="font-medium">joao@alpha.com</div>
+                  <div className="text-xs text-zinc-400">+55 11 99999-9999</div>
+                </td>
+                <td className="py-4">
+                  <span className="px-2.5 py-1 bg-blue-50 text-blue-600 text-xs rounded-full font-bold border border-blue-100">
+                    Lead Quente
+                  </span>
+                </td>
+                <td className="py-4 text-xs text-zinc-400">Hoje, 10:45</td>
+                <td className="py-4 text-right">
+                  <button className="p-2 hover:bg-zinc-100 rounded-lg transition-colors text-zinc-400 hover:text-zinc-600">
+                    <MoreVertical className="size-[18px]" />
+                  </button>
+                </td>
+              </tr>
+            </tbody>
+          </table>
         </div>
+      </motion.div>
 
-      </div>
     </div>
   );
 }

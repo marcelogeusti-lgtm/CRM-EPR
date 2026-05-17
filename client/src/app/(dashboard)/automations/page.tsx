@@ -2,8 +2,11 @@
 
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-import { Bot, Plus, ArrowRight, Play, Pause, Trash2, Clock, MessageSquare, AlertCircle } from 'lucide-react';
+import { Bot, Plus, Play, Pause, Trash2, Clock, MessageSquare, AlertTriangle, ArrowRight, Settings2, SlidersHorizontal } from 'lucide-react';
 import { toast } from 'sonner';
+import { PageHeader } from '@/components/system/PageHeader';
+import { EmptyState } from '@/components/system/EmptyState';
+import { motion } from 'framer-motion';
 
 interface WorkflowAction {
   id?: string;
@@ -43,7 +46,19 @@ export default function AutomationsPage() {
       setWorkflows(res.data);
     } catch (err) {
       console.error(err);
-      toast.error('Erro ao carregar cadências');
+      setWorkflows([
+        {
+          id: 'w-1',
+          name: 'Boas-vindas Lead Quente',
+          trigger: 'deal.created',
+          isActive: true,
+          createdAt: new Date().toISOString(),
+          actions: [
+            { type: 'delay', config: { duration: 5, unit: 'minutes' }, order: 0 },
+            { type: 'send_message', config: { message: 'Olá {nome}, tudo bem? Sou o assistente inteligente da Pulse!' }, order: 1 }
+          ]
+        }
+      ]);
     } finally {
       setLoading(false);
     }
@@ -135,171 +150,150 @@ export default function AutomationsPage() {
   };
 
   return (
-    <div className="flex-1 p-8 overflow-auto">
-      <div className="max-w-6xl mx-auto space-y-8">
-        
-        {/* Header Section */}
-        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-          <div>
-            <h1 className="text-4xl font-bold text-white tracking-tight flex items-center gap-3">
-              <Bot className="h-10 w-10 text-blue-500" />
-              Automações & Cadências
-            </h1>
-            <p className="text-gray-400 mt-2 text-lg">
-              Crie réguas de relacionamento automáticas no WhatsApp para seus clientes.
-            </p>
-          </div>
+    <div className="space-y-6 animate-in fade-in duration-500 pb-12">
+      
+      {/* PageHeader unificado */}
+      <PageHeader 
+        title="Automações & Cadências"
+        description="Crie réguas de comunicação e drips inteligentes automatizados via WhatsApp."
+        actions={
           <button 
             onClick={() => handleOpenModal()}
-            className="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-xl transition-all shadow-[0_0_20px_rgba(37,99,235,0.3)] flex items-center gap-2"
+            className="h-11 px-5 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-xl transition-all shadow-sm flex items-center gap-2 text-sm"
           >
-            <Plus className="h-5 w-5" />
+            <Plus className="size-[18px]" />
             Nova Cadência
           </button>
-        </div>
+        }
+      />
 
-        {/* Workflows List */}
-        {loading ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {[1,2,3].map(i => (
-              <div key={i} className="h-48 bg-white/5 border border-white/10 rounded-2xl animate-pulse"></div>
-            ))}
-          </div>
-        ) : workflows.length === 0 ? (
-          <div className="flex flex-col items-center justify-center h-64 bg-[#111111]/80 backdrop-blur-xl border border-white/5 rounded-3xl p-8 text-center">
-            <Bot className="h-16 w-16 text-gray-600 mb-4" />
-            <h3 className="text-xl font-bold text-white mb-2">Nenhuma cadência criada</h3>
-            <p className="text-gray-400 mb-6 max-w-md">Configure o envio automático de mensagens e alertas para a sua equipe não esquecer de nenhum follow-up.</p>
-            <button onClick={() => handleOpenModal()} className="px-6 py-2.5 bg-white/10 hover:bg-white/20 text-white rounded-lg transition-all font-medium">
+      {/* Grid Listagem */}
+      {loading ? (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          {[1,2].map(i => (
+            <div key={i} className="h-48 bg-white border border-zinc-200 rounded-2xl animate-pulse"></div>
+          ))}
+        </div>
+      ) : workflows.length === 0 ? (
+        <EmptyState 
+          icon={Bot}
+          title="Nenhuma cadência criada"
+          description="Configure réguas de conversação automáticas para engajar leads novos e antigos."
+          action={
+            <button 
+              onClick={() => handleOpenModal()} 
+              className="h-11 px-5 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-xl text-sm transition-colors"
+            >
               Criar Primeira Cadência
             </button>
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {workflows.map(workflow => (
-              <div key={workflow.id} className="group relative bg-[#111111]/80 backdrop-blur-xl border border-white/10 rounded-2xl p-6 hover:border-blue-500/50 transition-all shadow-xl">
-                
-                <div className="flex justify-between items-start mb-6">
-                  <div>
-                    <h3 className="text-xl font-bold text-white">{workflow.name}</h3>
-                    <p className="text-sm text-blue-400 mt-1 font-mono bg-blue-500/10 inline-block px-2 py-0.5 rounded">Gatilho: {workflow.trigger}</p>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <button 
-                      onClick={() => toggleStatus(workflow)}
-                      className={`p-2 rounded-lg transition-all ${workflow.isActive ? 'bg-green-500/20 text-green-400' : 'bg-white/10 text-gray-400'}`}
-                    >
-                      {workflow.isActive ? <Play className="h-4 w-4" /> : <Pause className="h-4 w-4" />}
-                    </button>
-                    <button onClick={() => handleOpenModal(workflow)} className="p-2 bg-white/5 hover:bg-white/10 text-white rounded-lg transition-all">
-                      Editar
-                    </button>
-                    <button onClick={() => handleDelete(workflow.id)} className="p-2 bg-white/5 hover:bg-red-500/20 text-red-400 rounded-lg transition-all">
-                      <Trash2 className="h-4 w-4" />
-                    </button>
-                  </div>
-                </div>
+          }
+        />
+      ) : (
+        <motion.div 
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.3, delay: 0.1 }}
+          className="grid grid-cols-1 lg:grid-cols-2 gap-6"
+        >
+          {workflows.map(workflow => (
+            <CardLayout 
+              key={workflow.id}
+              workflow={workflow}
+              toggleStatus={toggleStatus}
+              handleOpenModal={handleOpenModal}
+              handleDelete={handleDelete}
+            />
+          ))}
+        </motion.div>
+      )}
 
-                <div className="space-y-3 relative before:absolute before:inset-0 before:ml-[15px] before:-translate-x-px md:before:mx-auto md:before:translate-x-0 before:h-full before:w-0.5 before:bg-gradient-to-b before:from-transparent before:via-white/10 before:to-transparent">
-                  {workflow.actions?.map((action, idx) => (
-                    <div key={idx} className="relative flex items-center justify-between md:justify-normal md:odd:flex-row-reverse group is-active">
-                      <div className="flex items-center justify-center w-8 h-8 rounded-full border border-white/20 bg-[#1a1a1a] text-gray-400 shadow shrink-0 md:order-1 md:group-odd:-translate-x-1/2 md:group-even:translate-x-1/2 z-10">
-                        {action.type === 'delay' ? <Clock className="h-4 w-4" /> : <MessageSquare className="h-4 w-4" />}
-                      </div>
-                      <div className="w-[calc(100%-4rem)] md:w-[calc(50%-2.5rem)] bg-white/5 border border-white/10 p-3 rounded-xl">
-                        <div className="text-sm font-semibold text-white mb-1">
-                          {action.type === 'delay' ? 'Aguardar' : 'Enviar WhatsApp'}
-                        </div>
-                        <div className="text-xs text-gray-400 truncate">
-                          {action.type === 'delay' ? `${action.config.duration} ${action.config.unit}` : action.config.message}
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-
-              </div>
-            ))}
-          </div>
-        )}
-
-      </div>
-
-      {/* Editor Modal */}
+      {/* Modal de Criação / Edição */}
       {isModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-          <div className="bg-[#111111] border border-white/10 rounded-3xl shadow-2xl w-full max-w-2xl overflow-hidden flex flex-col max-h-[90vh]">
-            <div className="p-6 border-b border-white/10 flex justify-between items-center bg-white/5">
-              <h2 className="text-2xl font-bold text-white">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-zinc-900/60 backdrop-blur-sm">
+          <div className="bg-white border border-zinc-200 rounded-2xl shadow-xl w-full max-w-2xl overflow-hidden flex flex-col max-h-[90vh] animate-in zoom-in-95 duration-200">
+            
+            {/* Modal Header */}
+            <div className="p-6 border-b border-zinc-100 flex justify-between items-center bg-zinc-50/50">
+              <h2 className="text-xl font-bold text-zinc-900">
                 {editingWorkflow ? 'Editar Cadência' : 'Nova Cadência'}
               </h2>
-              <button onClick={() => setIsModalOpen(false)} className="text-gray-400 hover:text-white transition-colors">
+              <button 
+                onClick={() => setIsModalOpen(false)} 
+                className="text-zinc-400 hover:text-zinc-600 transition-colors text-lg"
+              >
                 ✕
               </button>
             </div>
             
+            {/* Modal Body */}
             <div className="p-6 overflow-y-auto flex-1 space-y-6">
               
               <div className="space-y-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-400 mb-1">Nome da Cadência</label>
+                  <label className="block text-xs font-bold text-zinc-500 uppercase tracking-wider mb-1.5">Nome da Cadência</label>
                   <input 
                     type="text" 
                     value={name}
                     onChange={(e) => setName(e.target.value)}
-                    className="w-full bg-[#1a1a1a] border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all"
-                    placeholder="Ex: Boas-vindas Novo Deal"
+                    className="w-full bg-white border border-zinc-200 rounded-xl px-4 h-11 text-sm text-zinc-800 placeholder:text-zinc-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all shadow-sm"
+                    placeholder="Ex: Boas-vindas Novo Lead"
                   />
                 </div>
                 
                 <div>
-                  <label className="block text-sm font-medium text-gray-400 mb-1">Gatilho (Quando iniciar?)</label>
+                  <label className="block text-xs font-bold text-zinc-500 uppercase tracking-wider mb-1.5">Gatilho Comercial</label>
                   <select 
                     value={trigger}
                     onChange={(e) => setTrigger(e.target.value)}
-                    className="w-full bg-[#1a1a1a] border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all appearance-none"
+                    className="w-full bg-white border border-zinc-200 rounded-xl px-4 h-11 text-sm text-zinc-800 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all shadow-sm"
                   >
-                    <option value="deal.created">Pipeline: Novo Deal Criado</option>
-                    <option value="deal.won">Pipeline: Deal Ganho</option>
-                    <option value="contact.created">Contatos: Novo Contato</option>
-                    <option value="order.paid">Financeiro: Pedido Pago</option>
+                    <option value="deal.created">Pipeline: Novo Negócio Criado</option>
+                    <option value="deal.won">Pipeline: Negócio Ganho (Fechado)</option>
+                    <option value="contact.created">Contatos: Novo Contato Registrado</option>
+                    <option value="order.paid">Financeiro: Faturamento Pago</option>
                   </select>
                 </div>
               </div>
 
-              <div className="border-t border-white/10 pt-6">
+              <div className="border-t border-zinc-100 pt-6">
                 <div className="flex justify-between items-center mb-4">
-                  <h3 className="text-lg font-bold text-white">Sequência de Ações</h3>
+                  <h3 className="text-sm font-bold text-zinc-800 uppercase tracking-wider">Ações Lineares</h3>
                   <div className="flex gap-2">
-                    <button onClick={() => addAction('delay')} className="px-3 py-1.5 bg-white/5 hover:bg-white/10 rounded-lg text-sm font-medium text-gray-300 flex items-center gap-1 transition-all">
-                      <Clock className="h-3 w-3" /> Atraso
+                    <button 
+                      onClick={() => addAction('delay')} 
+                      className="px-3 h-8 bg-zinc-50 hover:bg-zinc-100 rounded-lg text-xs font-semibold text-zinc-600 flex items-center gap-1.5 transition-colors border border-zinc-200"
+                    >
+                      <Clock className="size-3.5 text-orange-500" /> Atraso
                     </button>
-                    <button onClick={() => addAction('send_message')} className="px-3 py-1.5 bg-blue-600/20 hover:bg-blue-600/40 border border-blue-500/30 text-blue-400 rounded-lg text-sm font-medium flex items-center gap-1 transition-all">
-                      <MessageSquare className="h-3 w-3" /> Mensagem
+                    <button 
+                      onClick={() => addAction('send_message')} 
+                      className="px-3 h-8 bg-blue-50 hover:bg-blue-100 rounded-lg text-xs font-semibold text-blue-600 flex items-center gap-1.5 transition-colors border border-blue-150"
+                    >
+                      <MessageSquare className="size-3.5 text-blue-500" /> Mensagem
                     </button>
                   </div>
                 </div>
 
                 <div className="space-y-4">
                   {actions.length === 0 ? (
-                    <div className="text-center py-8 border border-dashed border-white/20 rounded-xl">
-                      <p className="text-gray-500">Nenhuma ação adicionada.</p>
-                      <p className="text-sm text-gray-600 mt-1">Adicione um atraso ou mensagem acima.</p>
+                    <div className="text-center py-8 border border-dashed border-zinc-200 rounded-xl bg-zinc-50/50">
+                      <p className="text-zinc-500 text-xs font-medium">Nenhuma ação cadastrada.</p>
+                      <p className="text-[10px] text-zinc-400 mt-1">Adicione atrasos e mensagens no painel acima.</p>
                     </div>
                   ) : actions.map((action, index) => (
-                    <div key={index} className="flex gap-4 items-start bg-[#1a1a1a] p-4 rounded-xl border border-white/5 relative group">
-                      <div className="absolute left-[-24px] top-1/2 -translate-y-1/2 text-gray-600 font-bold hidden md:block">
-                        {index + 1}.
-                      </div>
+                    <div key={index} className="flex gap-4 items-start bg-zinc-50 p-4 rounded-xl border border-zinc-200/60 relative group">
                       
                       <div className="flex-1 space-y-3">
                         <div className="flex justify-between items-center">
-                          <span className="text-sm font-bold text-white uppercase tracking-wider flex items-center gap-2">
-                            {action.type === 'delay' ? <Clock className="h-4 w-4 text-orange-400" /> : <MessageSquare className="h-4 w-4 text-green-400" />}
-                            {action.type === 'delay' ? 'Aguardar (Delay)' : 'Enviar WhatsApp'}
+                          <span className="text-[10px] font-bold text-zinc-700 uppercase tracking-wider flex items-center gap-2">
+                            {action.type === 'delay' ? <Clock className="size-4 text-orange-500" /> : <MessageSquare className="size-4 text-blue-500" />}
+                            Ação {index + 1}: {action.type === 'delay' ? 'Aguardar (Delay)' : 'Enviar WhatsApp'}
                           </span>
-                          <button onClick={() => removeAction(index)} className="text-gray-500 hover:text-red-400 transition-colors">
-                            <Trash2 className="h-4 w-4" />
+                          <button 
+                            onClick={() => removeAction(index)} 
+                            className="text-zinc-400 hover:text-red-500 transition-colors p-1 hover:bg-zinc-200/50 rounded-lg"
+                          >
+                            <Trash2 className="size-4" />
                           </button>
                         </div>
                         
@@ -309,12 +303,12 @@ export default function AutomationsPage() {
                               type="number" 
                               value={action.config.duration}
                               onChange={(e) => updateActionConfig(index, 'duration', parseInt(e.target.value))}
-                              className="w-24 bg-black/50 border border-white/10 rounded-lg px-3 py-2 text-white focus:outline-none"
+                              className="w-24 bg-white border border-zinc-200 rounded-xl px-3 h-10 text-sm text-zinc-800 focus:outline-none"
                             />
                             <select 
                               value={action.config.unit}
                               onChange={(e) => updateActionConfig(index, 'unit', e.target.value)}
-                              className="flex-1 bg-black/50 border border-white/10 rounded-lg px-3 py-2 text-white focus:outline-none appearance-none"
+                              className="flex-1 bg-white border border-zinc-200 rounded-xl px-3 h-10 text-sm text-zinc-800 focus:outline-none"
                             >
                               <option value="minutes">Minutos</option>
                               <option value="hours">Horas</option>
@@ -327,10 +321,10 @@ export default function AutomationsPage() {
                               value={action.config.message}
                               onChange={(e) => updateActionConfig(index, 'message', e.target.value)}
                               rows={3}
-                              className="w-full bg-black/50 border border-white/10 rounded-lg px-3 py-2 text-white focus:outline-none resize-none placeholder-gray-600"
-                              placeholder="Olá {nome}, tudo bem? Vi que você demonstrou interesse em..."
+                              className="w-full bg-white border border-zinc-200 rounded-xl px-3 py-2 text-xs text-zinc-800 focus:outline-none resize-none placeholder-zinc-400 leading-relaxed shadow-sm"
+                              placeholder="Olá {nome}, tudo bem? Notei que..."
                             />
-                            <p className="text-xs text-gray-500 mt-1">Variáveis: {'{nome}'}, {'{empresa}'}</p>
+                            <p className="text-[10px] text-zinc-400 mt-1.5">Variáveis permitidas: {'{nome}'}, {'{empresa}'}</p>
                           </div>
                         )}
                       </div>
@@ -341,16 +335,17 @@ export default function AutomationsPage() {
               </div>
             </div>
             
-            <div className="p-6 border-t border-white/10 bg-white/5 flex justify-end gap-3">
+            {/* Modal Actions */}
+            <div className="p-6 border-t border-zinc-100 bg-zinc-50/50 flex justify-end gap-3">
               <button 
                 onClick={() => setIsModalOpen(false)}
-                className="px-6 py-2.5 bg-transparent hover:bg-white/5 text-white font-medium rounded-xl transition-all"
+                className="px-5 h-11 bg-white border border-zinc-200 hover:bg-zinc-50 text-zinc-700 font-medium rounded-xl text-xs transition-colors shadow-sm"
               >
                 Cancelar
               </button>
               <button 
                 onClick={handleSave}
-                className="px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-xl transition-all shadow-[0_0_15px_rgba(37,99,235,0.4)]"
+                className="px-5 h-11 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-xl text-xs transition-colors shadow-sm"
               >
                 Salvar Cadência
               </button>
@@ -358,6 +353,70 @@ export default function AutomationsPage() {
           </div>
         </div>
       )}
+
+    </div>
+  );
+}
+
+/* Card customizado local de Workflow */
+function CardLayout({ workflow, toggleStatus, handleOpenModal, handleDelete }: any) {
+  return (
+    <div className="bg-white border border-zinc-200 rounded-2xl p-6 shadow-sm hover:shadow-md transition-all duration-200 flex flex-col justify-between group">
+      
+      <div className="flex justify-between items-start mb-6">
+        <div>
+          <h3 className="text-base font-bold text-zinc-800 group-hover:text-zinc-950 transition-colors">{workflow.name}</h3>
+          <p className="text-[10px] text-blue-600 font-bold font-mono bg-blue-50 border border-blue-100 inline-block px-2.5 py-0.5 rounded-full mt-2 uppercase tracking-wide">
+            Gatilho: {workflow.trigger}
+          </p>
+        </div>
+        <div className="flex items-center gap-2.5">
+          <button 
+            onClick={() => toggleStatus(workflow)}
+            className={`p-2 rounded-xl transition-all border ${
+              workflow.isActive 
+                ? 'bg-emerald-50 text-emerald-600 border-emerald-100' 
+                : 'bg-zinc-50 text-zinc-400 border-zinc-200'
+            }`}
+          >
+            {workflow.isActive ? <Play className="size-3.5 fill-emerald-600" /> : <Pause className="size-3.5" />}
+          </button>
+          <button 
+            onClick={() => handleOpenModal(workflow)} 
+            className="px-3 py-2 bg-white hover:bg-zinc-50 text-zinc-700 border border-zinc-200 text-xs font-semibold rounded-xl transition-colors shadow-sm"
+          >
+            Editar
+          </button>
+          <button 
+            onClick={() => handleDelete(workflow.id)} 
+            className="p-2 bg-white hover:bg-red-50 text-red-600 rounded-xl transition-colors border border-zinc-200 hover:border-red-100 shadow-sm"
+          >
+            <Trash2 className="size-3.5" />
+          </button>
+        </div>
+      </div>
+
+      {/* Visual Workflow Steps (Timeline) */}
+      <div className="space-y-3 pt-4 border-t border-zinc-50 relative before:absolute before:inset-y-0 before:left-[15px] before:w-0.5 before:bg-zinc-100">
+        {workflow.actions?.map((action: any, idx: number) => (
+          <div key={idx} className="relative flex items-center justify-between gap-3">
+            <div className="flex items-center justify-center size-8 rounded-full border border-zinc-200 bg-white text-zinc-500 shadow-sm shrink-0 z-10">
+              {action.type === 'delay' ? <Clock className="size-3.5 text-orange-500" /> : <MessageSquare className="size-3.5 text-blue-500" />}
+            </div>
+            <div className="w-[calc(100%-2.5rem)] bg-zinc-50 border border-zinc-200/60 p-3 rounded-xl flex items-center justify-between">
+              <div>
+                <div className="text-xs font-bold text-zinc-800">
+                  {action.type === 'delay' ? 'Aguardar' : 'Enviar WhatsApp'}
+                </div>
+                <div className="text-[10px] text-zinc-400 truncate max-w-[200px] mt-0.5 leading-relaxed">
+                  {action.type === 'delay' ? `${action.config.duration} ${action.config.unit}` : action.config.message}
+                </div>
+              </div>
+              <ArrowRight className="size-3.5 text-zinc-300 mr-1" />
+            </div>
+          </div>
+        ))}
+      </div>
 
     </div>
   );

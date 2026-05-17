@@ -2,8 +2,11 @@
 
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-import { BarChart3, TrendingUp, DollarSign, Users, Target, Sparkles } from 'lucide-react';
+import { BarChart3, DollarSign, Users, Target, Sparkles, TrendingUp, RefreshCw } from 'lucide-react';
 import { toast } from 'sonner';
+import { PageHeader } from '@/components/system/PageHeader';
+import { StatsCard } from '@/components/system/StatsCard';
+import { motion } from 'framer-motion';
 
 interface AIReportData {
   stats: {
@@ -44,101 +47,83 @@ export default function ReportsPage() {
   };
 
   return (
-    <div className="flex-1 p-8 overflow-auto">
-      <div className="max-w-6xl mx-auto space-y-8">
-        
-        {/* Header */}
-        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-          <div>
-            <h1 className="text-4xl font-bold text-white tracking-tight flex items-center gap-3">
-              <BarChart3 className="h-10 w-10 text-blue-500" />
-              Relatórios Executivos
-            </h1>
-            <p className="text-gray-400 mt-2 text-lg">
-              Insights e dados estratégicos gerados por Inteligência Artificial.
-            </p>
-          </div>
+    <div className="space-y-6 animate-in fade-in duration-500 pb-12">
+      
+      {/* PageHeader com botão de carregar */}
+      <PageHeader 
+        title="Relatórios Executivos"
+        description="Acompanhe insights e dados estratégicos compilados por nossa Inteligência Artificial."
+        actions={
           <button 
             onClick={fetchReport}
             disabled={loading}
-            className="px-6 py-3 bg-white/10 hover:bg-white/20 text-white font-medium rounded-xl transition-all flex items-center gap-2"
+            className="h-11 px-5 bg-white border border-zinc-200 hover:bg-zinc-50 text-zinc-700 font-medium rounded-xl transition-all shadow-sm flex items-center gap-2 text-sm disabled:opacity-50"
           >
-            <Sparkles className="h-5 w-5 text-blue-400" />
-            {loading ? 'Analisando dados...' : 'Atualizar IA'}
+            {loading ? (
+              <RefreshCw className="size-4 animate-spin text-zinc-400" />
+            ) : (
+              <Sparkles className="size-4 text-blue-500" />
+            )}
+            {loading ? 'Analisando...' : 'Reavaliar IA'}
           </button>
-        </div>
+        }
+      />
 
-        {/* AI Executive Summary Box */}
-        {loading ? (
-          <div className="bg-gradient-to-r from-blue-900/20 to-purple-900/20 border border-blue-500/30 rounded-3xl p-8 shadow-[0_0_30px_rgba(37,99,235,0.1)] relative overflow-hidden animate-pulse">
-            <div className="h-6 bg-white/10 rounded w-1/3 mb-4"></div>
-            <div className="h-4 bg-white/5 rounded w-full mb-2"></div>
-            <div className="h-4 bg-white/5 rounded w-5/6"></div>
+      {/* Sumário Estratégico com IA - Estilo Kirvano/Fintech Premium */}
+      {loading ? (
+        <div className="bg-white border border-zinc-200 rounded-2xl p-6 shadow-sm animate-pulse space-y-4">
+          <div className="h-5 bg-zinc-100 rounded w-1/4"></div>
+          <div className="h-4 bg-zinc-50 rounded w-full"></div>
+          <div className="h-4 bg-zinc-50 rounded w-5/6"></div>
+        </div>
+      ) : (
+        <motion.div
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.3 }}
+          className="bg-white border border-zinc-200 border-l-4 border-l-blue-600 rounded-2xl p-6 shadow-sm flex flex-col md:flex-row gap-5 items-start"
+        >
+          <div className="size-11 rounded-xl bg-blue-50 border border-blue-100 flex items-center justify-center shrink-0">
+            <Sparkles className="size-5 text-blue-600" />
           </div>
-        ) : (
-          <div className="bg-gradient-to-r from-blue-900/20 to-purple-900/20 border border-blue-500/30 rounded-3xl p-8 shadow-[0_0_30px_rgba(37,99,235,0.1)] relative overflow-hidden group">
-            <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-blue-500 to-purple-500 opacity-50"></div>
-            <div className="flex gap-6 items-start">
-              <div className="w-16 h-16 bg-blue-500/20 rounded-2xl flex items-center justify-center shrink-0 border border-blue-400/30 shadow-[0_0_15px_rgba(37,99,235,0.4)]">
-                <Sparkles className="h-8 w-8 text-blue-400" />
-              </div>
-              <div>
-                <h3 className="text-2xl font-bold text-white mb-3 flex items-center gap-2">
-                  Resumo Estratégico Diário (IA)
-                  <span className="px-2 py-0.5 text-xs font-bold uppercase tracking-wider bg-purple-500/20 text-purple-400 rounded-md border border-purple-500/30">Gemini Powered</span>
-                </h3>
-                <p className="text-lg text-blue-100/80 leading-relaxed font-light">
-                  "{data?.aiSummary}"
-                </p>
-              </div>
+          <div>
+            <div className="flex items-center gap-2 mb-2">
+              <h3 className="font-bold text-zinc-900 text-lg">Resumo Estratégico Diário (IA)</h3>
+              <span className="text-[10px] font-bold uppercase tracking-wider bg-blue-50 text-blue-600 border border-blue-100 px-2 py-0.5 rounded">
+                Gemini Powered
+              </span>
             </div>
-          </div>
-        )}
-
-        {/* Metrics Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-          <div className="bg-[#111111]/80 backdrop-blur-xl border border-white/5 p-6 rounded-2xl shadow-lg relative overflow-hidden">
-            <div className="absolute top-0 right-0 w-24 h-24 bg-green-500/10 rounded-full blur-2xl -mr-10 -mt-10"></div>
-            <p className="text-gray-400 text-sm font-medium mb-1 flex items-center gap-2">
-              <DollarSign className="h-4 w-4 text-green-400" /> MRR Atual
+            <p className="text-zinc-600 leading-relaxed text-sm md:text-base font-normal">
+              "{data?.aiSummary}"
             </p>
-            <h3 className="text-3xl font-bold text-white">
-              {loading ? '...' : formatCurrency(data?.stats.summary.mrr || 0)}
-            </h3>
           </div>
+        </motion.div>
+      )}
 
-          <div className="bg-[#111111]/80 backdrop-blur-xl border border-white/5 p-6 rounded-2xl shadow-lg relative overflow-hidden">
-            <div className="absolute top-0 right-0 w-24 h-24 bg-blue-500/10 rounded-full blur-2xl -mr-10 -mt-10"></div>
-            <p className="text-gray-400 text-sm font-medium mb-1 flex items-center gap-2">
-              <TrendingUp className="h-4 w-4 text-blue-400" /> Valor no Pipeline
-            </p>
-            <h3 className="text-3xl font-bold text-white">
-              {loading ? '...' : formatCurrency(data?.stats.summary.pipelineValue || 0)}
-            </h3>
-          </div>
-
-          <div className="bg-[#111111]/80 backdrop-blur-xl border border-white/5 p-6 rounded-2xl shadow-lg relative overflow-hidden">
-            <div className="absolute top-0 right-0 w-24 h-24 bg-purple-500/10 rounded-full blur-2xl -mr-10 -mt-10"></div>
-            <p className="text-gray-400 text-sm font-medium mb-1 flex items-center gap-2">
-              <Target className="h-4 w-4 text-purple-400" /> Negócios Ativos
-            </p>
-            <h3 className="text-3xl font-bold text-white">
-              {loading ? '...' : data?.stats.summary.activeDeals || 0}
-            </h3>
-          </div>
-
-          <div className="bg-[#111111]/80 backdrop-blur-xl border border-white/5 p-6 rounded-2xl shadow-lg relative overflow-hidden">
-            <div className="absolute top-0 right-0 w-24 h-24 bg-orange-500/10 rounded-full blur-2xl -mr-10 -mt-10"></div>
-            <p className="text-gray-400 text-sm font-medium mb-1 flex items-center gap-2">
-              <Users className="h-4 w-4 text-orange-400" /> Novos Leads
-            </p>
-            <h3 className="text-3xl font-bold text-white">
-              {loading ? '...' : data?.stats.summary.newContacts || 0}
-            </h3>
-          </div>
-        </div>
-
+      {/* Grid de Métricas usando StatsCard */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <StatsCard 
+          title="Receita Mensal (MRR)"
+          value={loading ? '...' : formatCurrency(data?.stats.summary.mrr || 0)}
+          icon={DollarSign}
+        />
+        <StatsCard 
+          title="Valor em Pipeline"
+          value={loading ? '...' : formatCurrency(data?.stats.summary.pipelineValue || 0)}
+          icon={TrendingUp}
+        />
+        <StatsCard 
+          title="Negócios Ativos"
+          value={loading ? '...' : (data?.stats.summary.activeDeals || 0)}
+          icon={Target}
+        />
+        <StatsCard 
+          title="Novos Contatos"
+          value={loading ? '...' : (data?.stats.summary.newContacts || 0)}
+          icon={Users}
+        />
       </div>
+
     </div>
   );
 }

@@ -52,7 +52,7 @@ export default function Home() {
             </Button>
           </Link>
           <Link href="#features">
-            <Button variant="outline" className="border-white/20 text-black hover:bg-white/10 font-semibold rounded-full px-8 py-6 text-lg w-full sm:w-auto">
+            <Button variant="outline" className="border-white/20 text-white hover:bg-white/10 font-semibold rounded-full px-8 py-6 text-lg w-full sm:w-auto">
               Ver Demonstração
             </Button>
           </Link>
