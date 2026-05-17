@@ -2,12 +2,14 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from './prisma.service';
 import { AuditLogService } from './audit-log.service';
 import { getTenantId } from './tenant.context';
+import { EventEmitter2 } from '@nestjs/event-emitter';
 
 @Injectable()
 export class PipelineService {
   constructor(
     private prisma: PrismaService,
     private auditLog: AuditLogService,
+    private eventEmitter: EventEmitter2,
   ) {}
 
   async findAll() {
@@ -66,6 +68,15 @@ export class PipelineService {
     const updatedDeal = await this.prisma.deal.update({
       where: { id },
       data: { stageId }
+    });
+
+    // Emissão de evento para a esteira de Automações Omnichannel
+    this.eventEmitter.emit('deal.moved', {
+      tenantId: tenantId || '',
+      dealId: id,
+      fromStage: deal.stage.name,
+      toStage: newStage?.name || 'Desconhecido',
+      deal: updatedDeal,
     });
 
     await this.auditLog.log(

@@ -134,6 +134,82 @@ export class AutomationService {
     }
   }
 
+  @OnEvent('deal.moved')
+  async handleDealMoved(payload: any) {
+    const { tenantId, dealId, fromStage, toStage, deal } = payload;
+    this.logger.log(`[Kanban Automation] Deal "${deal.title}" moved from "${fromStage}" to "${toStage}" (Tenant: ${tenantId})`);
+
+    try {
+      // 1. Buscar dados completos do Deal e do Contato associado
+      const fullDeal = await this.prisma.deal.findUnique({
+        where: { id: dealId },
+        include: { contact: true }
+      });
+
+      if (!fullDeal || !fullDeal.contact) {
+        this.logger.warn(`No contact found for deal ${dealId}. Aborting automation.`);
+        return;
+      }
+
+      const contact = fullDeal.contact;
+      const contactName = contact.name || 'Cliente';
+
+      // 2. Determinar a mensagem de disparo contextualizada pelo nome do estágio
+      let messageText = '';
+      const toStageLower = (toStage || '').toLowerCase();
+
+      if (toStageLower.includes('contat') || toStageLower.includes('andamento') || toStageLower.includes('negocia')) {
+        messageText = `Olá, ${contactName}! Sou o consultor virtual da nossa equipe. Vi que o seu atendimento avançou para o estágio *"${toStage}"*! 🚀 Em breve entrarei em contato para darmos sequência.`;
+      } else if (toStageLower.includes('ganho') || toStageLower.includes('fechad') || toStageLower.includes('conclu')) {
+        messageText = `Parabéns, ${contactName}! 🎉 Sua negociação foi concluída com sucesso (Estágio: *"${toStage}"*). Seja muito bem-vindo à nossa empresa! Conte conosco para o que precisar.`;
+      } else if (toStageLower.includes('perd') || toStageLower.includes('desist')) {
+        messageText = `Olá, ${contactName}. Entendemos que este não seja o melhor momento para fecharmos negócio. Saiba que estaremos sempre de portas abertas caso queira retornar no futuro! 👍`;
+      } else {
+        // Mensagem de progresso padrão
+        messageText = `Olá, ${contactName}! Passando para te avisar que a sua negociação *"${deal.title}"* avançou com sucesso para o estágio *"${toStage}"*! Estarei acompanhando tudo por aqui.`;
+      }
+
+      // 3. Buscar uma instância de WhatsApp ativa para disparar a mensagem
+      const instance = await this.prisma.whatsAppInstance.findFirst({
+        where: { tenantId, isActive: true }
+      });
+
+      if (!instance) {
+        this.logger.warn(`No active WhatsApp connection found for tenant ${tenantId}. Stage trigger skipped.`);
+        return;
+      }
+
+      this.logger.log(`[Kanban Automation] Sending auto-trigger WhatsApp to ${contactName} (+${contact.phone})`);
+      
+      // Garantir existência de uma conversa ativa para fins de Inbox/chat
+      let conversation = await this.prisma.conversation.findFirst({
+        where: { tenantId, contactId: contact.id, channel: 'WHATSAPP', status: 'OPEN' }
+      });
+
+      if (!conversation) {
+        conversation = await this.prisma.conversation.create({
+          data: {
+            tenantId,
+            contactId: contact.id,
+            channel: 'WHATSAPP',
+            status: 'OPEN'
+          }
+        });
+      }
+
+      // Envia a mensagem pelo canal usando o roteamento de Provedores Strategy
+      await this.whatsappService.sendMessage(
+        tenantId,
+        instance.id,
+        contact.id,
+        messageText,
+        { kanbanTrigger: true, dealId, toStage }
+      );
+    } catch (err: any) {
+      this.logger.error(`[Kanban Automation] Failed to dispatch stage update message: ${err.message}`);
+    }
+  }
+
   @OnEvent('payment.confirmed')
   async handlePaymentConfirmed(payload: any) {
     const { transactionId, tenantId } = payload;
