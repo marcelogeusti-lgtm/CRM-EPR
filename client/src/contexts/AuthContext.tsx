@@ -41,24 +41,72 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     const initializeAuth = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
+      const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
+      const isPlaceholderSupabase = !supabaseUrl || supabaseUrl.includes('placeholder-project');
       
+      let session = null;
+      if (!isPlaceholderSupabase) {
+        try {
+          const sessionResult = await supabase.auth.getSession();
+          session = sessionResult.data.session;
+        } catch (err) {
+          console.warn("Supabase auth session fetch failed, falling back to local auth...", err);
+        }
+      }
+
       if (session) {
         setToken(session.access_token);
         
-        // Fetch user and tenant data
-        const { data: userData } = await supabase
-          .from('User')
-          .select('*, tenant:Tenant(*)')
-          .eq('email', session.user.email)
-          .single();
+        try {
+          // Fetch user and tenant data from Supabase DB
+          const { data: userData } = await supabase
+            .from('User')
+            .select('*, tenant:Tenant(*)')
+            .eq('email', session.user.email)
+            .single();
 
-        if (userData) {
-          setUser(userData);
-          setTenant(userData.tenant);
-          axios.defaults.headers.common['Authorization'] = `Bearer ${session.access_token}`;
-          if (userData.tenant) {
-            axios.defaults.headers.common['x-tenant-id'] = userData.tenant.id;
+          if (userData) {
+            setUser(userData);
+            setTenant(userData.tenant);
+            axios.defaults.headers.common['Authorization'] = `Bearer ${session.access_token}`;
+            if (userData.tenant) {
+              axios.defaults.headers.common['x-tenant-id'] = userData.tenant.id;
+              localStorage.setItem('tenantId', userData.tenant.id);
+            }
+            localStorage.setItem('token', session.access_token);
+          }
+        } catch (err) {
+          console.warn("Falha ao buscar perfil no Supabase, tentando fallback local...", err);
+        }
+      } else {
+        // Fallback local: busca token JWT e tenantId gravados no localStorage
+        const storedToken = localStorage.getItem('token');
+        const storedTenantId = localStorage.getItem('tenantId');
+        
+        if (storedToken) {
+          try {
+            const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+            axios.defaults.headers.common['Authorization'] = `Bearer ${storedToken}`;
+            if (storedTenantId) {
+              axios.defaults.headers.common['x-tenant-id'] = storedTenantId;
+            }
+
+            const response = await axios.get(`${apiUrl}/auth/me`);
+            const { user: backendUser, tenant: backendTenant } = response.data;
+            
+            setUser(backendUser);
+            setTenant(backendTenant);
+            setToken(storedToken);
+          } catch (err) {
+            console.error("Falha ao reautenticar token local:", err);
+            // Se o token local estiver inválido ou expirado, limpa-o
+            localStorage.removeItem('token');
+            localStorage.removeItem('tenantId');
+            delete axios.defaults.headers.common['Authorization'];
+            delete axios.defaults.headers.common['x-tenant-id'];
+            setUser(null);
+            setTenant(null);
+            setToken(null);
           }
         }
       }
@@ -67,69 +115,194 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     initializeAuth();
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-      if (event === 'SIGNED_OUT') {
-        setUser(null);
-        setTenant(null);
-        setToken(null);
-        delete axios.defaults.headers.common['Authorization'];
-        delete axios.defaults.headers.common['x-tenant-id'];
-        router.push('/login');
-      } else if (session && !user) {
-        // Handle login event if needed
+    // Configurar listener do Supabase apenas se a URL não for placeholder
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
+    const isPlaceholderSupabase = !supabaseUrl || supabaseUrl.includes('placeholder-project');
+    
+    let subscription: any = null;
+
+    if (!isPlaceholderSupabase) {
+      try {
+        const authChange = supabase.auth.onAuthStateChange(async (event, session) => {
+          if (event === 'SIGNED_OUT') {
+            setUser(null);
+            setTenant(null);
+            setToken(null);
+            delete axios.defaults.headers.common['Authorization'];
+            delete axios.defaults.headers.common['x-tenant-id'];
+            localStorage.removeItem('token');
+            localStorage.removeItem('tenantId');
+            router.push('/login');
+          }
+        });
+        subscription = authChange.data.subscription;
+      } catch (err) {
+        console.warn("Falha ao configurar listener do Supabase:", err);
       }
-    });
+    }
 
     return () => {
-      subscription.unsubscribe();
+      if (subscription) {
+        subscription.unsubscribe();
+      }
     };
   }, []);
 
   const login = async (credentials: any) => {
-    const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
-      email: credentials.email,
-      password: credentials.password,
-    });
-    
-    if (authError) throw authError;
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
+    const isPlaceholderSupabase = !supabaseUrl || supabaseUrl.includes('placeholder-project');
 
-    const { data: userData, error: userError } = await supabase
-      .from('User')
-      .select('*, tenant:Tenant(*)')
-      .eq('email', credentials.email)
-      .single();
-    
-    if (userError) throw userError;
+    if (!isPlaceholderSupabase) {
+      try {
+        const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
+          email: credentials.email,
+          password: credentials.password,
+        });
+        
+        if (authError) throw authError;
 
-    setUser(userData);
-    setTenant(userData.tenant);
-    setToken(authData.session?.access_token || null);
-    
-    axios.defaults.headers.common['Authorization'] = `Bearer ${authData.session?.access_token}`;
-    if (userData.tenant) {
-      axios.defaults.headers.common['x-tenant-id'] = userData.tenant.id;
+        const { data: userData, error: userError } = await supabase
+          .from('User')
+          .select('*, tenant:Tenant(*)')
+          .eq('email', credentials.email)
+          .single();
+        
+        if (userError) throw userError;
+
+        setUser(userData);
+        setTenant(userData.tenant);
+        setToken(authData.session?.access_token || null);
+        
+        axios.defaults.headers.common['Authorization'] = `Bearer ${authData.session?.access_token}`;
+        if (userData.tenant) {
+          axios.defaults.headers.common['x-tenant-id'] = userData.tenant.id;
+          localStorage.setItem('tenantId', userData.tenant.id);
+        }
+        localStorage.setItem('token', authData.session?.access_token || '');
+        
+        router.push('/dashboard');
+        return;
+      } catch (err) {
+        console.warn("Falha no login via Supabase, tentando login direto no backend...", err);
+      }
     }
+
+    // Fallback local: comunicação direta com a API NestJS
+    const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+    const response = await axios.post(`${apiUrl}/auth/login`, credentials);
+    const { user: backendUser, token: backendToken, tenant: backendTenant } = response.data;
+
+    setUser(backendUser);
+    setTenant(backendTenant);
+    setToken(backendToken);
+
+    axios.defaults.headers.common['Authorization'] = `Bearer ${backendToken}`;
+    if (backendTenant) {
+      axios.defaults.headers.common['x-tenant-id'] = backendTenant.id;
+      localStorage.setItem('tenantId', backendTenant.id);
+    }
+    localStorage.setItem('token', backendToken);
     
     router.push('/dashboard');
   };
 
   const register = async (data: any) => {
-    // Basic implementation for now
-    const { error: authError } = await supabase.auth.signUp({
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
+    const isPlaceholderSupabase = !supabaseUrl || supabaseUrl.includes('placeholder-project');
+    const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+
+    if (!isPlaceholderSupabase) {
+      try {
+        // 1. Cadastrar no Supabase Auth
+        const { data: authData, error: authError } = await supabase.auth.signUp({
+          email: data.email,
+          password: data.password,
+          options: {
+            data: {
+              name: data.name,
+            }
+          }
+        });
+        
+        if (authError) throw authError;
+
+        if (authData?.user) {
+          // 2. Chamar endpoint do backend passando o ID gerado pelo Supabase para replicar o Tenant e o Administrador
+          const response = await axios.post(`${apiUrl}/auth/register`, {
+            id: authData.user.id, // Sincroniza o UUID do Supabase
+            companyName: data.companyName,
+            name: data.name,
+            email: data.email,
+            password: data.password,
+          });
+
+          const { user: backendUser, token: backendToken, tenant: backendTenant } = response.data;
+          
+          setUser(backendUser);
+          setTenant(backendTenant);
+          setToken(authData.session?.access_token || backendToken);
+
+          axios.defaults.headers.common['Authorization'] = `Bearer ${authData.session?.access_token || backendToken}`;
+          if (backendTenant) {
+            axios.defaults.headers.common['x-tenant-id'] = backendTenant.id;
+            localStorage.setItem('tenantId', backendTenant.id);
+          }
+          localStorage.setItem('token', authData.session?.access_token || backendToken);
+          
+          router.push('/dashboard');
+          return;
+        }
+      } catch (err) {
+        console.warn("Falha no registro via Supabase, tentando registro direto no backend...", err);
+      }
+    }
+
+    // Fallback local: cadastro direto no backend
+    const response = await axios.post(`${apiUrl}/auth/register`, {
+      companyName: data.companyName,
+      name: data.name,
       email: data.email,
       password: data.password,
     });
+
+    const { user: backendUser, token: backendToken, tenant: backendTenant } = response.data;
+
+    setUser(backendUser);
+    setTenant(backendTenant);
+    setToken(backendToken);
+
+    axios.defaults.headers.common['Authorization'] = `Bearer ${backendToken}`;
+    if (backendTenant) {
+      axios.defaults.headers.common['x-tenant-id'] = backendTenant.id;
+      localStorage.setItem('tenantId', backendTenant.id);
+    }
+    localStorage.setItem('token', backendToken);
     
-    if (authError) throw authError;
-    
-    // We would normally create the tenant and user in the database here,
-    // but for now we just throw an error as it requires backend logic or Edge Functions
-    throw new Error("O registro de novos tenants deve ser implementado no backend.");
+    router.push('/dashboard');
   };
 
   const logout = async () => {
-    await supabase.auth.signOut();
+    setUser(null);
+    setTenant(null);
+    setToken(null);
+    delete axios.defaults.headers.common['Authorization'];
+    delete axios.defaults.headers.common['x-tenant-id'];
+    localStorage.removeItem('token');
+    localStorage.removeItem('tenantId');
+    
+    try {
+      const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
+      const isPlaceholderSupabase = !supabaseUrl || supabaseUrl.includes('placeholder-project');
+      if (!isPlaceholderSupabase) {
+        await supabase.auth.signOut();
+      }
+    } catch (err) {
+      console.warn("Erro ao deslogar no Supabase:", err);
+    }
+    
+    router.push('/login');
   };
+
 
   return (
     <AuthContext.Provider value={{ user, tenant, token, login, register, logout, isLoading }}>
