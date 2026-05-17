@@ -47,4 +47,21 @@ export class WhatsappController {
     
     return { status: 'ok' };
   }
+
+  @Post('unofficial')
+  @HttpCode(HttpStatus.OK)
+  async handleUnofficialWebhook(@Body() payload: any) {
+    this.logger.debug('Received Unofficial WhatsApp payload: ' + JSON.stringify(payload));
+    
+    // Trata mensagens recebidas da Evolution API ou Baileys
+    if (payload.event === 'messages.upsert') {
+      const instanceName = payload.instance;
+      const messageData = payload.data;
+      if (messageData) {
+        await this.whatsappService.handleIncomingUnofficialMessage(instanceName, messageData);
+      }
+    }
+    
+    return { status: 'ok' };
+  }
 }

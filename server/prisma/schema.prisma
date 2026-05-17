@@ -66,6 +66,7 @@ model Tenant {
   transactions        Transaction[]
   workflows           Workflow[]
   conversations       Conversation[]
+  auditLogs           AuditLog[]
 }
 
 model Subscription {
@@ -123,8 +124,12 @@ model WhatsAppInstance {
   tenant            Tenant   @relation(fields: [tenantId], references: [id])
   name              String
   phoneNumber       String
-  waBusinessId      String
-  accessToken       String
+  waBusinessId      String   @default("")
+  accessToken       String   @default("")
+  connectionType    String   @default("OFFICIAL") // "OFFICIAL" ou "UNOFFICIAL"
+  unofficialUrl     String?
+  unofficialToken   String?
+  qrCode            String?
   isActive          Boolean  @default(true)
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
@@ -258,4 +263,19 @@ model WorkflowAction {
   type        String   // e.g., "send_message", "create_task", "update_deal"
   config      Json
   order       Int
+}
+
+model AuditLog {
+  id            String    @id @default(uuid())
+  tenantId      String
+  userId        String?
+  action        String    // ex: "lead.move", "user.login", "whatsapp.disconnect"
+  description   String    // Detalhamento por extenso
+  ipAddress     String
+  device        String    // User-Agent completo
+  location      String?   // Localização aproximada por IP
+  meta          Json?     // Estado anterior vs. Novo estado
+  createdAt     DateTime  @default(now())
+
+  tenant        Tenant    @relation(fields: [tenantId], references: [id])
 }
