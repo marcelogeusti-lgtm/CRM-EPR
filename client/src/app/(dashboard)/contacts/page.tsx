@@ -204,13 +204,13 @@ export default function ContactsPage() {
               type="text" 
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              placeholder="Buscar contatos por nome, email ou telefone..." 
-              className="w-full bg-white border border-zinc-200 rounded-xl pl-12 pr-4 h-11 text-sm text-zinc-800 placeholder:text-zinc-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all shadow-sm"
+              placeholder="Buscar contatos por nome, email ou telefone…" 
+              className="w-full bg-white border border-zinc-200 rounded-xl pl-12 pr-4 h-11 text-sm text-zinc-800 placeholder:text-zinc-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/20 focus-visible:border-blue-500 transition-colors duration-200 shadow-sm"
             />
           </div>
           <button 
             onClick={fetchContacts}
-            className="h-11 px-4 bg-white hover:bg-zinc-50 text-zinc-650 rounded-xl transition-all font-bold border border-zinc-200 flex items-center gap-2 text-xs shadow-sm cursor-pointer"
+            className="h-11 px-4 bg-white hover:bg-zinc-50 text-zinc-650 rounded-xl transition-colors duration-200 font-bold border border-zinc-200 flex items-center gap-2 text-xs shadow-sm cursor-pointer"
           >
             <SlidersHorizontal className="size-[18px] text-zinc-400" />
             <span>Filtros</span>
@@ -304,13 +304,15 @@ export default function ContactsPage() {
                       <div className="flex items-center justify-end gap-1.5 opacity-60 group-hover:opacity-100 transition-opacity">
                         <button 
                           onClick={() => handleOpenModal(contact)}
+                          aria-label="Editar contato"
                           className="p-2 hover:bg-slate-100 hover:text-blue-600 rounded-lg transition-colors text-zinc-400 cursor-pointer"
                         >
                           <Edit2 className="size-3.5" />
                         </button>
                         <button 
                           onClick={() => handleDeleteContact(contact.id)}
-                          className="p-2 hover:bg-red-50 hover:text-red-600 rounded-lg transition-colors text-zinc-400 cursor-pointer"
+                          aria-label="Excluir contato"
+                          className="p-2 hover:bg-red-50 hover:text-red-650 rounded-lg transition-colors text-zinc-400 cursor-pointer"
                         >
                           <Trash2 className="size-3.5" />
                         </button>
@@ -364,8 +366,8 @@ export default function ContactsPage() {
                     value={name}
                     onChange={(e) => setName(e.target.value)}
                     required
-                    className="w-full bg-white border border-zinc-200 rounded-xl px-4 h-11 text-xs text-zinc-800 placeholder:text-zinc-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all shadow-sm"
-                    placeholder="Ex: João da Silva"
+                    className="w-full bg-white border border-zinc-200 rounded-xl px-4 h-11 text-xs text-zinc-800 placeholder:text-zinc-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/20 focus-visible:border-blue-500 transition-colors duration-200 shadow-sm"
+                    placeholder="Ex: João da Silva…"
                   />
                 </div>
 
@@ -376,8 +378,8 @@ export default function ContactsPage() {
                     type="text" 
                     value={phone}
                     onChange={(e) => setPhone(e.target.value)}
-                    className="w-full bg-white border border-zinc-200 rounded-xl px-4 h-11 text-xs text-zinc-800 placeholder:text-zinc-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all shadow-sm"
-                    placeholder="Ex: +5511999999999"
+                    className="w-full bg-white border border-zinc-200 rounded-xl px-4 h-11 text-xs text-zinc-800 placeholder:text-zinc-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/20 focus-visible:border-blue-500 transition-colors duration-200 shadow-sm"
+                    placeholder="Ex: +55 11 99999-9999…"
                   />
                 </div>
 
@@ -388,8 +390,8 @@ export default function ContactsPage() {
                     type="email" 
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
-                    className="w-full bg-white border border-zinc-200 rounded-xl px-4 h-11 text-xs text-zinc-800 placeholder:text-zinc-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all shadow-sm"
-                    placeholder="Ex: joao@empresa.com"
+                    className="w-full bg-white border border-zinc-200 rounded-xl px-4 h-11 text-xs text-zinc-800 placeholder:text-zinc-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/20 focus-visible:border-blue-500 transition-colors duration-200 shadow-sm"
+                    placeholder="Ex: joao@empresa.com…"
                   />
                 </div>
 
@@ -400,8 +402,8 @@ export default function ContactsPage() {
                     type="text" 
                     value={company}
                     onChange={(e) => setCompany(e.target.value)}
-                    className="w-full bg-white border border-zinc-200 rounded-xl px-4 h-11 text-xs text-zinc-800 placeholder:text-zinc-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all shadow-sm"
-                    placeholder="Ex: Empresa Alpha Ltda"
+                    className="w-full bg-white border border-zinc-200 rounded-xl px-4 h-11 text-xs text-zinc-800 placeholder:text-zinc-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/20 focus-visible:border-blue-500 transition-colors duration-200 shadow-sm"
+                    placeholder="Ex: Empresa Alpha Ltda…"
                   />
                 </div>
 
@@ -419,8 +421,8 @@ export default function ContactsPage() {
                           handleAddTag();
                         }
                       }}
-                      className="flex-1 bg-white border border-zinc-200 rounded-xl px-4 h-11 text-xs text-zinc-800 placeholder:text-zinc-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all shadow-sm"
-                      placeholder="Ex: Lead Frio"
+                      className="flex-1 bg-white border border-zinc-200 rounded-xl px-4 h-11 text-xs text-zinc-800 placeholder:text-zinc-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/20 focus-visible:border-blue-500 transition-colors duration-200 shadow-sm"
+                      placeholder="Ex: Lead Frio…"
                     />
                     <button 
                       type="button"

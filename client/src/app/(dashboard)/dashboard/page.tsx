@@ -288,7 +288,7 @@ export default function DashboardPage() {
               setNiche(e.target.value as NicheType);
               setTimeout(() => setIsLoading(false), 250);
             }}
-            className="bg-zinc-800 border border-zinc-700 text-white rounded-xl px-3 py-1.5 text-xs font-bold focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all cursor-pointer shadow-md"
+            className="bg-zinc-800 border border-zinc-700 text-white rounded-xl px-3 py-1.5 text-xs font-bold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 transition-colors duration-200 cursor-pointer shadow-md"
           >
             <option value="vidracaria">🪟 Vidraçaria & Instalação</option>
             <option value="clinica">🏥 Clínica & Consultório</option>
@@ -310,12 +310,12 @@ export default function DashboardPage() {
             </div>
             
             <div className="flex items-center gap-2 w-full md:w-auto">
-              <div className="bg-white border border-zinc-200 rounded-xl flex items-center px-3 py-2 shadow-sm w-full md:w-64 focus-within:border-blue-500 focus-within:ring-2 focus-within:ring-blue-500/10 transition-all">
+              <div className="bg-white border border-zinc-200 rounded-xl flex items-center px-3 py-2 shadow-sm w-full md:w-64 focus-within:border-blue-500 focus-within:ring-2 focus-within:ring-blue-500/10 transition-colors duration-200">
                 <Search className="size-[18px] text-zinc-400" />
                 <input 
                   type="text" 
-                  placeholder="Buscar métricas..." 
-                  className="bg-transparent border-none outline-none w-full ml-2 text-xs text-zinc-700 placeholder:text-zinc-400"
+                  placeholder="Buscar métricas…" 
+                  className="bg-transparent border-none focus-visible:outline-none w-full ml-2 text-xs text-zinc-700 placeholder:text-zinc-400"
                 />
               </div>
             </div>
@@ -420,7 +420,7 @@ export default function DashboardPage() {
             {/* Render do Funil Horizontal */}
             <div className="grid grid-cols-2 sm:grid-cols-6 gap-3">
               {currentData.funnel.map((item, idx) => (
-                <div key={idx} className="relative flex flex-col justify-between p-3.5 bg-zinc-50 border border-zinc-200/60 rounded-xl hover:shadow-md hover:border-zinc-300 transition-all">
+                <div key={idx} className="relative flex flex-col justify-between p-3.5 bg-zinc-50 border border-zinc-200/60 rounded-xl hover:shadow-md hover:border-zinc-300 transition-shadow duration-200">
                   <div className="space-y-1">
                     <span className="text-[9px] font-extrabold text-zinc-400 uppercase tracking-wide block">Etapa {idx + 1}</span>
                     <span className="text-[11px] font-bold text-zinc-800 leading-tight block">{item.stage}</span>
@@ -455,7 +455,7 @@ export default function DashboardPage() {
 
               <div className="space-y-3.5">
                 {currentData.operational.items.map((item, idx) => (
-                  <div key={idx} className="flex justify-between items-center bg-zinc-50/50 hover:bg-zinc-50 p-2.5 border border-zinc-150 rounded-xl transition-all">
+                  <div key={idx} className="flex justify-between items-center bg-zinc-50/50 hover:bg-zinc-50 p-2.5 border border-zinc-150 rounded-xl transition-colors duration-200">
                     <span className="text-xs font-semibold text-zinc-650">{item.label}</span>
                     <span className={`text-sm font-black ${item.color} bg-white border border-zinc-200 size-7 rounded-lg flex items-center justify-center shadow-xs font-mono`}>
                       {item.count}

@@ -120,6 +120,7 @@ model Contact {
 
   @@unique([tenantId, phone])
   @@unique([tenantId, email])
+  @@index([tenantId, createdAt])
 }
 
 model WhatsAppInstance {
