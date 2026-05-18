@@ -3,6 +3,7 @@ import { OnEvent } from '@nestjs/event-emitter';
 import { PrismaService } from './prisma.service';
 import { WhatsappService } from './whatsapp.service';
 import { AIService } from './ai.service';
+import { WorkflowService } from './workflow/workflow.service';
 
 @Injectable()
 export class AutomationService {
@@ -12,6 +13,7 @@ export class AutomationService {
     private prisma: PrismaService,
     private whatsappService: WhatsappService,
     private aiService: AIService,
+    private workflowService: WorkflowService,
   ) {}
 
   @OnEvent('whatsapp.message_received')
@@ -24,7 +26,10 @@ export class AutomationService {
       return;
     }
 
-    // 1. Verificar se o Copiloto de IA está ativo para o Tenant
+    // 1. Executar os Workflows visuais configurados no Construtor de Nós
+    await this.workflowService.executeWorkflowsForTrigger(tenantId, 'message.received', { contact, message });
+
+    // 2. Verificar se o Copiloto de IA está ativo para o Tenant
     const tenant = await this.prisma.tenant.findUnique({
       where: { id: tenantId }
     });
@@ -154,7 +159,10 @@ export class AutomationService {
       const contact = fullDeal.contact;
       const contactName = contact.name || 'Cliente';
 
-      // 2. Determinar a mensagem de disparo contextualizada pelo nome do estágio
+      // 2. Executar os Workflows visuais configurados no Construtor de Nós para Movimentação de Estágio
+      await this.workflowService.executeWorkflowsForTrigger(tenantId, 'deal.moved', { deal: fullDeal, toStage });
+
+      // 3. Determinar a mensagem de disparo padrão contextualizada pelo nome do estágio (Fallback estático)
       let messageText = '';
       const toStageLower = (toStage || '').toLowerCase();
 
@@ -169,7 +177,7 @@ export class AutomationService {
         messageText = `Olá, ${contactName}! Passando para te avisar que a sua negociação *"${deal.title}"* avançou com sucesso para o estágio *"${toStage}"*! Estarei acompanhando tudo por aqui.`;
       }
 
-      // 3. Buscar uma instância de WhatsApp ativa para disparar a mensagem
+      // 4. Buscar uma instância de WhatsApp ativa para disparar a mensagem
       const instance = await this.prisma.whatsAppInstance.findFirst({
         where: { tenantId, isActive: true }
       });

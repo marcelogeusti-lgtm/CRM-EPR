@@ -2,6 +2,8 @@
 
 import { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
+import { io, Socket } from 'socket.io-client';
+import { useAuth } from '@/contexts/AuthContext';
 import { 
   Search, 
   MoreVertical, 
@@ -15,7 +17,12 @@ import {
   ChevronLeft,
   Sparkles,
   SlidersHorizontal,
-  Bot
+  Bot,
+  Circle,
+  MessageSquare,
+  CornerUpLeft,
+  X,
+  Plus
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -24,14 +31,27 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import { PageHeader } from '@/components/system/PageHeader';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
+import { toast } from 'sonner';
 
 export default function InboxPage() {
+  const { user, tenant } = useAuth();
   const [conversations, setConversations] = useState<any[]>([]);
   const [selectedChat, setSelectedChat] = useState<any>(null);
   const [messages, setMessages] = useState<any[]>([]);
   const [newMessage, setNewMessage] = useState('');
+  const [agents, setAgents] = useState<any[]>([]);
+  const [typingUsers, setTypingUsers] = useState<{ [key: string]: boolean }>({});
+  const [replyingTo, setReplyingTo] = useState<any>(null);
+  
+  // Novos estados da IA Operacional
+  const [suggesting, setSuggesting] = useState(false);
+  const [conversationSummary, setConversationSummary] = useState<string>('');
+  const [summarizing, setSummarizing] = useState(false);
+
+  const socketRef = useRef<Socket | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const typingTimeoutRef = useRef<any>(null);
 
   // Estados do PulseAI Autopilot
   const [showAiSettings, setShowAiSettings] = useState(false);
@@ -41,18 +61,171 @@ export default function InboxPage() {
   const [aiApiKey, setAiApiKey] = useState('');
   const [saving, setSaving] = useState(false);
 
-  // Carregar configurações de IA
+  const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+
+  // 1. Conexão Socket.io & Listeners de Eventos
+  useEffect(() => {
+    if (!tenant?.id || !user?.id) return;
+
+    // Estabelecer conexão WebSocket com o backend
+    const socket = io(apiUrl, {
+      transports: ['websocket'],
+    });
+    socketRef.current = socket;
+
+    socket.on('connect', () => {
+      console.log('Socket conectado:', socket.id);
+      // Entrar na sala do tenant e reportar presença online
+      socket.emit('joinTenant', { tenantId: tenant.id, userId: user.id });
+    });
+
+    // Ouvir novos updates de presença
+    socket.on('presenceUpdate', (data: { userId: string; isOnline: boolean; lastActiveAt: string }) => {
+      setAgents((prev) => 
+        prev.map((agent) => 
+          agent.id === data.userId 
+            ? { ...agent, isOnline: data.isOnline, lastActiveAt: data.lastActiveAt }
+            : agent
+        )
+      );
+    });
+
+    // Ouvir status de digitação de outros atendentes
+    socket.on('typingStatus', (data: { contactId: string; userId: string; isTyping: boolean }) => {
+      if (data.userId !== user.id) {
+        setTypingUsers((prev) => ({
+          ...prev,
+          [`${data.contactId}_${data.userId}`]: data.isTyping,
+        }));
+      }
+    });
+
+    // Ouvir novas mensagens em tempo real
+    socket.on('newMessage', (msg: any) => {
+      // Se a mensagem pertence à conversa atualmente selecionada, adiciona na lista
+      if (selectedChat && msg.conversationId === selectedChat.id) {
+        setMessages((prev) => {
+          if (prev.some((m) => m.id === msg.id)) return prev;
+          return [...prev, msg];
+        });
+        // Envia confirmação de leitura automática
+        socket.emit('markAsRead', { tenantId: tenant.id, conversationId: selectedChat.id, userId: user.id });
+      }
+
+      // Atualiza a conversa na barra lateral
+      setConversations((prev) => {
+        const index = prev.findIndex((c) => c.id === msg.conversationId);
+        if (index === -1) return prev;
+
+        const updated = [...prev];
+        updated[index] = {
+          ...updated[index],
+          lastMessage: msg.content,
+          lastMessageTime: msg.createdAt,
+          unreadCount: selectedChat?.id === msg.conversationId ? 0 : updated[index].unreadCount + (msg.direction === 'INBOUND' ? 1 : 0),
+        };
+
+        // Reordena conversas colocando a mais recente no topo
+        return updated.sort((a, b) => new Date(b.lastMessageTime).getTime() - new Date(a.lastMessageTime).getTime());
+      });
+    });
+
+    // Ouvir reações a mensagens em tempo real
+    socket.on('messageReactionUpdate', (data: { messageId: string; reactions: any[] }) => {
+      setMessages((prev) => 
+        prev.map((m) => 
+          m.id === data.messageId 
+            ? { ...m, metadata: { ...(m.metadata || {}), reactions: data.reactions } }
+            : m
+        )
+      );
+    });
+
+    // Ouvir confirmações de leitura
+    socket.on('conversationRead', (data: { conversationId: string }) => {
+      setConversations((prev) => 
+        prev.map((c) => 
+          c.id === data.conversationId 
+            ? { ...c, unreadCount: 0 }
+            : c
+        )
+      );
+    });
+
+    return () => {
+      socket.disconnect();
+    };
+  }, [tenant?.id, user?.id, selectedChat?.id]);
+
+  // 2. Carregar dados via API REST (Conversas e Agentes)
+  useEffect(() => {
+    const loadInboxData = async () => {
+      if (!tenant?.id) return;
+      try {
+        const [convRes, agentRes] = await Promise.all([
+          axios.get(`${apiUrl}/chat/conversations`),
+          axios.get(`${apiUrl}/chat/agents`),
+        ]);
+        setConversations(convRes.data);
+        setAgents(agentRes.data);
+      } catch (err) {
+        console.error('Erro ao carregar dados do inbox:', err);
+        toast.error('Erro ao carregar conversas em tempo real.');
+      }
+    };
+
+    loadInboxData();
+  }, [tenant?.id]);
+
+  // Limpa o resumo de conversa sempre que seleciona um novo chat
+  useEffect(() => {
+    setConversationSummary('');
+  }, [selectedChat]);
+
+  // 3. Carregar mensagens de um chat selecionado
+  useEffect(() => {
+    if (!selectedChat) return;
+
+    const loadMessages = async () => {
+      try {
+        const response = await axios.get(`${apiUrl}/chat/conversations/${selectedChat.id}/messages`);
+        setMessages(response.data);
+
+        // Limpa o indicador de unread localmente
+        setConversations((prev) => 
+          prev.map((c) => c.id === selectedChat.id ? { ...c, unreadCount: 0 } : c)
+        );
+
+        // Avisa os outros atendentes via socket que visualizamos a conversa
+        if (socketRef.current) {
+          socketRef.current.emit('markAsRead', {
+            tenantId: tenant?.id,
+            conversationId: selectedChat.id,
+            userId: user?.id,
+          });
+        }
+      } catch (err) {
+        console.error('Erro ao carregar mensagens:', err);
+        toast.error('Erro ao recuperar histórico do chat.');
+      }
+    };
+
+    loadMessages();
+  }, [selectedChat, tenant?.id, user?.id]);
+
+  // Rolar para o final da lista de mensagens
+  useEffect(() => {
+    if (scrollRef.current) {
+      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+    }
+  }, [messages, typingUsers]);
+
+  // 4. Carregar configurações de IA
   useEffect(() => {
     const fetchAiSettings = async () => {
+      if (!tenant?.id) return;
       try {
-        const tenantId = localStorage.getItem('tenantId') || '1';
-        const token = localStorage.getItem('token') || '';
-        const response = await axios.get('http://localhost:3001/tenant/ai-settings', {
-          headers: {
-            'x-tenant-id': tenantId,
-            'Authorization': `Bearer ${token}`
-          }
-        });
+        const response = await axios.get(`${apiUrl}/tenant/ai-settings`);
         if (response.data) {
           setAiEnabled(response.data.aiEnabled);
           setAiPrompt(response.data.aiPrompt);
@@ -73,25 +246,19 @@ export default function InboxPage() {
       }
     };
     fetchAiSettings();
-  }, []);
+  }, [tenant?.id]);
 
+  // 5. Salvar configurações de IA
   const handleSaveAiSettings = async () => {
     setSaving(true);
     const settingsPayload = { aiEnabled, aiPrompt, aiModel, aiApiKey };
     try {
-      const tenantId = localStorage.getItem('tenantId') || '1';
-      const token = localStorage.getItem('token') || '';
-      await axios.post('http://localhost:3001/tenant/ai-settings', settingsPayload, {
-        headers: {
-          'x-tenant-id': tenantId,
-          'Authorization': `Bearer ${token}`
-        }
-      });
+      await axios.post(`${apiUrl}/tenant/ai-settings`, settingsPayload);
       localStorage.setItem('pulse_ai_settings', JSON.stringify(settingsPayload));
-      alert('Configurações do PulseAI salvas com sucesso!');
+      toast.success('Configurações do PulseAI salvas com sucesso!');
     } catch (err) {
       localStorage.setItem('pulse_ai_settings', JSON.stringify(settingsPayload));
-      alert('Salvo localmente com sucesso!');
+      toast.success('Salvo localmente com sucesso!');
     } finally {
       setSaving(false);
     }
@@ -100,77 +267,163 @@ export default function InboxPage() {
   const handleApplyPreset = (type: string) => {
     let prompt = '';
     if (type === 'barbearia') {
-      prompt = `Você é o assistente virtual da Barbearia Pulse. Seja extremamente descontraído e simpático.
-Objetivos:
-1. Oferecer nossos serviços principais (Corte: R$45, Barba: R$35).
-2. Agendar horários comercialmente hoje ou amanhã.`;
+      prompt = `Você é o assistente virtual da Barbearia Pulse. Seja extremamente descontraído e simpático.\nObjetivos:\n1. Oferecer nossos serviços principais (Corte: R$45, Barba: R$35).\n2. Agendar horários comercialmente hoje ou amanhã.`;
     } else if (type === 'mecanica') {
-      prompt = `Você é o assistente virtual inteligente da Oficina AutoPulse. Seja profissional, técnico e atencioso.
-Objetivos:
-1. Coletar o modelo e ano do carro.
-2. Agendar uma avaliação física gratuita.`;
+      prompt = `Você é o assistente virtual inteligente da Oficina AutoPulse. Seja profissional, técnico e atencioso.\nObjetivos:\n1. Coletar o modelo e ano do carro.\n2. Agendar uma avaliação física gratuita.`;
     } else if (type === 'imobiliaria') {
-      prompt = `Você é o consultor imobiliário da Pulse Imóveis. Seja educado e focado.
-Objetivos:
-1. Entender se o lead deseja comprar ou alugar.
-2. Coletar faixa de orçamento.`;
+      prompt = `Você é o consultor imobiliário da Pulse Imóveis. Seja educado e focado.\nObjetivos:\n1. Entender se o lead deseja comprar ou alugar.\n2. Coletar faixa de orçamento.`;
     } else if (type === 'clinica') {
-      prompt = `Você é o assistente de saúde inteligente da Clínica PulseMédica.
-Objetivos:
-1. Identificar especialidade médica e convênio.`;
+      prompt = `Você é o assistente de saúde inteligente da Clínica PulseMédica.\nObjetivos:\n1. Identificar especialidade médica e convênio.`;
     }
     setAiPrompt(prompt);
   };
 
-  useEffect(() => {
-    setConversations([
-      { id: '1', contact: { name: 'Marcelo Silva', phone: '+55 11 99999-9999' }, lastMessage: 'Olá, gostaria de saber sobre o plano premium.', time: '14:20', unread: 2 },
-      { id: '2', contact: { name: 'Ana Costa', phone: '+55 11 88888-8888' }, lastMessage: 'Obrigada pelo retorno!', time: 'Ontem', unread: 0 },
-      { id: '3', contact: { name: 'Boutique Dental', phone: '+55 11 77777-7777' }, lastMessage: 'Podemos agendar para amanhã?', time: 'Ontem', unread: 0 },
-    ]);
-  }, []);
+  // 6. Enviar Mensagem (REST + WebSockets integrado)
+  const handleSend = async () => {
+    if (!newMessage.trim() || !selectedChat) return;
 
-  useEffect(() => {
-    if (selectedChat) {
-      setMessages([
-        { id: '1', direction: 'INBOUND', content: 'Olá, boa tarde!', createdAt: '2026-04-25T14:00:00Z' },
-        { id: '2', direction: 'OUTBOUND', content: 'Boa tarde, Marcelo! Como posso ajudar?', createdAt: '2026-04-25T14:05:00Z' },
-        { id: '3', direction: 'INBOUND', content: 'Gostaria de saber mais sobre as integrações de ERP do sistema.', createdAt: '2026-04-25T14:10:00Z' },
-      ]);
-    }
-  }, [selectedChat]);
-
-  useEffect(() => {
-    if (scrollRef.current) {
-      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
-    }
-  }, [messages]);
-
-  const handleSend = () => {
-    if (!newMessage.trim()) return;
-    const msg = {
-      id: Date.now().toString(),
-      direction: 'OUTBOUND',
-      content: newMessage,
-      createdAt: new Date().toISOString(),
-    };
-    setMessages([...messages, msg]);
+    const messageContent = newMessage;
     setNewMessage('');
+
+    // Prepara metadados da mensagem (ex: citação / reply)
+    const msgMetadata: any = {};
+    if (replyingTo) {
+      msgMetadata.quotedMessage = {
+        id: replyingTo.id,
+        content: replyingTo.content,
+        senderName: replyingTo.direction === 'OUTBOUND' ? 'Você' : selectedChat.contact.name,
+      };
+      setReplyingTo(null);
+    }
+
+    try {
+      // Envia via REST API (que persiste, avisa sockets e despacha canal)
+      const response = await axios.post(`${apiUrl}/chat/conversations/${selectedChat.id}/messages`, {
+        content: messageContent,
+        metadata: msgMetadata,
+      });
+
+      // Atualiza mensagens localmente de imediato
+      setMessages((prev) => {
+        if (prev.some((m) => m.id === response.data.id)) return prev;
+        return [...prev, response.data];
+      });
+    } catch (err) {
+      console.error('Erro ao enviar mensagem:', err);
+      toast.error('Erro ao disparar mensagem.');
+    }
+  };
+
+  // 7. Disparar Reação a uma Mensagem
+  const handleReact = (messageId: string, emoji: string) => {
+    if (socketRef.current && tenant?.id && user?.id) {
+      socketRef.current.emit('messageReaction', {
+        tenantId: tenant.id,
+        messageId,
+        emoji,
+        userId: user.id,
+      });
+    }
+  };
+
+  // 8. Evento Digitando...
+  const handleInputChange = (val: string) => {
+    setNewMessage(val);
+
+    if (socketRef.current && tenant?.id && user?.id && selectedChat) {
+      // Dispara que está digitando
+      socketRef.current.emit('typing', {
+        tenantId: tenant.id,
+        contactId: selectedChat.contactId,
+        isTyping: true,
+        userId: user.id,
+      });
+
+      // Debounce para parar de digitar após 2 segundos sem input
+      if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
+      typingTimeoutRef.current = setTimeout(() => {
+        if (socketRef.current && selectedChat) {
+          socketRef.current.emit('typing', {
+            tenantId: tenant.id,
+            contactId: selectedChat.contactId,
+            isTyping: false,
+            userId: user.id,
+          });
+        }
+      }, 2000);
+    }
+  };
+
+  // 9. Copiloto de IA: Sugerir Resposta Contextualizada
+  const handleSuggestReply = async () => {
+    if (!selectedChat) return;
+    setSuggesting(true);
+    try {
+      const response = await axios.post(`${apiUrl}/chat/conversations/${selectedChat.id}/suggest-reply`);
+      if (response.data?.suggestion) {
+        setNewMessage(response.data.suggestion);
+        toast.success('Resposta contextualizada sugerida pelo Copiloto!');
+      } else {
+        toast.error('Não foi possível gerar uma resposta inteligente no momento.');
+      }
+    } catch (err) {
+      console.error('Erro ao gerar sugestão de resposta:', err);
+      toast.error('Erro de conexão ao gerar resposta sugerida.');
+    } finally {
+      setSuggesting(false);
+    }
+  };
+
+  // 10. Resumo de Conversas no Clique
+  const handleGenerateSummary = async () => {
+    if (!selectedChat) return;
+    setSummarizing(true);
+    try {
+      const response = await axios.post(`${apiUrl}/chat/conversations/${selectedChat.id}/summarize`);
+      if (response.data?.summary) {
+        setConversationSummary(response.data.summary);
+        toast.success('Sumário analítico gerado pela IA com sucesso!');
+      } else {
+        toast.error('Falha ao consolidar o histórico.');
+      }
+    } catch (err) {
+      console.error('Erro ao consolidar resumo:', err);
+      toast.error('Erro ao acionar o barramento de sumários.');
+    } finally {
+      setSummarizing(false);
+    }
+  };
+
+  // Coleta se existe algum usuário ativamente digitando nesta conversa
+  const getTypingIndicatorText = () => {
+    if (!selectedChat) return null;
+    const typingList = Object.entries(typingUsers)
+      .filter(([key, isTyping]) => key.startsWith(selectedChat.contactId) && isTyping);
+
+    if (typingList.length === 0) return null;
+
+    if (typingList.length === 1) {
+      const agentId = typingList[0][0].split('_')[1];
+      const agent = agents.find((a) => a.id === agentId);
+      return `${agent?.name || 'Um atendente'} está digitando...`;
+    }
+
+    return 'Múltiplos atendentes estão digitando...';
   };
 
   return (
     <div className="space-y-6 animate-in fade-in duration-500 pb-12">
       
-      {/* PageHeader unificado */}
       <PageHeader 
-        title="Central de Mensagens"
-        description="Fale em tempo real com seus contatos integrados ou ative o Autopiloto inteligente."
+        title="Inbox Omnichannel Premium"
+        description="Painel de mensagens em tempo real integrado a múltiplos canais oficiais e piloto automático de IA."
       />
 
       <div className="h-[calc(100vh-210px)] flex bg-white border border-zinc-200 rounded-2xl overflow-hidden shadow-sm">
         
-        {/* 1. Sidebar - Chats List */}
+        {/* 1. Sidebar - Chats & Presença */}
         <div className="w-80 border-r border-zinc-200 flex flex-col bg-white">
+          {/* Header de Busca */}
           <div className="p-4 border-b border-zinc-100 bg-zinc-50/50">
             <div className="relative">
               <Search className="absolute left-3 top-2.5 size-4 text-zinc-400" />
@@ -180,51 +433,87 @@ Objetivos:
               />
             </div>
           </div>
+
           <ScrollArea className="flex-1 bg-white">
-            <div className="divide-y divide-zinc-50">
-              {conversations.map((chat) => (
-                <div 
-                  key={chat.id}
-                  onClick={() => setSelectedChat(chat)}
-                  className={cn(
-                    "p-4 flex gap-3 cursor-pointer transition-colors border-l-4",
-                    selectedChat?.id === chat.id 
-                      ? "bg-zinc-50 border-l-blue-600" 
-                      : "hover:bg-zinc-50/50 border-l-transparent"
-                  )}
-                >
-                  <Avatar className="h-10 w-10 border border-zinc-200">
-                    <AvatarFallback className="bg-blue-50 text-blue-600 font-bold text-sm">
-                      {chat.contact.name.substring(0, 2).toUpperCase()}
-                    </AvatarFallback>
-                  </Avatar>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex justify-between items-start mb-1">
-                      <h4 className={cn("text-xs truncate text-zinc-800", selectedChat?.id === chat.id ? "font-bold text-zinc-950" : "font-semibold")}>
-                        {chat.contact.name}
-                      </h4>
-                      <span className="text-[10px] text-zinc-400">{chat.time}</span>
-                    </div>
-                    <div className="flex justify-between items-center">
-                      <p className="text-[11px] text-zinc-400 truncate leading-relaxed">{chat.lastMessage}</p>
-                      {chat.unread > 0 && (
-                        <Badge className="bg-blue-600 text-[10px] h-4 w-4 p-0 flex items-center justify-center rounded-full border-none">
-                          {chat.unread}
-                        </Badge>
-                      )}
+            <div className="divide-y divide-zinc-100">
+              {conversations.length > 0 ? (
+                conversations.map((chat) => (
+                  <div 
+                    key={chat.id}
+                    onClick={() => {
+                      setSelectedChat(chat);
+                      setReplyingTo(null);
+                    }}
+                    className={cn(
+                      "p-4 flex gap-3 cursor-pointer transition-colors border-l-4",
+                      selectedChat?.id === chat.id 
+                        ? "bg-zinc-50/80 border-l-blue-600" 
+                        : "hover:bg-zinc-50/30 border-l-transparent"
+                    )}
+                  >
+                    <Avatar className="h-10 w-10 border border-zinc-150">
+                      <AvatarFallback className="bg-blue-50 text-blue-600 font-bold text-sm">
+                        {chat.contact.name.substring(0, 2).toUpperCase()}
+                      </AvatarFallback>
+                    </Avatar>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex justify-between items-start mb-1">
+                        <h4 className={cn("text-xs truncate text-zinc-800", selectedChat?.id === chat.id ? "font-bold text-zinc-950" : "font-semibold")}>
+                          {chat.contact.name}
+                        </h4>
+                        <span className="text-[10px] text-zinc-400">
+                          {new Date(chat.lastMessageTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                        </span>
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <p className="text-[11px] text-zinc-400 truncate leading-relaxed">
+                          {chat.lastMessageDirection === 'OUTBOUND' && <span className="font-semibold text-zinc-500">Você: </span>}
+                          {chat.lastMessage}
+                        </p>
+                        {chat.unreadCount > 0 && (
+                          <Badge className="bg-blue-600 hover:bg-blue-600 text-[10px] h-4 min-w-4 px-1 flex items-center justify-center rounded-full border-none">
+                            {chat.unreadCount}
+                          </Badge>
+                        )}
+                      </div>
                     </div>
                   </div>
+                ))
+              ) : (
+                <div className="p-8 text-center text-xs text-zinc-400">Nenhuma conversa encontrada.</div>
+              )}
+            </div>
+          </ScrollArea>
+
+          {/* Seção inferior mostrando agentes online/offline da empresa */}
+          <div className="p-4 border-t border-zinc-200 bg-zinc-50/50">
+            <h5 className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider mb-2.5">Presença na Organização</h5>
+            <div className="space-y-2 max-h-24 overflow-y-auto">
+              {agents.map((agent) => (
+                <div key={agent.id} className="flex items-center justify-between text-[11px]">
+                  <div className="flex items-center gap-2 text-zinc-700 font-medium">
+                    <div className="relative">
+                      <div className={cn(
+                        "w-2.5 h-2.5 rounded-full border border-white",
+                        agent.isOnline ? "bg-emerald-500" : "bg-zinc-300"
+                      )} />
+                    </div>
+                    <span>{agent.name} {agent.id === user?.id && <span className="text-[9px] text-zinc-450">(Você)</span>}</span>
+                  </div>
+                  <span className="text-[9px] text-zinc-400">
+                    {agent.isOnline ? 'Online' : 'Offline'}
+                  </span>
                 </div>
               ))}
             </div>
-          </ScrollArea>
+          </div>
         </div>
 
-        {/* 2. Main Chat Area */}
+        {/* 2. Chat Principal */}
         {selectedChat ? (
-          <div className="flex-1 flex flex-col bg-zinc-50/30">
+          <div className="flex-1 flex flex-col bg-zinc-50/20">
             
-            {/* Header */}
+            {/* Header do Chat Selecionado */}
             <div className="p-4 border-b border-zinc-200 flex items-center justify-between bg-white shadow-sm z-10">
               <div className="flex items-center gap-3">
                 <Avatar className="h-9 w-9 border border-zinc-200">
@@ -235,24 +524,24 @@ Objetivos:
                 <div>
                   <h4 className="text-xs font-bold text-zinc-800 leading-none">{selectedChat.contact.name}</h4>
                   <span className="text-[10px] text-emerald-600 font-semibold flex items-center gap-1.5 mt-1.5">
-                    <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full" /> Online
+                    <Circle className="size-2 fill-emerald-500 text-emerald-500" /> Atendimento Ativo
                   </span>
                 </div>
               </div>
               <div className="flex items-center gap-2">
                 
-                {/* Botão Autopiloto */}
+                {/* Autopiloto toggle button */}
                 <button 
                   onClick={() => setShowAiSettings(!showAiSettings)}
                   className={cn(
-                    "rounded-xl border px-3 h-9 text-xs font-bold flex items-center gap-1.5 transition-all shadow-sm",
+                    "rounded-xl border px-3 h-9 text-xs font-bold flex items-center gap-1.5 transition-all shadow-sm cursor-pointer",
                     aiEnabled 
-                      ? "border-emerald-200 bg-emerald-50 text-emerald-700" 
-                      : "border-zinc-200 bg-white text-zinc-600 hover:bg-zinc-50"
+                      ? "border-emerald-250 bg-emerald-50 text-emerald-700" 
+                      : "border-zinc-200 bg-white text-zinc-650 hover:bg-zinc-50"
                   )}
                 >
                   <Sparkles className="size-3.5 text-blue-500" />
-                  <span>Autopilot: {aiEnabled ? 'Ativo' : 'Manual'}</span>
+                  <span>Autopiloto: {aiEnabled ? 'Ativo' : 'Manual'}</span>
                 </button>
 
                 <Button variant="ghost" size="icon" className="text-zinc-400 hover:text-zinc-600 hover:bg-zinc-100 rounded-xl size-9">
@@ -264,38 +553,124 @@ Objetivos:
               </div>
             </div>
 
-            {/* Messages Area */}
+            {/* Balões de Mensagem */}
             <div className="flex-1 overflow-y-auto p-6 space-y-4" ref={scrollRef}>
-              {messages.map((msg) => (
-                <div 
-                  key={msg.id}
-                  className={cn(
-                    "flex w-full",
-                    msg.direction === 'OUTBOUND' ? "justify-end" : "justify-start"
-                  )}
-                >
-                  <div className={cn(
-                    "max-w-[70%] p-3.5 rounded-2xl text-sm leading-relaxed",
-                    msg.direction === 'OUTBOUND' 
-                      ? "bg-blue-600 text-white rounded-tr-none shadow-sm" 
-                      : "bg-white text-zinc-800 border border-zinc-200 rounded-tl-none shadow-sm"
-                  )}>
-                    {msg.content}
-                    <div className="text-[9px] mt-1.5 text-right opacity-60 flex items-center justify-end gap-1.5">
-                      {msg.metadata?.aiGenerated && (
-                        <Badge className="bg-emerald-50 text-emerald-700 border border-emerald-100 hover:bg-emerald-50 text-[8px] h-4 px-1.5 rounded-full border-none font-bold select-none tracking-wide">
-                          PulseAI
-                        </Badge>
+              {messages.map((msg) => {
+                const isOutbound = msg.direction === 'OUTBOUND';
+                const hasReactions = msg.metadata?.reactions && msg.metadata.reactions.length > 0;
+                const quoted = msg.metadata?.quotedMessage;
+
+                return (
+                  <div 
+                    key={msg.id}
+                    className={cn(
+                      "flex w-full group relative mb-2",
+                      isOutbound ? "justify-end" : "justify-start"
+                    )}
+                  >
+                    {/* Barra de Reação Rápida (Exibida no hover) */}
+                    <div className={cn(
+                      "absolute -top-7 hidden group-hover:flex items-center bg-white border border-zinc-200 rounded-full px-2 py-1 shadow-md gap-1.5 z-20 transition-all duration-200",
+                      isOutbound ? "right-2" : "left-2"
+                    )}>
+                      {['👍', '❤️', '🔥', '😂'].map((emoji) => (
+                        <button 
+                          key={emoji}
+                          onClick={() => handleReact(msg.id, emoji)}
+                          className="hover:scale-130 transition-transform cursor-pointer text-xs p-0.5"
+                        >
+                          {emoji}
+                        </button>
+                      ))}
+                      <div className="w-px h-3 bg-zinc-200 mx-0.5" />
+                      <button 
+                        onClick={() => setReplyingTo(msg)}
+                        className="text-[10px] text-zinc-500 font-bold hover:text-blue-600 flex items-center gap-0.5 cursor-pointer px-1"
+                      >
+                        <CornerUpLeft className="size-3" /> Responder
+                      </button>
+                    </div>
+
+                    <div className="max-w-[70%] relative flex flex-col">
+                      {/* Exibição da Mensagem Citada / Respondida */}
+                      {quoted && (
+                        <div className={cn(
+                          "px-3 py-1.5 rounded-t-xl text-[11px] bg-zinc-100 border-l-4 border-blue-500 text-zinc-600 truncate mb-[-4px] opacity-85",
+                          isOutbound ? "self-end" : "self-start"
+                        )}>
+                          <span className="font-semibold text-zinc-700 block text-[9px] uppercase">{quoted.senderName}</span>
+                          {quoted.content}
+                        </div>
                       )}
-                      {new Date(msg.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+
+                      <div className={cn(
+                        "p-3.5 rounded-2xl text-sm leading-relaxed relative",
+                        isOutbound 
+                          ? "bg-blue-600 text-white rounded-tr-none shadow-sm" 
+                          : "bg-white text-zinc-800 border border-zinc-200 rounded-tl-none shadow-sm"
+                      )}>
+                        {msg.content}
+
+                        {/* Visualização das reações sob o balão */}
+                        {hasReactions && (
+                          <div className={cn(
+                            "absolute flex items-center gap-1 bg-white border border-zinc-200 rounded-full py-0.5 px-1.5 shadow-sm text-[10px] bottom-[-10px] z-10",
+                            isOutbound ? "right-3" : "left-3"
+                          )}>
+                            {msg.metadata.reactions.map((r: any, idx: number) => (
+                              <span key={idx} title={`Reagido por atendente`} className="select-none">
+                                {r.emoji}
+                              </span>
+                            ))}
+                          </div>
+                        )}
+
+                        <div className="text-[9px] mt-1.5 text-right opacity-60 flex items-center justify-end gap-1.5 select-none">
+                          {msg.metadata?.aiGenerated && (
+                            <Badge className="bg-emerald-50 text-emerald-700 border border-emerald-100 hover:bg-emerald-50 text-[8px] h-4 px-1.5 rounded-full border-none font-bold select-none tracking-wide">
+                              PulseAI
+                            </Badge>
+                          )}
+                          {new Date(msg.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                        </div>
+                      </div>
                     </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
+
+              {/* Indicador de Digitando... */}
+              {getTypingIndicatorText() && (
+                <motion.div 
+                  initial={{ opacity: 0, y: 5 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="flex items-center gap-2 text-xs text-zinc-400 font-medium italic mt-2"
+                >
+                  <Circle className="size-2 fill-zinc-300 text-zinc-300 animate-pulse" />
+                  <span>{getTypingIndicatorText()}</span>
+                </motion.div>
+              )}
             </div>
 
-            {/* Input Area */}
-            <div className="p-4 bg-white border-t border-zinc-200">
+            {/* Input e Ações */}
+            <div className="p-4 bg-white border-t border-zinc-250 flex flex-col gap-2">
+              
+              {/* Banner de Mensagem Citada */}
+              {replyingTo && (
+                <div className="flex items-center justify-between bg-zinc-50 border border-zinc-200 rounded-xl px-4 py-2 text-xs">
+                  <div className="flex items-center gap-2 text-zinc-650 truncate">
+                    <CornerUpLeft className="size-3.5 text-blue-500 shrink-0" />
+                    <span>Respondendo a <strong className="text-zinc-800">{replyingTo.direction === 'OUTBOUND' ? 'Você' : selectedChat.contact.name}</strong>: <em className="italic">{replyingTo.content}</em></span>
+                  </div>
+                  <button 
+                    onClick={() => setReplyingTo(null)}
+                    className="p-1 text-zinc-400 hover:text-zinc-600 hover:bg-zinc-150 rounded-lg cursor-pointer"
+                  >
+                    <X className="size-3.5" />
+                  </button>
+                </div>
+              )}
+
               <div className="flex items-center gap-2 bg-zinc-50 p-1.5 rounded-xl border border-zinc-200 shadow-sm focus-within:ring-2 focus-within:ring-blue-500/20 focus-within:border-blue-500 transition-all">
                 <Button variant="ghost" size="icon" className="text-zinc-400 hover:text-zinc-600 hover:bg-zinc-200 rounded-lg size-9">
                   <Paperclip className="size-4" />
@@ -304,14 +679,27 @@ Objetivos:
                   placeholder="Digite sua mensagem..." 
                   className="border-none bg-transparent text-zinc-800 focus:outline-none placeholder:text-zinc-400 text-sm flex-1 ml-2"
                   value={newMessage}
-                  onChange={(e) => setNewMessage(e.target.value)}
+                  onChange={(e) => handleInputChange(e.target.value)}
                   onKeyPress={(e) => e.key === 'Enter' && handleSend()}
                 />
+                
+                {/* Botão Copiloto IA (Sugerir Resposta) */}
+                <Button 
+                  variant="ghost" 
+                  size="icon" 
+                  onClick={handleSuggestReply}
+                  disabled={suggesting}
+                  className="text-zinc-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg size-9 cursor-pointer"
+                  title="Sugerir Resposta via Copiloto de IA"
+                >
+                  <Sparkles className={cn("size-4 text-blue-550", suggesting && "animate-spin text-blue-600")} />
+                </Button>
+
                 <Button variant="ghost" size="icon" className="text-zinc-400 hover:text-zinc-600 hover:bg-zinc-200 rounded-lg size-9">
                   <Smile className="size-4" />
                 </Button>
                 <button 
-                  className="bg-blue-600 hover:bg-blue-700 h-9 w-9 p-0 rounded-lg flex items-center justify-center transition-colors shadow-sm text-white"
+                  className="bg-blue-600 hover:bg-blue-700 h-9 w-9 p-0 rounded-lg flex items-center justify-center transition-colors shadow-sm text-white cursor-pointer"
                   onClick={handleSend}
                 >
                   <Send className="size-4" />
@@ -320,16 +708,16 @@ Objetivos:
             </div>
           </div>
         ) : (
-          <div className="flex-1 flex flex-col items-center justify-center text-zinc-400 space-y-4 bg-zinc-50/20">
+          <div className="flex-1 flex flex-col items-center justify-center text-zinc-450 space-y-4 bg-zinc-50/20">
             <div className="size-14 rounded-2xl bg-zinc-50 border border-zinc-200 flex items-center justify-center mb-1 text-zinc-400 shadow-sm">
               <Bot className="size-6 text-zinc-400" />
             </div>
             <p className="text-sm font-semibold text-zinc-700">Selecione uma conversa para começar</p>
-            <p className="text-xs text-zinc-400 max-w-xs text-center leading-relaxed">Clique em algum contato na barra lateral para iniciar a qualificação manual ou ative o piloto automático.</p>
+            <p className="text-xs text-zinc-400 max-w-xs text-center leading-relaxed">Clique em algum contato na barra lateral para iniciar a qualificação manual ou ative o piloto automático de IA.</p>
           </div>
         )}
 
-        {/* 3. Details / AI Settings Sidebar */}
+        {/* 3. Barra Lateral de Configurações de IA */}
         {selectedChat && (
           showAiSettings ? (
             <div className="w-80 border-l border-zinc-200 bg-white p-5 hidden lg:flex flex-col animate-in slide-in-from-right duration-300 overflow-y-auto">
@@ -340,15 +728,13 @@ Objetivos:
                 </div>
                 <button 
                   onClick={() => setShowAiSettings(false)}
-                  className="text-xs font-bold text-blue-600 hover:underline"
+                  className="text-xs font-bold text-blue-600 hover:underline cursor-pointer"
                 >
                   Voltar
                 </button>
               </div>
 
-              {/* Form Configs */}
               <div className="space-y-5 text-left">
-                
                 <div className="flex items-center justify-between p-3.5 rounded-xl bg-zinc-50 border border-zinc-200/80">
                   <div>
                     <span className="text-xs font-bold text-zinc-800 block">Ativar IA</span>
@@ -367,7 +753,7 @@ Objetivos:
                   <select 
                     value={aiModel}
                     onChange={(e) => setAiModel(e.target.value)}
-                    className="w-full bg-white border border-zinc-200 rounded-xl p-2.5 text-xs text-zinc-800 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 shadow-sm"
+                    className="w-full bg-white border border-zinc-200 rounded-xl p-2.5 text-xs text-zinc-800 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 shadow-sm cursor-pointer"
                   >
                     <option value="gemini">Google Gemini 1.5 Flash</option>
                     <option value="openai">OpenAI GPT-4o Mini</option>
@@ -390,14 +776,14 @@ Objetivos:
                   <div className="grid grid-cols-2 gap-1.5">
                     <button 
                       onClick={() => handleApplyPreset('barbearia')}
-                      className="p-2.5 rounded-xl bg-zinc-50 border border-zinc-200 text-[10px] text-zinc-700 hover:bg-blue-50 hover:border-blue-200 transition-all text-left flex flex-col gap-0.5"
+                      className="p-2.5 rounded-xl bg-zinc-50 border border-zinc-200 text-[10px] text-zinc-700 hover:bg-blue-50 hover:border-blue-200 transition-all text-left flex flex-col gap-0.5 cursor-pointer"
                     >
                       <span className="font-bold text-zinc-800">💆 Barbearia</span>
                       <span className="text-[8px] text-zinc-400">Agendar cortes</span>
                     </button>
                     <button 
                       onClick={() => handleApplyPreset('mecanica')}
-                      className="p-2.5 rounded-xl bg-zinc-50 border border-zinc-200 text-[10px] text-zinc-700 hover:bg-blue-50 hover:border-blue-200 transition-all text-left flex flex-col gap-0.5"
+                      className="p-2.5 rounded-xl bg-zinc-50 border border-zinc-200 text-[10px] text-zinc-700 hover:bg-blue-50 hover:border-blue-200 transition-all text-left flex flex-col gap-0.5 cursor-pointer"
                     >
                       <span className="font-bold text-zinc-800">🚗 Oficina</span>
                       <span className="text-[8px] text-zinc-400">Revisões mecânicas</span>
@@ -426,66 +812,92 @@ Objetivos:
               </div>
             </div>
           ) : (
-            <div className="w-72 border-l border-zinc-200 bg-white p-6 hidden lg:flex flex-col animate-in slide-in-from-right duration-300">
-              <div className="flex flex-col items-center mb-8">
-                <Avatar className="h-16 w-16 mb-4 border border-zinc-200">
+            <div className="w-72 border-l border-zinc-200 bg-white p-6 hidden lg:flex flex-col animate-in slide-in-from-right duration-300 overflow-y-auto">
+              
+              {/* Avatar e Perfil */}
+              <div className="flex flex-col items-center mb-6">
+                <Avatar className="h-16 w-16 mb-4 border border-zinc-200 shadow-sm">
                   <AvatarFallback className="bg-blue-50 text-blue-600 text-xl font-bold">
                     {selectedChat.contact.name.substring(0, 2).toUpperCase()}
                   </AvatarFallback>
                 </Avatar>
                 <h3 className="text-base font-bold text-zinc-900">{selectedChat.contact.name}</h3>
-                <Badge className="mt-2 bg-blue-50 text-blue-600 border border-blue-100 hover:bg-blue-50 text-[10px] font-bold py-0.5 px-2 rounded-full">
+                <Badge className="mt-2 bg-blue-50 text-blue-600 border border-blue-100 hover:bg-blue-50 text-[10px] font-bold py-0.5 px-2 rounded-full border-none">
                   Lead Qualificado
                 </Badge>
               </div>
 
+              {/* 3.1 Resumo Dinâmico via IA */}
+              <div className="p-4 rounded-xl bg-zinc-50 border border-zinc-200 text-left mb-6 shadow-sm">
+                <div className="flex items-center gap-1.5 text-zinc-800 font-bold text-[11px] uppercase tracking-wider mb-2.5">
+                  <Sparkles className="size-3.5 text-blue-650" />
+                  <span>Resumo via PulseAI</span>
+                </div>
+                {conversationSummary ? (
+                  <div className="space-y-2">
+                    <p className="text-[11px] text-zinc-600 leading-relaxed whitespace-pre-line font-medium">{conversationSummary}</p>
+                    <button 
+                      onClick={handleGenerateSummary}
+                      disabled={summarizing}
+                      className="text-[9px] font-bold text-blue-600 hover:underline flex items-center gap-1 mt-2.5 cursor-pointer"
+                    >
+                      {summarizing ? 'Atualizando...' : 'Recalcular Resumo'}
+                    </button>
+                  </div>
+                ) : (
+                  <div className="text-center py-2">
+                    <p className="text-[10px] text-zinc-450 mb-2.5">Nenhum resumo gerado para este chat.</p>
+                    <Button 
+                      onClick={handleGenerateSummary}
+                      disabled={summarizing}
+                      className="w-full bg-white hover:bg-zinc-55 border border-zinc-200 text-zinc-700 text-[10px] font-bold h-7 rounded-lg shadow-sm cursor-pointer flex items-center justify-center gap-1.5"
+                    >
+                      {summarizing ? (
+                        <>
+                          <Sparkles className="size-3 text-blue-500 animate-spin" />
+                          <span>Gerando resumo...</span>
+                        </>
+                      ) : (
+                        <>
+                          <Sparkles className="size-3 text-blue-550" />
+                          <span>Gerar Resumo via IA</span>
+                        </>
+                      )}
+                    </Button>
+                  </div>
+                )}
+              </div>
+
+              {/* Informações Gerais */}
               <div className="space-y-6">
                 <div>
-                  <p className="text-[10px] text-zinc-400 uppercase font-bold tracking-wider mb-3">Informações</p>
-                  <div className="space-y-3">
-                    <div className="flex items-center gap-3 text-xs text-zinc-600">
-                      <Phone className="size-4 text-zinc-400" />
+                  <p className="text-[10px] text-zinc-400 uppercase font-bold tracking-wider mb-3">Informações de Contato</p>
+                  <div className="space-y-3 text-left">
+                    <div className="flex items-center gap-3 text-xs text-zinc-650">
+                      <Phone className="size-4 text-zinc-400 shrink-0" />
                       {selectedChat.contact.phone}
                     </div>
-                    <div className="flex items-center gap-3 text-xs text-zinc-600">
-                      <Mail className="size-4 text-zinc-400" />
-                      marcelo@exemplo.com
+                    <div className="flex items-center gap-3 text-xs text-zinc-655">
+                      <Mail className="size-4 text-zinc-400 shrink-0" />
+                      {selectedChat.contact.email || `${selectedChat.contact.name.toLowerCase().replace(/\s+/g, '')}@exemplo.com`}
                     </div>
                   </div>
                 </div>
 
-                <div className="pt-6 border-t border-zinc-100">
-                  <p className="text-[10px] text-zinc-400 uppercase font-bold tracking-wider mb-3">Ações Comerciais</p>
+                <div className="pt-6 border-t border-zinc-150">
+                  <p className="text-[10px] text-zinc-400 uppercase font-bold tracking-wider mb-3">Ações de Vendas</p>
                   <div className="grid grid-cols-2 gap-2">
-                    <Button variant="outline" className="text-xs border-zinc-200 hover:bg-zinc-50 text-zinc-700 h-auto py-2.5 rounded-xl">Criar Pedido</Button>
-                    <Button variant="outline" className="text-xs border-zinc-200 hover:bg-zinc-50 text-zinc-700 h-auto py-2.5 rounded-xl">Novo Negócio</Button>
+                    <Button variant="outline" className="text-xs border-zinc-200 hover:bg-zinc-50 text-zinc-700 h-auto py-2.5 rounded-xl cursor-pointer">Criar Pedido</Button>
+                    <Button variant="outline" className="text-xs border-zinc-200 hover:bg-zinc-50 text-zinc-700 h-auto py-2.5 rounded-xl cursor-pointer">Novo Negócio</Button>
                   </div>
                 </div>
               </div>
+
             </div>
           )
         )}
       </div>
 
     </div>
-  );
-}
-
-function MessageSquare({ className }: { className?: string }) {
-  return (
-    <svg 
-      xmlns="http://www.w3.org/2000/svg" 
-      width="24" 
-      height="24" 
-      viewBox="0 0 24 24" 
-      fill="none" 
-      stroke="currentColor" 
-      strokeWidth="2" 
-      strokeLinecap="round" 
-      strokeLinejoin="round" 
-      className={className}
-    >
-      <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
-    </svg>
   );
 }

@@ -36,6 +36,7 @@ export default function DashboardLayout({
     switch (route) {
       case 'dashboard': return 'Dashboard';
       case 'inbox': return 'Mensagens';
+      case 'campaigns': return 'Campanhas em Massa';
       case 'pipeline': return 'Pipeline';
       case 'contacts': return 'Contatos';
       case 'finance': return 'Financeiro';

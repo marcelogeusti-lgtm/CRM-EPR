@@ -33,6 +33,9 @@ import { AutomationController } from './automation.controller';
 import { BillingModule } from './billing/billing.module';
 import { WorkflowModule } from './workflow/workflow.module';
 import { AuditLogModule } from './audit-log.module';
+import { ChannelsModule } from './channels/channels.module';
+import { ChatModule } from './chat.module';
+import { CampaignsModule } from './campaigns.module';
 
 import { EventEmitterModule } from '@nestjs/event-emitter';
 import { AnalyticsModule } from './analytics.module';
@@ -53,6 +56,9 @@ import { AnalyticsModule } from './analytics.module';
     BillingModule,
     WorkflowModule,
     AuditLogModule,
+    ChannelsModule,
+    ChatModule,
+    CampaignsModule,
   ],
   controllers: [AppController],
   providers: [AppService, PrismaService],
@@ -62,4 +68,3 @@ export class AppModule implements NestModule {
     consumer.apply(TenantMiddleware).forRoutes('*');
   }
 }
-

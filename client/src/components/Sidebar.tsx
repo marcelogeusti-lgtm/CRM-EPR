@@ -14,13 +14,15 @@ import {
   CreditCard,
   Package,
   Zap,
-  Bot
+  Bot,
+  Megaphone
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 
 const menuItems = [
   { icon: LayoutDashboard, label: 'Dashboard', href: '/dashboard' },
   { icon: MessageSquare, label: 'Mensagens', href: '/inbox' },
+  { icon: Megaphone, label: 'Campanhas', href: '/campaigns' },
   { icon: Kanban, label: 'Pipeline', href: '/pipeline' },
   { icon: Users, label: 'Contatos', href: '/contacts' },
   { icon: CreditCard, label: 'Financeiro', href: '/finance' },

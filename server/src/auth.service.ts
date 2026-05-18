@@ -105,6 +105,8 @@ export class AuthService {
         email: user.email,
         name: user.name,
         role: user.role,
+        isOnline: user.isOnline,
+        lastActiveAt: user.lastActiveAt,
       },
       token,
       tenant: user.tenant,
@@ -127,6 +129,8 @@ export class AuthService {
         email: user.email,
         name: user.name,
         role: user.role,
+        isOnline: user.isOnline,
+        lastActiveAt: user.lastActiveAt,
       },
       tenant: user.tenant,
     };

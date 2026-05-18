@@ -5,8 +5,10 @@ import { AIService } from './ai.service';
 import { WhatsappService } from './whatsapp.service';
 import { ChatGateway } from './chat.gateway';
 import { PrismaService } from './prisma.service';
+import { WorkflowModule } from './workflow/workflow.module';
 
 @Module({
+  imports: [WorkflowModule],
   controllers: [AutomationController],
   providers: [
     AutomationService,
