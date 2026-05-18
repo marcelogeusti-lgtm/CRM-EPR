@@ -25,7 +25,9 @@ import {
   TrendingUp,
   Award,
   Users,
-  Target
+  Target,
+  FileText,
+  AlertTriangle
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { PageHeader } from '@/components/system/PageHeader';
@@ -45,15 +47,28 @@ export default function DashboardPage() {
         setStats(response.data);
       } catch (error) {
         setStats({
-          summary: { mrr: 15400, activeDeals: 42, pipelineValue: 125000, newContacts: 128 },
+          summary: { 
+            mrr: 15400, 
+            activeDeals: 42, 
+            pipelineValue: 125000, 
+            newContacts: 128,
+            totalInadimplente: 1850.00,
+            countInadimplente: 3,
+            orders: {
+              total: 32,
+              pending: 8,
+              completed: 24,
+              value: 48900
+            }
+          },
           trends: [
-            { month: '17 de abr.', value: 0 },
-            { month: '21 de abr.', value: 0 },
-            { month: '28 de abr.', value: 0 },
-            { month: '04 de mai.', value: 0 },
-            { month: '12 de mai.', value: 0 },
-            { month: '16 de mai.', value: 80 },
-            { month: '17 de mai.', value: 10 }
+            { month: '17 de abr.', value: 12000 },
+            { month: '21 de abr.', value: 13500 },
+            { month: '28 de abr.', value: 13000 },
+            { month: '04 de mai.', value: 14200 },
+            { month: '12 de mai.', value: 15100 },
+            { month: '16 de mai.', value: 15300 },
+            { month: '17 de mai.', value: 15400 }
           ]
         });
       } finally {
@@ -118,26 +133,49 @@ export default function DashboardPage() {
         }
       />
 
-      {/* Grid de Cards de Métricas */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        {/* Bloco 1: Saldo */}
+      {/* Grid de Cards de Métricas (Faturamento, OS, Inadimplentes, Funil e Conquistas) */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+        {/* Bloco 1: Faturamento Mensal */}
         <StatsCard 
-          title="Saldo disponível"
-          value="R$ 1.250,99"
-          description="Pendente: R$ 10,21"
+          title="Faturamento Mensal (MRR)"
+          value={formatCurrency(stats.summary.mrr)}
+          description="Receita líquida aprovada"
           icon={CreditCard}
+          trend={{ value: "+18.4%", isUp: true }}
         />
 
-        {/* Bloco 2: Vendas */}
+        {/* Bloco 2: Ordens de Serviço (OS) */}
         <StatsCard 
-          title="Vendas aprovadas"
-          value={stats.summary.activeDeals}
-          description="Ticket médio: R$ 29,78"
-          icon={Target}
-          trend={{ value: "+12.5%", isUp: true }}
+          title="Ordens de Serviço (OS)"
+          value={stats.summary.orders.total}
+          description={`${stats.summary.orders.completed} concluídas • ${stats.summary.orders.pending} pendentes`}
+          icon={FileText}
+          trend={{ value: `R$ ${stats.summary.orders.value / 1000}k`, isUp: true }}
         />
 
-        {/* Bloco 3: Gamificação */}
+        {/* Bloco 3: Inadimplência Vencida */}
+        <StatsCard 
+          title="Inadimplência (Vencidos)"
+          value={formatCurrency(stats.summary.totalInadimplente || 0)}
+          description={`${stats.summary.countInadimplente || 0} cobranças pendentes`}
+          icon={AlertTriangle}
+          trend={{ 
+            value: stats.summary.countInadimplente > 0 ? "Atenção" : "Em dia", 
+            isUp: stats.summary.countInadimplente === 0 
+          }}
+          className={stats.summary.countInadimplente > 0 ? "border-red-200/60 bg-red-50/5/30" : ""}
+        />
+
+        {/* Bloco 4: Pipeline / Funil */}
+        <StatsCard 
+          title="Valor do Funil"
+          value={formatCurrency(stats.summary.pipelineValue)}
+          description={`${stats.summary.activeDeals} negócios ativos`}
+          icon={Target}
+          trend={{ value: "+8.9%", isUp: true }}
+        />
+
+        {/* Bloco 5: Gamificação */}
         <motion.div
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}

@@ -13,7 +13,7 @@ export class AnalyticsService {
     const now = new Date();
     const firstDayOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
 
-    // 1. Financial Summary
+    // 1. Financial Summary (Faturamento Líquido)
     const transactions = await this.prisma.transaction.findMany({
       where: { 
         tenantId,
@@ -26,7 +26,30 @@ export class AnalyticsService {
       .filter(t => t.type === 'INCOME')
       .reduce((sum, t) => sum + t.amount.toNumber(), 0);
 
-    // 2. Sales Pipeline Summary
+    // 2. Inadimplência (Contas a Receber Vencidas)
+    const defaultingTransactions = await this.prisma.transaction.findMany({
+      where: {
+        tenantId,
+        type: 'INCOME',
+        status: 'PENDING',
+        dueDate: { lt: now }
+      }
+    });
+
+    const totalInadimplente = defaultingTransactions.reduce((sum, t) => sum + t.amount.toNumber(), 0);
+    const countInadimplente = defaultingTransactions.length;
+
+    // 3. Ordens de Serviço / Vendas de Serviço (OS / Orders)
+    const totalOrders = await this.prisma.order.count({ where: { tenantId } });
+    const pendingOrders = await this.prisma.order.count({ where: { tenantId, status: 'PENDING' } });
+    const completedOrders = await this.prisma.order.count({ where: { tenantId, status: 'COMPLETED' } });
+    
+    const ordersValue = await this.prisma.order.aggregate({
+      where: { tenantId },
+      _sum: { total: true }
+    });
+
+    // 4. Sales Pipeline Summary
     const activeDeals = await this.prisma.deal.count({
       where: { contact: { tenantId }, status: 'OPEN' }
     });
@@ -36,7 +59,7 @@ export class AnalyticsService {
       _sum: { value: true }
     });
 
-    // 3. Customer Engagement
+    // 5. Customer Engagement
     const newContacts = await this.prisma.contact.count({
       where: { 
         tenantId,
@@ -44,7 +67,7 @@ export class AnalyticsService {
       }
     });
 
-    // 4. Monthly Trend (last 6 months)
+    // 6. Monthly Trend (last 6 months)
     const trends = await this.getMonthlyTrends(tenantId);
 
     return {
@@ -53,6 +76,14 @@ export class AnalyticsService {
         activeDeals,
         pipelineValue: pipelineValue._sum?.value?.toNumber() || 0,
         newContacts,
+        totalInadimplente,
+        countInadimplente,
+        orders: {
+          total: totalOrders,
+          pending: pendingOrders,
+          completed: completedOrders,
+          value: ordersValue._sum?.total?.toNumber() || 0
+        }
       },
       trends,
     };
