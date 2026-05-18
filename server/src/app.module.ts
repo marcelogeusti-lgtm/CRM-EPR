@@ -36,6 +36,7 @@ import { AuditLogModule } from './audit-log.module';
 import { ChannelsModule } from './channels/channels.module';
 import { ChatModule } from './chat.module';
 import { CampaignsModule } from './campaigns.module';
+import { ContactsModule } from './contacts.module';
 
 import { EventEmitterModule } from '@nestjs/event-emitter';
 import { AnalyticsModule } from './analytics.module';
@@ -59,6 +60,7 @@ import { AnalyticsModule } from './analytics.module';
     ChannelsModule,
     ChatModule,
     CampaignsModule,
+    ContactsModule,
   ],
   controllers: [AppController],
   providers: [AppService, PrismaService],
