@@ -15,7 +15,10 @@ import {
   Package,
   Zap,
   Bot,
-  Megaphone
+  Megaphone,
+  Wrench,
+  Shield,
+  ArrowRightLeft
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 
@@ -27,8 +30,11 @@ const menuItems = [
   { icon: Users, label: 'Contatos', href: '/contacts' },
   { icon: CreditCard, label: 'Financeiro', href: '/finance' },
   { icon: Package, label: 'Produtos', href: '/products' },
+  { icon: ArrowRightLeft, label: 'Movimentações', href: '/inventory' },
+  { icon: Wrench, label: 'Ordens de Serviço', href: '/work-orders' },
   { icon: Bot, label: 'Automações', href: '/automations' },
   { icon: BarChart3, label: 'Relatórios', href: '/reports' },
+  { icon: Shield, label: 'Auditoria', href: '/audit-logs' },
   { icon: Zap, label: 'Assinatura', href: '/billing' },
 ];
 

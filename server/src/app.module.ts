@@ -40,6 +40,8 @@ import { ContactsModule } from './contacts.module';
 
 import { EventEmitterModule } from '@nestjs/event-emitter';
 import { AnalyticsModule } from './analytics.module';
+import { WorkOrderModule } from './work-order.module';
+import { InventoryMovementModule } from './inventory-movement.module';
 
 @Module({
   imports: [
@@ -61,6 +63,8 @@ import { AnalyticsModule } from './analytics.module';
     ChatModule,
     CampaignsModule,
     ContactsModule,
+    WorkOrderModule,
+    InventoryMovementModule,
   ],
   controllers: [AppController],
   providers: [AppService, PrismaService],

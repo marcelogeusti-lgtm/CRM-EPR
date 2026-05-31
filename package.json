@@ -10,10 +10,10 @@
     "build": "npm run build -w client",
     "install-all": "npm install"
   },
-  "dependencies": {
-    "next": "^15.2.0"
-  },
   "devDependencies": {
     "concurrently": "^8.2.2"
+  },
+  "engines": {
+    "node": ">=20"
   }
 }
