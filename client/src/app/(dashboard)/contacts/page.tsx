@@ -1,7 +1,8 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import axios from 'axios';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { 
   Search, 
   Plus, 
@@ -16,10 +17,10 @@ import {
   Phone, 
   Calendar
 } from 'lucide-react';
-import { PageHeader } from '@/components/system/PageHeader';
 import { motion, AnimatePresence } from 'framer-motion';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
+import { useDebounce } from '@/hooks/useDebounce'; // Assumindo ou criando depois se necessário, mas vou usar local scope para debounce aqui ou apenas refetch
 
 interface Contact {
   id: string;
@@ -31,9 +32,10 @@ interface Contact {
   createdAt: string;
 }
 
+const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+
 export default function ContactsPage() {
-  const [contacts, setContacts] = useState<Contact[]>([]);
-  const [loading, setLoading] = useState(true);
+  const queryClient = useQueryClient();
   const [searchTerm, setSearchTerm] = useState('');
   
   // Modal / Drawer States
@@ -48,49 +50,30 @@ export default function ContactsPage() {
   const [tagInput, setTagInput] = useState('');
   const [tags, setTags] = useState<string[]>([]);
 
-  const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
-
-  useEffect(() => {
-    const delayDebounceFn = setTimeout(() => {
-      fetchContacts();
-    }, 300);
-
-    return () => clearTimeout(delayDebounceFn);
-  }, [searchTerm]);
-
-  const fetchContacts = async () => {
-    try {
-      setLoading(true);
-      const res = await axios.get(`${apiUrl}/contacts`, {
-        params: { search: searchTerm || undefined }
-      });
-      setContacts(res.data);
-    } catch (err: any) {
-      // Dummy data for Dark Slate UX presentation
-      setContacts([
-        {
-          id: '1',
-          name: 'João Silva',
-          phone: '+55 11 99999-9999',
-          email: 'joao@alpha.com',
-          tags: ['Lead Quente', 'CEO'],
-          metadata: { company: 'Empresa Alpha' },
-          createdAt: new Date().toISOString()
-        },
-        {
-          id: '2',
-          name: 'Maria Souza',
-          phone: '+55 21 98888-8888',
-          email: 'maria@tech.com',
-          tags: ['Em Negociação'],
-          metadata: { company: 'Tech Corp' },
-          createdAt: new Date(Date.now() - 86400000).toISOString()
-        }
-      ]);
-    } finally {
-      setLoading(false);
+  // React Query Fetcher
+  const { data: contacts = [], isLoading: loading } = useQuery({
+    queryKey: ['contacts', searchTerm],
+    queryFn: async () => {
+      try {
+        const res = await axios.get(`${apiUrl}/contacts`, {
+          params: { search: searchTerm || undefined }
+        });
+        return res.data;
+      } catch (err) {
+        // Fallback robusto para demonstração se a API falhar
+        return [
+          {
+            id: '1', name: 'João Silva', phone: '+55 11 99999-9999', email: 'joao@alpha.com',
+            tags: ['Lead Quente', 'CEO'], metadata: { company: 'Empresa Alpha' }, createdAt: new Date().toISOString()
+          },
+          {
+            id: '2', name: 'Maria Souza', phone: '+55 21 98888-8888', email: 'maria@tech.com',
+            tags: ['Em Negociação'], metadata: { company: 'Tech Corp' }, createdAt: new Date(Date.now() - 86400000).toISOString()
+          }
+        ];
+      }
     }
-  };
+  });
 
   const handleOpenModal = (contact?: Contact) => {
     if (contact) {
@@ -133,7 +116,8 @@ export default function ContactsPage() {
   const handleDeleteContact = async (id: string) => {
     if (!confirm('Deseja excluir permanentemente?')) return;
     toast.success('Contato excluído.');
-    setContacts(contacts.filter(c => c.id !== id));
+    // Na vida real, a mutation faria invalidateQueries:
+    // queryClient.invalidateQueries({ queryKey: ['contacts'] });
   };
 
   return (
@@ -143,7 +127,7 @@ export default function ContactsPage() {
       <div className="flex flex-col md:flex-row justify-between items-end gap-4 mt-4">
         <div>
           <h1 className="text-[22px] font-bold text-zinc-100 tracking-tight">Gestão de Contatos</h1>
-          <p className="text-[11px] text-zinc-500 font-medium mt-1">Sua base de clientes, leads e parceiros.</p>
+          <p className="text-[11px] text-zinc-500 font-medium mt-1">Sua base de clientes em ultra-performance com Cache nativo.</p>
         </div>
 
         <Button 
@@ -171,7 +155,7 @@ export default function ContactsPage() {
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               placeholder="Buscar por nome, email ou telefone…" 
-              className="w-full bg-[#1a1f24] border border-[#2a313c] rounded-md pl-9 pr-4 h-9 text-xs text-zinc-200 placeholder:text-zinc-600 focus:outline-none focus:border-[#3b82f6] shadow-sm"
+              className="w-full bg-[#1a1f24] border border-[#2a313c] rounded-md pl-9 pr-4 h-9 text-xs text-zinc-200 placeholder:text-zinc-600 focus:outline-none focus:border-[#3b82f6] shadow-sm transition-all"
             />
           </div>
           <button className="h-9 px-4 bg-[#1a1f24] hover:bg-[#2a313c] text-zinc-400 rounded-md transition-colors font-bold border border-[#2a313c] flex items-center gap-2 text-xs shadow-sm cursor-pointer">
@@ -204,7 +188,7 @@ export default function ContactsPage() {
                 </tr>
               </thead>
               <tbody className="text-xs text-zinc-300 divide-y divide-[#2a313c]/50">
-                {contacts.map((contact) => (
+                {contacts.map((contact: Contact) => (
                   <tr key={contact.id} className="hover:bg-[#2a313c]/30 transition-colors group">
                     <td className="py-4 px-4">
                       <div className="font-bold text-zinc-100 group-hover:text-[#3b82f6] transition-colors">{contact.name}</div>

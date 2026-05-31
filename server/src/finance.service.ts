@@ -1,10 +1,37 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, Logger } from '@nestjs/common';
 import { PrismaService } from './prisma.service';
 import { getTenantId } from './tenant.context';
+import { OnEvent } from '@nestjs/event-emitter';
 
 @Injectable()
 export class FinanceService {
+  private readonly logger = new Logger(FinanceService.name);
+
   constructor(private prisma: PrismaService) {}
+
+  @OnEvent('deal.moved')
+  async handleDealMoved(payload: { tenantId: string, dealId: string, fromStage: string, toStage: string, deal: any }) {
+    if (payload.toStage.toLowerCase().includes('ganho') || payload.toStage.toLowerCase().includes('fechado')) {
+      this.logger.log(`Deal ${payload.dealId} moved to Ganho/Fechado. Auto-generating invoice...`);
+      
+      try {
+        await this.prisma.transaction.create({
+          data: {
+            tenantId: payload.tenantId,
+            dealId: payload.dealId,
+            type: 'INCOME',
+            status: 'PENDING',
+            amount: payload.deal.value || 0,
+            description: `Fatura gerada auto: ${payload.deal.title}`,
+            dueDate: new Date(Date.now() + 86400000 * 3), // Vence em 3 dias
+          }
+        });
+        this.logger.log(`Invoice for deal ${payload.dealId} generated successfully.`);
+      } catch (err) {
+        this.logger.error(`Failed to generate invoice for deal ${payload.dealId}: ${err.message}`);
+      }
+    }
+  }
 
   async getDashboard() {
     const tenantId = getTenantId();
