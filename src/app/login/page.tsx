@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { login, signup } from './actions'
-import { Box, Lock, Mail, ArrowRight, Github } from 'lucide-react'
+import { Box, Lock, Mail, ArrowRight } from 'lucide-react'
 
 export default function LoginPage() {
   const [isLogin, setIsLogin] = useState(true)
