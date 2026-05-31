@@ -175,8 +175,8 @@ export default function PipelinePage() {
           onDragEnd={onDragEnd}
         >
           <div className="flex gap-4 h-full min-w-max">
-            {activePipeline?.stages.map((stage: any) => (
-              <KanbanColumn key={stage.id} stage={stage} />
+            {activePipeline?.stages.map((stage: any, index: number) => (
+              <KanbanColumn key={stage.id} stage={stage} index={index} />
             ))}
           </div>
 
@@ -190,7 +190,7 @@ export default function PipelinePage() {
             }),
           }}>
             {activeId ? (
-              <div className="w-[300px]">
+              <div className="w-[280px]">
                 <KanbanCard deal={activeDeal} isOverlay />
               </div>
             ) : null}

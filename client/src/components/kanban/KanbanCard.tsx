@@ -4,8 +4,6 @@ import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { Card, CardContent } from '@/components/ui/card';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import { Badge } from '@/components/ui/badge';
-import { Calendar, DollarSign, GripVertical } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface KanbanCardProps {
@@ -39,7 +37,7 @@ export function KanbanCard({ deal, isOverlay }: KanbanCardProps) {
       <div 
         ref={setNodeRef}
         style={style}
-        className="h-32 bg-blue-50/50 border-2 border-dashed border-blue-200 rounded-2xl opacity-40 transition-all"
+        className="h-[104px] bg-zinc-800/20 border border-dashed border-zinc-700 rounded-[10px] opacity-50 transition-all"
       />
     );
   }
@@ -48,44 +46,46 @@ export function KanbanCard({ deal, isOverlay }: KanbanCardProps) {
     <Card 
       ref={setNodeRef}
       style={style}
+      {...attributes} 
+      {...listeners}
       className={cn(
-        "bg-zinc-900/80 backdrop-blur-md border-zinc-800 hover:border-blue-500/50 hover:shadow-[0_0_15px_rgba(59,130,246,0.3)] transition-all duration-200 cursor-grab active:cursor-grabbing group rounded-xl shadow-sm",
-        isOverlay && "rotate-2 scale-105 border-blue-500 shadow-[0_0_20px_rgba(59,130,246,0.4)] z-50 bg-zinc-900"
+        "bg-[#18181b] border border-[#27272a] hover:border-[#3f3f46] hover:bg-[#1f1f22] transition-colors duration-150 cursor-grab active:cursor-grabbing group rounded-[8px] shadow-sm relative overflow-hidden",
+        isOverlay && "rotate-2 scale-105 border-[#52525b] shadow-xl z-50 bg-[#1f1f22]"
       )}
     >
-      <CardContent className="p-4 space-y-3">
-        <div className="flex items-start justify-between">
-          <div className="flex items-center gap-2 min-w-0">
-            <div 
-              {...attributes} 
-              {...listeners} 
-              className="opacity-0 group-hover:opacity-100 transition-opacity p-0.5 hover:bg-zinc-800 rounded cursor-grab shrink-0"
-            >
-              <GripVertical className="size-3.5 text-zinc-500" />
+      {/* Indicador sutil de cor no lado esquerdo do Card (padrão CRM) */}
+      <div className="absolute left-0 top-0 bottom-0 w-[3px] bg-transparent group-hover:bg-blue-500/80 transition-colors duration-200" />
+      
+      <CardContent className="p-3.5 pl-4 flex flex-col gap-3">
+        {/* Topo: Título e Menu */}
+        <div className="flex justify-between items-start gap-3">
+          <div className="flex-1 min-w-0">
+            <h4 className="font-semibold text-zinc-200 text-[13px] leading-snug truncate">{deal.title}</h4>
+            <div className="flex items-center gap-2 mt-1">
+              <span className="text-[11px] text-zinc-500 font-medium truncate">
+                {deal.contact?.name || 'Sem Contato'}
+              </span>
+              {deal.contact?.name && (
+                <span className="flex-shrink-0 size-1.5 rounded-full bg-emerald-500/40" />
+              )}
             </div>
-            <h4 className="font-bold text-zinc-100 text-xs leading-snug truncate">{deal.title}</h4>
           </div>
-          <Avatar className="size-6 border border-zinc-700 flex-shrink-0">
-            <AvatarFallback className="bg-zinc-800 text-zinc-300 text-[10px] font-bold">
-              {deal.contact?.name?.substring(0, 2).toUpperCase() || '??'}
-            </AvatarFallback>
-          </Avatar>
+          {deal.contact?.name && (
+            <Avatar className="size-[22px] border border-zinc-700/50 flex-shrink-0">
+              <AvatarFallback className="bg-zinc-800 text-zinc-400 text-[9px] font-bold">
+                {deal.contact.name.substring(0, 2).toUpperCase()}
+              </AvatarFallback>
+            </Avatar>
+          )}
         </div>
 
-        <div className="flex items-center gap-2">
-          <Badge className="bg-blue-500/10 text-blue-400 border border-blue-500/20 hover:bg-blue-500/20 text-[10px] py-0 px-2 rounded-full font-semibold">
-            {deal.contact?.name || 'Sem Contato'}
-          </Badge>
-        </div>
-
-        <div className="flex items-center justify-between pt-2 border-t border-zinc-800/50 text-[11px] text-zinc-500">
-          <div className="flex items-center gap-1 font-bold text-blue-400">
-            <DollarSign className="size-3" />
-            <span>{formatCurrency(deal.value)}</span>
+        {/* Rodapé: Valor e Data */}
+        <div className="flex items-center justify-between pt-1">
+          <div className="font-semibold text-[12px] text-zinc-300">
+            {formatCurrency(deal.value)}
           </div>
-          <div className="flex items-center gap-1">
-            <Calendar className="size-3" />
-            <span>2d atrás</span>
+          <div className="text-[10px] text-zinc-600 font-medium uppercase tracking-widest">
+            Hoje
           </div>
         </div>
       </CardContent>
