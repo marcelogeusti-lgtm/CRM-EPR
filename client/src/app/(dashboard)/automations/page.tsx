@@ -31,6 +31,7 @@ import { PageHeader } from '@/components/system/PageHeader';
 import { EmptyState } from '@/components/system/EmptyState';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Button } from '@/components/ui/button';
+import { cn } from '@/lib/utils';
 
 interface WorkflowAction {
   id?: string;
