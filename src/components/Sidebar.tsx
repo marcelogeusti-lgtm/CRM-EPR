@@ -136,7 +136,7 @@ export function Sidebar() {
           return (
             <Link 
               key={item.name} 
-              href={item.href}
+              href={item.href || '#'}
               className={cn(
                 "flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all group relative",
                 isActive ? "bg-blue-500/10 text-blue-400 font-medium" : "text-zinc-400 hover:bg-[#1a1a1a] hover:text-zinc-200 font-medium"
