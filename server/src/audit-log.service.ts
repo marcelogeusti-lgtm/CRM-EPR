@@ -18,16 +18,20 @@ export class AuditLogService {
     meta?: any
   ) {
     try {
+      const detailsJson = {
+        description,
+        ipAddress,
+        device,
+        location,
+        ...(meta ? JSON.parse(JSON.stringify(meta)) : {})
+      };
       const logEntry = await this.prisma.auditLog.create({
         data: {
           tenantId,
           userId,
           action,
-          description,
-          ipAddress,
-          device,
-          location,
-          meta: meta ? JSON.parse(JSON.stringify(meta)) : undefined,
+          entity: 'System', // generic fallback
+          details: detailsJson,
         },
       });
       this.logger.log(`[AUDIT LOG] Tenant: ${tenantId} | Action: ${action} | ${description}`);
