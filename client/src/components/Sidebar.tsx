@@ -37,7 +37,7 @@ export function Sidebar() {
       
       {/* Logotipo */}
       <div className="p-6 pb-2 flex items-center gap-3">
-        <div className="w-8 h-8 bg-[#10a37f] rounded flex items-center justify-center font-bold text-[#161a1f]">
+        <div className="w-8 h-8 bg-[#3b82f6] rounded flex items-center justify-center font-bold text-white">
           P
         </div>
         <span className="font-extrabold text-xl tracking-tight text-white drop-shadow-sm">PulseERP</span>
@@ -46,7 +46,7 @@ export function Sidebar() {
       <div className="px-6 mb-4 mt-2">
         <div className="p-0.5">
           <p className="text-[10px] text-zinc-500 uppercase font-bold tracking-wider mb-1">Espaço de Trabalho</p>
-          <p className="font-semibold text-sm text-zinc-200 truncate">{tenant?.name || 'Carregando...'}</p>
+          <p className="font-semibold text-sm text-zinc-200 truncate">{tenant?.name || 'Sua Empresa'}</p>
         </div>
       </div>
 
@@ -63,11 +63,11 @@ export function Sidebar() {
               className={cn(
                 "flex items-center gap-3 px-3 py-2.5 rounded-md transition-all duration-200 group text-[13px] font-medium",
                 isActive 
-                  ? "bg-[#1f2b31] text-[#10a37f] font-semibold border-l-2 border-[#10a37f]" 
+                  ? "bg-[#3b82f6]/10 text-[#3b82f6] font-semibold border-l-2 border-[#3b82f6]" 
                   : "text-[#a0a5ab] hover:bg-[#1a1f24] hover:text-zinc-200"
               )}
             >
-              <Icon className={cn("h-[18px] w-[18px]", isActive ? "text-[#10a37f]" : "text-[#7a8189] group-hover:text-zinc-400")} />
+              <Icon className={cn("h-[18px] w-[18px]", isActive ? "text-[#3b82f6]" : "text-[#7a8189] group-hover:text-zinc-400")} />
               <span>{item.label}</span>
             </Link>
           );
@@ -85,7 +85,7 @@ export function Sidebar() {
         </Link>
         <button
           onClick={logout}
-          className="flex items-center gap-3 px-3 py-2.5 w-full rounded-md text-[13px] font-medium text-red-400 hover:bg-red-500/10 hover:text-red-300 transition-all text-left"
+          className="flex items-center gap-3 px-3 py-2.5 w-full rounded-md text-[13px] font-medium text-red-400 hover:bg-red-500/10 hover:text-red-300 transition-all text-left cursor-pointer"
         >
           <LogOut className="h-[18px] w-[18px] text-red-500" />
           <span>Sair</span>
