@@ -19,6 +19,31 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Missing tenantId' }, { status: 400 });
     }
 
+    // Pipeline Check
+    let pipeline = await prisma.pipeline.findFirst({ where: { tenantId } });
+    if (!pipeline) {
+      pipeline = await prisma.pipeline.create({
+        data: {
+          tenantId,
+          name: 'Funil Principal',
+          stages: {
+            create: [
+              { name: 'COMENTÁRIO OU DM', order: 0, color: 'bg-zinc-500' }
+            ]
+          }
+        }
+      });
+    }
+
+    const firstStage = await prisma.stage.findFirst({
+      where: { pipelineId: pipeline.id },
+      orderBy: { order: 'asc' }
+    });
+
+    if (!firstStage) {
+      return NextResponse.json({ error: 'No stages found' }, { status: 500 });
+    }
+
     // 1. Acha ou Cria o Contato pelo Telefone
     let dbContact = await prisma.contact.findFirst({
       where: { phone: contact.phone, tenantId }
@@ -39,7 +64,7 @@ export async function POST(req: NextRequest) {
       where: { 
         contactId: dbContact.id, 
         tenantId,
-        stage: { notIn: ['WON', 'LOST'] } 
+        stage: { name: { notIn: ['WON', 'LOST'] } }
       }
     });
 
@@ -48,9 +73,10 @@ export async function POST(req: NextRequest) {
         data: {
           tenantId,
           contactId: dbContact.id,
+          pipelineId: pipeline.id,
+          stageId: firstStage.id,
           title: `Oportunidade: ${dbContact.name}`,
-          value: dealValue || 0,
-          stage: 'NEW'
+          value: dealValue || 0
         }
       });
 
