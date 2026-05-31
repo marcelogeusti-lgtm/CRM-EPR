@@ -149,6 +149,25 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const login = async (credentials: any) => {
+    // --- BYPASS PARA DEMONSTRAÇÃO VISUAL (SEM BACKEND) ---
+    if (credentials.email === 'admin@demo.com' && credentials.password === 'admin123') {
+      const mockUser = { id: 'mock-123', email: 'admin@demo.com', name: 'Administrador Demo', role: 'ADMIN' };
+      const mockTenant = { id: 'tenant-123', name: 'Demo Corp', slug: 'demo-corp' };
+      
+      setUser(mockUser);
+      setTenant(mockTenant);
+      setToken('mock-jwt-token');
+      
+      axios.defaults.headers.common['Authorization'] = `Bearer mock-jwt-token`;
+      axios.defaults.headers.common['x-tenant-id'] = 'tenant-123';
+      localStorage.setItem('tenantId', 'tenant-123');
+      localStorage.setItem('token', 'mock-jwt-token');
+      
+      router.push('/dashboard');
+      return;
+    }
+    // ------------------------------------------------------
+
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
     const isPlaceholderSupabase = !supabaseUrl || supabaseUrl.includes('placeholder-project');
 
