@@ -19,7 +19,10 @@ import {
   Trash2,
   Lock,
   Sparkles,
-  Link2
+  Link2,
+  Bot,
+  BrainCircuit,
+  MessageSquareText
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -38,10 +41,16 @@ interface Instance {
 
 export default function SettingsPage() {
   const { tenant } = useAuth();
-  const [activeTab, setActiveTab] = useState<'whatsapp' | 'general'>('whatsapp');
+  const [activeTab, setActiveTab] = useState<'whatsapp' | 'ai' | 'general'>('whatsapp');
   const [instances, setInstances] = useState<Instance[]>([]);
   const [auditLogs, setAuditLogs] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+
+  // AI Settings State
+  const [aiEnabled, setAiEnabled] = useState(false);
+  const [aiModel, setAiModel] = useState('gemini');
+  const [aiApiKey, setAiApiKey] = useState('');
+  const [aiPrompt, setAiPrompt] = useState('');
 
   // Form State
   const [name, setName] = useState('');
@@ -63,8 +72,25 @@ export default function SettingsPage() {
     if (tenant?.id) {
       fetchInstances();
       fetchAuditLogs();
+      fetchAiSettings();
     }
   }, [tenant?.id]);
+
+  const fetchAiSettings = async () => {
+    if (!tenant?.id) return;
+    try {
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+      const res = await axios.get(`${apiUrl}/tenant/ai-settings`, {
+        headers: { 'x-tenant-id': tenant.id }
+      });
+      setAiEnabled(res.data.aiEnabled || false);
+      setAiModel(res.data.aiModel || 'gemini');
+      setAiApiKey(res.data.aiApiKey || '');
+      setAiPrompt(res.data.aiPrompt || '');
+    } catch (err) {
+      console.error('Erro ao carregar configurações de IA:', err);
+    }
+  };
 
   const fetchInstances = async () => {
     if (!tenant?.id) return;
@@ -91,6 +117,32 @@ export default function SettingsPage() {
       setAuditLogs(res.data);
     } catch (err) {
       console.error('Erro ao carregar logs de auditoria:', err);
+    }
+  };
+
+  const handleSaveAiSettings = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!tenant?.id) return;
+    
+    if (aiEnabled && (!aiApiKey || !aiPrompt)) {
+      toast.error('Preencha a Chave da API e o Prompt para ativar a Inteligência Artificial.');
+      return;
+    }
+
+    const toastId = toast.loading('Salvando cérebro da IA...');
+    try {
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+      await axios.post(`${apiUrl}/tenant/ai-settings`, {
+        aiEnabled, aiModel, aiApiKey, aiPrompt
+      }, {
+        headers: { 'x-tenant-id': tenant.id }
+      });
+      toast.dismiss(toastId);
+      toast.success('Configurações de Inteligência Artificial salvas e conectadas com sucesso!');
+      fetchAuditLogs();
+    } catch (err) {
+      toast.dismiss(toastId);
+      toast.error('Erro ao salvar as configurações da IA');
     }
   };
 
@@ -192,7 +244,7 @@ export default function SettingsPage() {
     <div className="space-y-6 animate-in fade-in duration-500 pb-12">
       <PageHeader 
         title="Configurações & Integrações"
-        description="Gerencie os canais de atendimento da sua empresa e conecte novos números oficiais ou híbridos."
+        description="Gerencie os canais de atendimento, o cérebro da Inteligência Artificial e permissões do workspace."
       />
 
       {/* Tabs Layout */}
@@ -205,7 +257,17 @@ export default function SettingsPage() {
               : 'border-transparent text-zinc-400 hover:text-zinc-700'
           }`}
         >
-          <Smartphone className="size-4" /> Conexão WhatsApp
+          <Smartphone className="size-4" /> WhatsApp
+        </button>
+        <button
+          onClick={() => setActiveTab('ai')}
+          className={`pb-3 px-4 text-sm font-semibold transition-all border-b-2 relative -bottom-[2px] flex items-center gap-2 ${
+            activeTab === 'ai' 
+              ? 'border-purple-600 text-purple-600' 
+              : 'border-transparent text-zinc-400 hover:text-zinc-700'
+          }`}
+        >
+          <BrainCircuit className="size-4" /> Inteligência Artificial (IA)
         </button>
         <button
           onClick={() => setActiveTab('general')}
@@ -215,7 +277,7 @@ export default function SettingsPage() {
               : 'border-transparent text-zinc-400 hover:text-zinc-700'
           }`}
         >
-          <Settings2 className="size-4" /> Configurações do Workspace
+          <Settings2 className="size-4" /> Workspace
         </button>
       </div>
 
@@ -224,8 +286,10 @@ export default function SettingsPage() {
         {/* Main Content Area */}
         <div className="lg:col-span-2 space-y-6">
           <AnimatePresence mode="wait">
-            {activeTab === 'whatsapp' ? (
+            
+            {activeTab === 'whatsapp' && (
               <motion.div
+                key="whatsapp"
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -10 }}
@@ -280,7 +344,7 @@ export default function SettingsPage() {
                             <span className="text-xs font-bold text-zinc-800">Meta Cloud API (Oficial)</span>
                             <Shield className={`size-4 ${connectionType === 'OFFICIAL' ? 'text-blue-600' : 'text-zinc-400'}`} />
                           </div>
-                          <span className="text-[10px] text-zinc-400 leading-relaxed">Nativo da Meta. Taxa zero de bloqueios, faturamento oficial estável e alta performance de escala.</span>
+                          <span className="text-[10px] text-zinc-400 leading-relaxed">Nativo da Meta. Taxa zero de bloqueios, faturamento oficial estavel.</span>
                         </button>
 
                         <button
@@ -293,41 +357,25 @@ export default function SettingsPage() {
                           }`}
                         >
                           <div className="flex justify-between items-start w-full">
-                            <span className="text-xs font-bold text-zinc-800">Evolution/Baileys (Não-Oficial)</span>
+                            <span className="text-xs font-bold text-zinc-800">Evolution/Baileys (QR)</span>
                             <QrCode className={`size-4 ${connectionType === 'UNOFFICIAL' ? 'text-blue-600' : 'text-zinc-400'}`} />
                           </div>
-                          <span className="text-[10px] text-zinc-400 leading-relaxed">Conexão rápida por QR-Code. Sem burocracia, ideal para pequenas operações com setup imediato.</span>
+                          <span className="text-[10px] text-zinc-400 leading-relaxed">Conexão rápida por QR-Code. Sem burocracia, setup imediato.</span>
                         </button>
                       </div>
                     </div>
 
                     {/* Campos Oficiais */}
                     {connectionType === 'OFFICIAL' && (
-                      <motion.div
-                        initial={{ opacity: 0, height: 0 }}
-                        animate={{ opacity: 1, height: 'auto' }}
-                        className="space-y-4 border-t border-zinc-100 pt-4"
-                      >
+                      <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} className="space-y-4 border-t border-zinc-100 pt-4">
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                           <div>
                             <label className="block text-[10px] font-bold text-zinc-500 uppercase tracking-wider mb-1.5">ID da Conta Comercial (WABA ID)</label>
-                            <input
-                              type="text"
-                              value={waBusinessId}
-                              onChange={(e) => setWaBusinessId(e.target.value)}
-                              className="w-full bg-white border border-zinc-200 rounded-xl px-4 h-11 text-xs text-zinc-800 focus:outline-none"
-                              placeholder="Inserir ID numérico"
-                            />
+                            <input type="text" value={waBusinessId} onChange={(e) => setWaBusinessId(e.target.value)} className="w-full bg-white border border-zinc-200 rounded-xl px-4 h-11 text-xs text-zinc-800 focus:outline-none" placeholder="Inserir ID numérico" />
                           </div>
                           <div>
-                            <label className="block text-[10px] font-bold text-zinc-500 uppercase tracking-wider mb-1.5">Token de Acesso Permanente</label>
-                            <input
-                              type="text"
-                              value={accessToken}
-                              onChange={(e) => setAccessToken(e.target.value)}
-                              className="w-full bg-white border border-zinc-200 rounded-xl px-4 h-11 text-xs text-zinc-800 focus:outline-none"
-                              placeholder="Inserir Token da Meta"
-                            />
+                            <label className="block text-[10px] font-bold text-zinc-500 uppercase tracking-wider mb-1.5">Token de Acesso</label>
+                            <input type="text" value={accessToken} onChange={(e) => setAccessToken(e.target.value)} className="w-full bg-white border border-zinc-200 rounded-xl px-4 h-11 text-xs text-zinc-800 focus:outline-none" placeholder="Inserir Token da Meta" />
                           </div>
                         </div>
                       </motion.div>
@@ -335,79 +383,42 @@ export default function SettingsPage() {
 
                     {/* Campos Não-Oficiais (QR Code Evolution) */}
                     {connectionType === 'UNOFFICIAL' && (
-                      <motion.div
-                        initial={{ opacity: 0, height: 0 }}
-                        animate={{ opacity: 1, height: 'auto' }}
-                        className="space-y-4 border-t border-zinc-100 pt-4"
-                      >
+                      <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} className="space-y-4 border-t border-zinc-100 pt-4">
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                           <div>
                             <label className="block text-[10px] font-bold text-zinc-500 uppercase tracking-wider mb-1.5">Servidor Evolution API URL</label>
-                            <input
-                              type="text"
-                              value={unofficialUrl}
-                              onChange={(e) => setUnofficialUrl(e.target.value)}
-                              className="w-full bg-white border border-zinc-200 rounded-xl px-4 h-11 text-xs text-zinc-800 focus:outline-none"
-                              placeholder="https://api-evolution.seuhost.com"
-                            />
+                            <input type="text" value={unofficialUrl} onChange={(e) => setUnofficialUrl(e.target.value)} className="w-full bg-white border border-zinc-200 rounded-xl px-4 h-11 text-xs text-zinc-800 focus:outline-none" placeholder="https://api-evolution.seuhost.com" />
                           </div>
                           <div>
                             <label className="block text-[10px] font-bold text-zinc-500 uppercase tracking-wider mb-1.5">Chave Global da API (API Key)</label>
-                            <input
-                              type="password"
-                              value={unofficialToken}
-                              onChange={(e) => setUnofficialToken(e.target.value)}
-                              className="w-full bg-white border border-zinc-200 rounded-xl px-4 h-11 text-xs text-zinc-800 focus:outline-none"
-                              placeholder="API Key do seu servidor"
-                            />
+                            <input type="password" value={unofficialToken} onChange={(e) => setUnofficialToken(e.target.value)} className="w-full bg-white border border-zinc-200 rounded-xl px-4 h-11 text-xs text-zinc-800 focus:outline-none" placeholder="API Key do seu servidor" />
                           </div>
                         </div>
                       </motion.div>
                     )}
 
                     <div className="flex justify-end pt-2">
-                      <button
-                        type="submit"
-                        disabled={generatingQr}
-                        className="px-5 h-11 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white font-medium rounded-xl text-xs transition-colors shadow-sm flex items-center gap-1.5"
-                      >
+                      <button type="submit" disabled={generatingQr} className="px-5 h-11 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white font-medium rounded-xl text-xs transition-colors shadow-sm flex items-center gap-1.5">
                         {generatingQr ? 'Conectando...' : connectionType === 'OFFICIAL' ? 'Salvar Conexão' : 'Gerar QR Code'}
                       </button>
                     </div>
                   </form>
                 </div>
 
-                {/* Exibição QR Code Gerado */}
                 {qrCodeData && (
-                  <motion.div
-                    initial={{ opacity: 0, scale: 0.95 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    className="bg-white border border-zinc-200 rounded-2xl p-6 shadow-sm flex flex-col md:flex-row items-center gap-8"
-                  >
-                    {/* QR Code Container com Leitor animado */}
+                  <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="bg-white border border-zinc-200 rounded-2xl p-6 shadow-sm flex flex-col md:flex-row items-center gap-8">
                     <div className="relative border-4 border-zinc-950 p-4 rounded-2xl bg-white shadow-lg overflow-hidden shrink-0 group">
-                      {/* Linha animada de Scanner */}
                       <div className="absolute top-0 inset-x-0 h-1 bg-emerald-500 animate-bounce blur-xs" />
-                      <img
-                        src={qrCodeData}
-                        alt="Escanear WhatsApp"
-                        className="size-48"
-                      />
+                      <img src={qrCodeData} alt="Escanear WhatsApp" className="size-48" />
                     </div>
-
                     <div className="space-y-4">
                       <div className="flex items-center gap-2">
                         <span className="size-2 rounded-full bg-emerald-500 animate-ping" />
                         <span className="text-xs font-bold text-emerald-600 uppercase tracking-wider">Aguardando Leitura</span>
                       </div>
                       <h4 className="text-base font-bold text-zinc-800">Conecte o seu WhatsApp Não-Oficial</h4>
-                      <p className="text-xs text-zinc-400 leading-relaxed max-w-sm">
-                        Abra o seu celular, vá em <strong>Aparelhos Conectados &gt; Conectar Aparelho</strong> e aponte a câmera para o código ao lado.
-                      </p>
-                      <button
-                        onClick={handleSimulateScan}
-                        className="px-4 py-2.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 font-bold border border-emerald-100 text-[10px] rounded-xl transition-all uppercase tracking-wider flex items-center gap-1.5"
-                      >
+                      <p className="text-xs text-zinc-400 leading-relaxed max-w-sm">Abra o seu celular, vá em <strong>Aparelhos Conectados &gt; Conectar Aparelho</strong> e aponte a câmera para o código ao lado.</p>
+                      <button onClick={handleSimulateScan} className="px-4 py-2.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 font-bold border border-emerald-100 text-[10px] rounded-xl transition-all uppercase tracking-wider flex items-center gap-1.5">
                         <Wifi className="size-3.5" /> Simular Scan com Celular
                       </button>
                     </div>
@@ -418,9 +429,7 @@ export default function SettingsPage() {
                 <div className="bg-white border border-zinc-200 rounded-2xl shadow-sm overflow-hidden">
                   <div className="p-6 border-b border-zinc-100 bg-zinc-50/50 flex justify-between items-center">
                     <h3 className="text-sm font-bold text-zinc-800">Canais Ativos</h3>
-                    <span className="px-2.5 py-0.5 bg-zinc-100 text-zinc-600 text-[10px] font-bold rounded-full">
-                      {instances.length} conectado(s)
-                    </span>
+                    <span className="px-2.5 py-0.5 bg-zinc-100 text-zinc-600 text-[10px] font-bold rounded-full">{instances.length} conectado(s)</span>
                   </div>
 
                   <div className="divide-y divide-zinc-100">
@@ -433,11 +442,7 @@ export default function SettingsPage() {
                           <div>
                             <div className="flex items-center gap-2">
                               <span className="text-xs font-bold text-zinc-800">{inst.name}</span>
-                              <span className={`px-2 py-0.5 text-[8px] font-bold rounded-full border ${
-                                inst.connectionType === 'OFFICIAL' 
-                                  ? 'bg-blue-50 text-blue-600 border-blue-100' 
-                                  : 'bg-orange-50 text-orange-600 border-orange-100'
-                              }`}>
+                              <span className={`px-2 py-0.5 text-[8px] font-bold rounded-full border ${inst.connectionType === 'OFFICIAL' ? 'bg-blue-50 text-blue-600 border-blue-100' : 'bg-orange-50 text-orange-600 border-orange-100'}`}>
                                 {inst.connectionType === 'OFFICIAL' ? 'OFICIAL' : 'NÃO-OFICIAL (QR)'}
                               </span>
                             </div>
@@ -457,10 +462,7 @@ export default function SettingsPage() {
                           <div className="flex items-center gap-1.5 text-xs text-emerald-600 font-semibold bg-emerald-50 border border-emerald-100 py-1 px-3 rounded-full">
                             <span className="size-1.5 rounded-full bg-emerald-500" /> Conectado
                           </div>
-                          <button
-                            onClick={() => handleDeleteInstance(inst.id)}
-                            className="p-2 bg-white hover:bg-red-50 text-red-600 rounded-xl transition-all border border-zinc-200 hover:border-red-100 shadow-sm"
-                          >
+                          <button onClick={() => handleDeleteInstance(inst.id)} className="p-2 bg-white hover:bg-red-50 text-red-600 rounded-xl transition-all border border-zinc-200 hover:border-red-100 shadow-sm">
                             <Trash2 className="size-4" />
                           </button>
                         </div>
@@ -468,10 +470,123 @@ export default function SettingsPage() {
                     ))}
                   </div>
                 </div>
-
               </motion.div>
-            ) : (
+            )}
+
+            {/* AI Settings Tab */}
+            {activeTab === 'ai' && (
               <motion.div
+                key="ai"
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -10 }}
+                transition={{ duration: 0.2 }}
+                className="space-y-6"
+              >
+                <div className="bg-white border border-zinc-200 rounded-2xl p-6 shadow-sm relative overflow-hidden">
+                  {/* Decorativo IA */}
+                  <div className="absolute right-[-10%] top-[-10%] size-64 rounded-full bg-purple-600/5 blur-3xl pointer-events-none" />
+
+                  <div className="flex justify-between items-start mb-6">
+                    <div>
+                      <h3 className="text-base font-bold text-zinc-800 mb-1 flex items-center gap-2">
+                        <Bot className="size-5 text-purple-600" /> Atendente de Inteligência Artificial
+                      </h3>
+                      <p className="text-xs text-zinc-500">Configure as credenciais e a personalidade do seu robô para atender os clientes no WhatsApp.</p>
+                    </div>
+
+                    <label className="flex items-center cursor-pointer p-2 bg-zinc-50 rounded-xl border border-zinc-100 hover:bg-zinc-100 transition-colors">
+                      <div className="relative">
+                        <input type="checkbox" className="sr-only" checked={aiEnabled} onChange={(e) => setAiEnabled(e.target.checked)} />
+                        <div className={`block w-10 h-6 rounded-full transition-colors ${aiEnabled ? 'bg-purple-600' : 'bg-zinc-300'}`}></div>
+                        <div className={`dot absolute left-1 top-1 bg-white w-4 h-4 rounded-full transition-transform ${aiEnabled ? 'transform translate-x-4' : ''}`}></div>
+                      </div>
+                      <span className="ml-3 text-[11px] font-bold text-zinc-700 uppercase tracking-wider">
+                        {aiEnabled ? 'IA Ativada' : 'IA Desativada'}
+                      </span>
+                    </label>
+                  </div>
+
+                  <form onSubmit={handleSaveAiSettings} className="space-y-5 relative z-10">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-[10px] font-bold text-zinc-500 uppercase tracking-wider mb-2">Motor de IA (Provider)</label>
+                        <div className="grid grid-cols-2 gap-3">
+                          <button
+                            type="button"
+                            onClick={() => setAiModel('gemini')}
+                            className={`p-3 rounded-xl border text-left transition-all ${
+                              aiModel === 'gemini' ? 'border-purple-600 bg-purple-50/30 ring-1 ring-purple-600' : 'border-zinc-200 bg-white'
+                            }`}
+                          >
+                            <span className="text-xs font-bold text-zinc-800 block">Google Gemini</span>
+                            <span className="text-[9px] text-zinc-400">Rápido (Gemini 1.5 Flash)</span>
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => setAiModel('openai')}
+                            className={`p-3 rounded-xl border text-left transition-all ${
+                              aiModel === 'openai' ? 'border-purple-600 bg-purple-50/30 ring-1 ring-purple-600' : 'border-zinc-200 bg-white'
+                            }`}
+                          >
+                            <span className="text-xs font-bold text-zinc-800 block">OpenAI (ChatGPT)</span>
+                            <span className="text-[9px] text-zinc-400">Inteligente (GPT-4o-mini)</span>
+                          </button>
+                        </div>
+                      </div>
+
+                      <div>
+                        <label className="block text-[10px] font-bold text-zinc-500 uppercase tracking-wider mb-2 flex items-center justify-between">
+                          <span>Chave de Acesso (API Key)</span>
+                          <a href={aiModel === 'gemini' ? "https://aistudio.google.com/app/apikey" : "https://platform.openai.com/api-keys"} target="_blank" className="text-purple-600 hover:underline">Obter chave</a>
+                        </label>
+                        <div className="relative">
+                          <Key className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-zinc-400" />
+                          <input
+                            type="password"
+                            value={aiApiKey}
+                            onChange={(e) => setAiApiKey(e.target.value)}
+                            className="w-full bg-white border border-zinc-200 rounded-xl pl-9 pr-4 h-12 text-xs text-zinc-800 focus:outline-none focus:ring-2 focus:ring-purple-500/20 focus:border-purple-500 transition-all font-mono"
+                            placeholder="sk-..."
+                          />
+                        </div>
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block text-[10px] font-bold text-zinc-500 uppercase tracking-wider mb-2 flex items-center gap-1.5">
+                        <MessageSquareText className="size-3.5" /> 
+                        Comportamento do Atendente (System Prompt)
+                      </label>
+                      <textarea
+                        value={aiPrompt}
+                        onChange={(e) => setAiPrompt(e.target.value)}
+                        rows={6}
+                        className="w-full bg-zinc-50 border border-zinc-200 rounded-xl p-4 text-xs text-zinc-700 focus:outline-none focus:ring-2 focus:ring-purple-500/20 focus:border-purple-500 transition-all resize-none leading-relaxed"
+                        placeholder="Ex: Você é a Carol, assistente da Imobiliária X. Seja educada, responda de forma curta e direta. Seu objetivo é coletar o bairro de interesse e tentar agendar uma visita presencial para nossos corretores..."
+                      />
+                      <p className="text-[10px] text-zinc-400 mt-1.5">A IA usará este texto como a regra de ouro para conversar com todos os clientes.</p>
+                    </div>
+
+                    <div className="flex justify-end pt-4 border-t border-zinc-100">
+                      <button
+                        type="submit"
+                        className="px-6 h-11 bg-purple-600 hover:bg-purple-700 text-white font-bold rounded-xl text-xs transition-colors shadow-sm flex items-center gap-2"
+                      >
+                        <BrainCircuit className="size-4" />
+                        Salvar Cérebro da IA
+                      </button>
+                    </div>
+                  </form>
+                </div>
+              </motion.div>
+            )}
+
+            {/* General Settings Tab */}
+            {activeTab === 'general' && (
+              <motion.div
+                key="general"
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -10 }}
@@ -487,21 +602,11 @@ export default function SettingsPage() {
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
                       <label className="block text-[10px] font-bold text-zinc-500 uppercase tracking-wider mb-1.5">Nome da Empresa</label>
-                      <input
-                        type="text"
-                        defaultValue="PulseERP Matriz"
-                        className="w-full bg-zinc-50 border border-zinc-200 rounded-xl px-4 h-11 text-xs text-zinc-700 cursor-not-allowed focus:outline-none"
-                        disabled
-                      />
+                      <input type="text" defaultValue="PulseERP Matriz" className="w-full bg-zinc-50 border border-zinc-200 rounded-xl px-4 h-11 text-xs text-zinc-700 cursor-not-allowed focus:outline-none" disabled />
                     </div>
                     <div>
                       <label className="block text-[10px] font-bold text-zinc-500 uppercase tracking-wider mb-1.5">Identificador do Workspace (Slug)</label>
-                      <input
-                        type="text"
-                        defaultValue="pulseerp-matriz"
-                        className="w-full bg-zinc-50 border border-zinc-200 rounded-xl px-4 h-11 text-xs text-zinc-700 cursor-not-allowed focus:outline-none"
-                        disabled
-                      />
+                      <input type="text" defaultValue="pulseerp-matriz" className="w-full bg-zinc-50 border border-zinc-200 rounded-xl px-4 h-11 text-xs text-zinc-700 cursor-not-allowed focus:outline-none" disabled />
                     </div>
                   </div>
 
@@ -509,9 +614,7 @@ export default function SettingsPage() {
                     <Sparkles className="size-5 text-blue-600 shrink-0" />
                     <div>
                       <h4 className="text-xs font-bold text-zinc-800">Plano PRO Ativo</h4>
-                      <p className="text-[10px] text-zinc-400 mt-1 leading-relaxed">
-                        Sua organização possui suporte omnichannel multi-tenant ativado com limite estendido de conexões não-oficiais.
-                      </p>
+                      <p className="text-[10px] text-zinc-400 mt-1 leading-relaxed">Sua organização possui suporte omnichannel multi-tenant ativado com limite estendido de conexões não-oficiais.</p>
                     </div>
                   </div>
                 </div>
@@ -523,11 +626,7 @@ export default function SettingsPage() {
                       <h4 className="text-sm font-bold text-zinc-800">Logs de Auditoria de Segurança</h4>
                       <p className="text-[10px] text-zinc-400">Linha do tempo em tempo real de ações críticas executadas.</p>
                     </div>
-                    <button 
-                      onClick={fetchAuditLogs}
-                      className="p-1.5 hover:bg-zinc-100 rounded-lg text-zinc-400 hover:text-zinc-600 border border-zinc-200 transition-all shadow-xs"
-                      title="Atualizar Logs"
-                    >
+                    <button onClick={fetchAuditLogs} className="p-1.5 hover:bg-zinc-100 rounded-lg text-zinc-400 hover:text-zinc-600 border border-zinc-200 transition-all shadow-xs" title="Atualizar Logs">
                       <RefreshCw className="size-3.5 animate-spin-hover" />
                     </button>
                   </div>
@@ -580,11 +679,10 @@ export default function SettingsPage() {
         {/* Right Sidebar Info Card */}
         <div className="space-y-6">
           <div className="bg-zinc-950 border border-zinc-800 rounded-2xl p-6 text-white shadow-lg space-y-4 relative overflow-hidden">
-            {/* Background pattern */}
             <div className="absolute right-[-20%] bottom-[-20%] size-44 rounded-full bg-blue-600/10 blur-3xl pointer-events-none" />
 
             <div className="flex items-center gap-2 text-xs font-bold text-blue-400 uppercase tracking-widest">
-              <Lock className="size-3.5" /> Segurança Omnichannel
+              <Lock className="size-3.5" /> Omnichannel & Automação
             </div>
             
             <h4 className="text-sm font-bold">Por que o PulseERP é Híbrido?</h4>
@@ -593,19 +691,13 @@ export default function SettingsPage() {
               <div className="flex gap-2">
                 <span className="size-1.5 rounded-full bg-blue-500 shrink-0 mt-1.5" />
                 <p className="text-[10px] text-zinc-400 leading-relaxed">
-                  <strong>Economia Garantida:</strong> Reduza custos abusivos de mensagens transacionais usando o módulo Não-Oficial para lembretes e pós-vendas rápidos.
+                  <strong>Inteligência Nativa:</strong> Com a aba IA ativada, a plataforma intercepta as conversas e atende seus clientes usando a sua chave de OpenAI ou Google Gemini, poupando humanos de triagem.
                 </p>
               </div>
               <div className="flex gap-2">
                 <span className="size-1.5 rounded-full bg-blue-500 shrink-0 mt-1.5" />
                 <p className="text-[10px] text-zinc-400 leading-relaxed">
                   <strong>Zero Burocracia:</strong> Conecte no modo não-oficial via QR Code imediatamente sem precisar de autorização da Meta para começar.
-                </p>
-              </div>
-              <div className="flex gap-2">
-                <span className="size-1.5 rounded-full bg-blue-500 shrink-0 mt-1.5" />
-                <p className="text-[10px] text-zinc-400 leading-relaxed">
-                  <strong>Alta Performance:</strong> Combine os dois mundos e garanta redundância total para a operação de suporte.
                 </p>
               </div>
             </div>
