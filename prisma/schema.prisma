@@ -1,0 +1,257 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+// ==========================================
+// 1. NÚCLEO DO CRM (Workspace e Usuários)
+// ==========================================
+
+model Tenant {
+  id           String        @id @default(uuid())
+  name         String
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+  
+  users        User[]
+  companies    Company[]
+  contacts     Contact[]
+  pipelines    Pipeline[]
+  deals        Deal[]
+  tasks        Task[]
+  integrations Integration[]
+  tags         Tag[]
+}
+
+model User {
+  id        String   @id @default(uuid())
+  tenantId  String
+  name      String
+  email     String   @unique
+  role      String   @default("AGENT") // ADMIN, AGENT
+  avatarUrl String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  deals     Deal[]   // Deals assigned to this user
+  tasks     Task[]   // Tasks assigned to this user
+  messages  Message[] // Messages sent by this user
+}
+
+// ==========================================
+// 2. PESSOAS E EMPRESAS
+// ==========================================
+
+model Company {
+  id        String   @id @default(uuid())
+  tenantId  String
+  name      String
+  website   String?
+  cnpj      String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  tenant    Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  contacts  Contact[] // A company has many contacts
+  deals     Deal[]    // Deals directly tied to the company
+}
+
+model Contact {
+  id        String   @id @default(uuid())
+  tenantId  String
+  companyId String?
+  name      String
+  phone     String?
+  email     String?
+  position  String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  company   Company? @relation(fields: [companyId], references: [id], onDelete: SetNull)
+  deals     Deal[]
+  tags      TagsOnContacts[]
+}
+
+// ==========================================
+// 3. MOTOR DE VENDAS (Funil e Leads)
+// ==========================================
+
+model Pipeline {
+  id        String   @id @default(uuid())
+  tenantId  String
+  name      String   // Ex: "Funil de Vendas", "Pós-Venda"
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  stages    Stage[]
+  deals     Deal[]
+}
+
+model Stage {
+  id         String   @id @default(uuid())
+  pipelineId String
+  name       String   // Ex: "Comentário ou DM", "Qualificado"
+  order      Int      // To sort columns (0, 1, 2...)
+  color      String?  // Ex: "bg-blue-500"
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  pipeline   Pipeline @relation(fields: [pipelineId], references: [id], onDelete: Cascade)
+  deals      Deal[]
+}
+
+model Deal {
+  id         String     @id @default(uuid())
+  tenantId   String
+  pipelineId String
+  stageId    String
+  contactId  String?
+  companyId  String?
+  assignedTo String?    // User ID
+  title      String
+  value      Float      @default(0)
+  createdAt  DateTime   @default(now())
+  updatedAt  DateTime   @updatedAt
+
+  tenant        Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  pipeline      Pipeline       @relation(fields: [pipelineId], references: [id], onDelete: Restrict)
+  stage         Stage          @relation(fields: [stageId], references: [id], onDelete: Restrict)
+  contact       Contact?       @relation(fields: [contactId], references: [id], onDelete: SetNull)
+  company       Company?       @relation(fields: [companyId], references: [id], onDelete: SetNull)
+  assignee      User?          @relation(fields: [assignedTo], references: [id], onDelete: SetNull)
+  
+  tasks         Task[]
+  tags          TagsOnDeals[]
+  conversations Conversation[]
+  activities    Activity[]     // System logs (moved stage, changed value)
+}
+
+// ==========================================
+// 4. CALENDÁRIO E TAREFAS
+// ==========================================
+
+model Task {
+  id          String   @id @default(uuid())
+  tenantId    String
+  dealId      String?
+  assignedTo  String?
+  title       String
+  description String?
+  type        String   @default("MEETING") // CALL, MEETING, TASK, DEADLINE
+  dueDate     DateTime
+  isCompleted Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  deal        Deal?    @relation(fields: [dealId], references: [id], onDelete: Cascade)
+  assignee    User?    @relation(fields: [assignedTo], references: [id], onDelete: SetNull)
+}
+
+// ==========================================
+// 5. COMUNICAÇÕES (Inbox e Chatbot)
+// ==========================================
+
+model Channel {
+  id         String   @id @default(uuid())
+  tenantId   String
+  name       String   // "WhatsApp da Loja", "Instagram Principal"
+  provider   String   // "whatsapp", "instagram"
+  isActive   Boolean  @default(true)
+  createdAt  DateTime @default(now())
+
+  conversations Conversation[]
+}
+
+model Conversation {
+  id        String   @id @default(uuid())
+  dealId    String
+  channelId String
+  status    String   @default("OPEN") // OPEN, CLOSED, WAITING
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  deal      Deal      @relation(fields: [dealId], references: [id], onDelete: Cascade)
+  channel   Channel   @relation(fields: [channelId], references: [id], onDelete: Restrict)
+  messages  Message[]
+}
+
+model Message {
+  id             String   @id @default(uuid())
+  conversationId String
+  authorId       String?  // If sent by a User
+  authorType     String   // "CONTACT", "USER", "AI", "SYSTEM"
+  content        String
+  createdAt      DateTime @default(now())
+
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  userAuthor     User?        @relation(fields: [authorId], references: [id], onDelete: SetNull)
+}
+
+// ==========================================
+// 6. ORGANIZAÇÃO (Tags e Logs)
+// ==========================================
+
+model Tag {
+  id        String   @id @default(uuid())
+  tenantId  String
+  name      String
+  color     String?
+  createdAt DateTime @default(now())
+
+  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  deals     TagsOnDeals[]
+  contacts  TagsOnContacts[]
+}
+
+model TagsOnDeals {
+  dealId String
+  tagId  String
+  deal   Deal @relation(fields: [dealId], references: [id], onDelete: Cascade)
+  tag    Tag  @relation(fields: [tagId], references: [id], onDelete: Cascade)
+  @@id([dealId, tagId])
+}
+
+model TagsOnContacts {
+  contactId String
+  tagId     String
+  contact   Contact @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  tag       Tag     @relation(fields: [tagId], references: [id], onDelete: Cascade)
+  @@id([contactId, tagId])
+}
+
+// Old system logs, kept for audit trails
+model Activity {
+  id        String   @id @default(uuid())
+  tenantId  String
+  dealId    String
+  type      String   // STAGE_CHANGED, NOTE_ADDED
+  content   String
+  author    String   // "System", "Agent"
+  createdAt DateTime @default(now())
+
+  deal      Deal     @relation(fields: [dealId], references: [id], onDelete: Cascade)
+}
+
+model Integration {
+  id         String   @id @default(uuid())
+  tenantId   String
+  provider   String
+  apiKey     String?
+  webhookUrl String?
+  config     String?
+  isActive   Boolean  @default(true)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  tenant     Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  @@unique([tenantId, provider])
+}
