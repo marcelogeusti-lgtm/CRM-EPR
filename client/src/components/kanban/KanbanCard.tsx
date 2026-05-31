@@ -49,8 +49,8 @@ export function KanbanCard({ deal, isOverlay }: KanbanCardProps) {
       ref={setNodeRef}
       style={style}
       className={cn(
-        "bg-white border-zinc-200 hover:border-blue-500/50 hover:shadow-md transition-all duration-200 cursor-grab active:cursor-grabbing group rounded-xl shadow-sm",
-        isOverlay && "rotate-2 scale-105 border-blue-600 shadow-md z-50"
+        "bg-zinc-900/80 backdrop-blur-md border-zinc-800 hover:border-blue-500/50 hover:shadow-[0_0_15px_rgba(59,130,246,0.3)] transition-all duration-200 cursor-grab active:cursor-grabbing group rounded-xl shadow-sm",
+        isOverlay && "rotate-2 scale-105 border-blue-500 shadow-[0_0_20px_rgba(59,130,246,0.4)] z-50 bg-zinc-900"
       )}
     >
       <CardContent className="p-4 space-y-3">
@@ -59,27 +59,27 @@ export function KanbanCard({ deal, isOverlay }: KanbanCardProps) {
             <div 
               {...attributes} 
               {...listeners} 
-              className="opacity-0 group-hover:opacity-100 transition-opacity p-0.5 hover:bg-zinc-100 rounded cursor-grab shrink-0"
+              className="opacity-0 group-hover:opacity-100 transition-opacity p-0.5 hover:bg-zinc-800 rounded cursor-grab shrink-0"
             >
-              <GripVertical className="size-3.5 text-zinc-400" />
+              <GripVertical className="size-3.5 text-zinc-500" />
             </div>
-            <h4 className="font-bold text-zinc-800 text-xs leading-snug truncate">{deal.title}</h4>
+            <h4 className="font-bold text-zinc-100 text-xs leading-snug truncate">{deal.title}</h4>
           </div>
-          <Avatar className="size-6 border border-zinc-200 flex-shrink-0">
-            <AvatarFallback className="bg-blue-50 text-blue-600 text-[10px] font-bold">
+          <Avatar className="size-6 border border-zinc-700 flex-shrink-0">
+            <AvatarFallback className="bg-zinc-800 text-zinc-300 text-[10px] font-bold">
               {deal.contact?.name?.substring(0, 2).toUpperCase() || '??'}
             </AvatarFallback>
           </Avatar>
         </div>
 
         <div className="flex items-center gap-2">
-          <Badge className="bg-blue-50 text-blue-600 border border-blue-100 hover:bg-blue-50 text-[10px] py-0 px-2 rounded-full font-semibold">
+          <Badge className="bg-blue-500/10 text-blue-400 border border-blue-500/20 hover:bg-blue-500/20 text-[10px] py-0 px-2 rounded-full font-semibold">
             {deal.contact?.name || 'Sem Contato'}
           </Badge>
         </div>
 
-        <div className="flex items-center justify-between pt-2 border-t border-zinc-100 text-[11px] text-zinc-400">
-          <div className="flex items-center gap-1 font-bold text-blue-600">
+        <div className="flex items-center justify-between pt-2 border-t border-zinc-800/50 text-[11px] text-zinc-500">
+          <div className="flex items-center gap-1 font-bold text-blue-400">
             <DollarSign className="size-3" />
             <span>{formatCurrency(deal.value)}</span>
           </div>

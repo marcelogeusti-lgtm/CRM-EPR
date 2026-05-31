@@ -139,19 +139,19 @@ export default function PipelinePage() {
         actions={
           <div className="flex flex-col md:flex-row justify-between items-center gap-4">
             <div className="flex items-center gap-2 w-full md:w-auto">
-              <div className="bg-white border border-zinc-200 rounded-lg flex items-center px-3 py-2 shadow-sm w-full md:w-64 focus-within:border-blue-500 focus-within:ring-1 focus-within:ring-blue-500 transition-all">
-                <Search className="size-[18px] text-zinc-400" />
+              <div className="bg-zinc-900/50 backdrop-blur-sm border border-zinc-800/80 rounded-lg flex items-center px-3 py-2 shadow-sm w-full md:w-64 focus-within:border-blue-500/50 focus-within:ring-1 focus-within:ring-blue-500/50 transition-all">
+                <Search className="size-[18px] text-zinc-500" />
                 <input 
                   type="text" 
                   placeholder="Buscar negócios..." 
-                  className="bg-transparent border-none outline-none w-full ml-2 text-sm text-zinc-700 placeholder:text-zinc-400"
+                  className="bg-transparent border-none outline-none w-full ml-2 text-sm text-zinc-200 placeholder:text-zinc-500"
                 />
               </div>
-              <button className="h-11 px-4 bg-white hover:bg-zinc-50 text-zinc-600 rounded-xl transition-all font-medium border border-zinc-200 flex items-center gap-2 text-sm shadow-sm">
+              <button className="h-11 px-4 bg-zinc-900/50 hover:bg-zinc-800 text-zinc-300 rounded-xl transition-all font-medium border border-zinc-800/80 flex items-center gap-2 text-sm shadow-sm">
                 <SlidersHorizontal className="size-[18px] text-zinc-400" />
                 Filtros
               </button>
-              <button className="h-11 px-5 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-xl transition-all shadow-sm flex items-center gap-2 text-sm whitespace-nowrap">
+              <button className="h-11 px-5 bg-blue-600 hover:bg-blue-500 text-white font-medium rounded-xl transition-all shadow-[0_0_20px_rgba(37,99,235,0.4)] flex items-center gap-2 text-sm whitespace-nowrap">
                 <Plus className="size-[18px]" />
                 Novo Negócio
               </button>

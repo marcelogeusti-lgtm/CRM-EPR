@@ -49,29 +49,35 @@ export default function DashboardLayout({
   };
 
   return (
-    <div className="flex h-screen bg-[#f8fafc] text-slate-900 font-sans overflow-hidden">
+    <div className="flex h-screen bg-zinc-950 text-zinc-50 font-sans overflow-hidden">
       <Sidebar />
-      <div className="flex-1 flex flex-col min-w-0">
+      <div className="flex-1 flex flex-col min-w-0 relative">
         
-        {/* Top Header (Kirvano Style) */}
-        <header className="h-[72px] bg-white border-b border-slate-200 flex items-center justify-between px-8 flex-shrink-0 z-10">
-          <h2 className="text-[22px] font-bold text-slate-800 tracking-tight">{getPageTitle()}</h2>
+        {/* Background Effects */}
+        <div className="absolute top-0 left-0 w-full h-full overflow-hidden pointer-events-none z-0">
+          <div className="absolute -top-[200px] -right-[200px] w-[500px] h-[500px] rounded-full bg-blue-600/10 blur-[120px]" />
+          <div className="absolute top-[40%] -left-[100px] w-[300px] h-[300px] rounded-full bg-emerald-500/5 blur-[100px]" />
+        </div>
+
+        {/* Top Header */}
+        <header className="h-[72px] bg-zinc-950/60 backdrop-blur-md border-b border-zinc-800 flex items-center justify-between px-8 flex-shrink-0 z-10">
+          <h2 className="text-[22px] font-bold text-white tracking-tight">{getPageTitle()}</h2>
           
           <div className="flex items-center gap-4">
-            <div className="flex items-center gap-3 px-3 py-2 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 cursor-pointer transition-colors shadow-sm">
-              <div className="w-9 h-9 rounded-md bg-slate-100 overflow-hidden border border-slate-200">
-                <img src={`https://api.dicebear.com/7.x/initials/svg?seed=${user?.name || 'User'}&backgroundColor=e2e8f0&textColor=475569`} alt="Avatar" />
+            <div className="flex items-center gap-3 px-3 py-2 rounded-xl border border-zinc-800 bg-zinc-900/50 hover:bg-zinc-800 cursor-pointer transition-colors shadow-sm">
+              <div className="w-9 h-9 rounded-md bg-zinc-800 overflow-hidden border border-zinc-700">
+                <img src={`https://api.dicebear.com/7.x/initials/svg?seed=${user?.name || 'User'}&backgroundColor=18181b&textColor=a1a1aa`} alt="Avatar" />
               </div>
               <div className="text-sm pr-1">
-                <p className="font-semibold text-slate-700 leading-tight truncate max-w-[120px]">{user?.name || 'Administrador'}</p>
-                <p className="text-xs text-slate-500 leading-tight">Admin</p>
+                <p className="font-semibold text-zinc-200 leading-tight truncate max-w-[120px]">{user?.name || 'Administrador'}</p>
+                <p className="text-xs text-zinc-500 leading-tight">Admin</p>
               </div>
-              <ChevronDown className="h-4 w-4 text-slate-400" />
+              <ChevronDown className="h-4 w-4 text-zinc-500" />
             </div>
           </div>
         </header>
         
-        <main className="flex-1 overflow-auto bg-[#f8fafc] p-8">
+        <main className="flex-1 overflow-auto bg-transparent p-8 z-10 relative">
           <div className="max-w-[1400px] mx-auto">
             {children}
           </div>
