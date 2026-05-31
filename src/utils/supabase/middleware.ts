@@ -35,21 +35,22 @@ export async function updateSession(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser()
 
-  // Proteger rotas (Tudo exceto /login e rotas publicas)
-  const isPublicRoute = request.nextUrl.pathname.startsWith('/login') || 
+  // Proteger rotas (Tudo exceto /, /login e rotas publicas)
+  const isPublicRoute = request.nextUrl.pathname === '/' || 
+                        request.nextUrl.pathname.startsWith('/login') || 
                         request.nextUrl.pathname.startsWith('/api/webhooks');
 
   if (!user && !isPublicRoute) {
-    // Redireciona para o Login se não estiver autenticado
+    // Redireciona para o Login se não estiver autenticado e tentar acessar rota restrita
     const url = request.nextUrl.clone()
     url.pathname = '/login'
     return NextResponse.redirect(url)
   }
 
-  // Se o usuário já está logado e tenta acessar a página de login, redireciona para o Dashboard
-  if (user && request.nextUrl.pathname.startsWith('/login')) {
+  // Se o usuário já está logado e tenta acessar a página de login OU a raiz (/), redireciona para o Dashboard
+  if (user && (request.nextUrl.pathname.startsWith('/login') || request.nextUrl.pathname === '/')) {
     const url = request.nextUrl.clone()
-    url.pathname = '/'
+    url.pathname = '/dashboard'
     return NextResponse.redirect(url)
   }
 

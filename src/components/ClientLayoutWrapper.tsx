@@ -6,9 +6,9 @@ import { Sidebar } from './Sidebar'
 export function ClientLayoutWrapper({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
   
-  const isLoginPage = pathname === '/login'
-
-  if (isLoginPage) {
+  const isPublicPage = pathname === '/login' || pathname === '/'
+  
+  if (isPublicPage) {
     return <main className="min-h-screen">{children}</main>
   }
 
