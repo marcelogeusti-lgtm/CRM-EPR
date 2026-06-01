@@ -12,23 +12,23 @@ function cn(...inputs: any[]) {
 
 // Atualizado com Meta Oficial e TikTok
 const MOCK_INTEGRATIONS = [
-  { id: 'meta', name: 'Meta Oficial (WhatsApp & Instagram)', category: 'messages', icon: 'https://upload.wikimedia.org/wikipedia/commons/2/22/Meta_Inc._logo.svg', author: 'Meta Oficial', desc: 'Conecte a API Oficial do WhatsApp Cloud e Instagram Graph.', status: 'available' },
-  { id: 'tiktok', name: 'TikTok for Business', category: 'messages', icon: 'https://upload.wikimedia.org/wikipedia/en/a/a9/TikTok_logo.svg', author: 'TikTok', desc: 'Receba e responda DMs do TikTok pelo CRM.', status: 'available' },
-  { id: 'messenger', name: 'Facebook Messenger', category: 'messages', icon: 'https://upload.wikimedia.org/wikipedia/commons/b/be/Facebook_Messenger_logo_2020.svg', author: 'Meta', desc: 'Centralize as mensagens da sua página.', status: 'available' },
-  { id: 'telegram', name: 'Telegram', category: 'messages', icon: 'https://upload.wikimedia.org/wikipedia/commons/8/82/Telegram_logo.svg', author: 'Telegram', desc: 'Integração direta com bots do Telegram.', status: 'available' },
+  { id: 'meta', name: 'Meta Oficial (WhatsApp & Instagram)', category: 'messages', icon: 'https://cdn.simpleicons.org/meta/0668E1', author: 'Meta Oficial', desc: 'Conecte a API Oficial do WhatsApp Cloud e Instagram Graph.', status: 'available' },
+  { id: 'tiktok', name: 'TikTok for Business', category: 'messages', icon: 'https://cdn.simpleicons.org/tiktok/white', author: 'TikTok', desc: 'Receba e responda DMs do TikTok pelo CRM.', status: 'available' },
+  { id: 'messenger', name: 'Facebook Messenger', category: 'messages', icon: 'https://cdn.simpleicons.org/messenger/00B2FF', author: 'Meta', desc: 'Centralize as mensagens da sua página.', status: 'available' },
+  { id: 'telegram', name: 'Telegram', category: 'messages', icon: 'https://cdn.simpleicons.org/telegram/26A5E4', author: 'Telegram', desc: 'Integração direta com bots do Telegram.', status: 'available' },
   
-  { id: 'n8n', name: 'n8n Webhook', category: 'automation', icon: 'https://n8n.io/favicon.ico', author: 'Core', desc: 'Envie todos os eventos do CRM para o seu n8n.', status: 'available' },
-  { id: 'openai', name: 'OpenAI (Salesbot)', category: 'automation', icon: 'https://upload.wikimedia.org/wikipedia/commons/0/04/ChatGPT_logo.svg', author: 'Pulse AI', desc: 'Cérebro de Inteligência Artificial para qualificação.', status: 'available' },
-  { id: 'zapier', name: 'Zapier', category: 'automation', icon: 'https://cdn.worldvectorlogo.com/logos/zapier-1.svg', author: 'Zapier Inc', desc: 'Conecte com mais de 5.000 aplicativos.', status: 'available' },
-  { id: 'make', name: 'Make', category: 'automation', icon: 'https://cdn.worldvectorlogo.com/logos/make-2.svg', author: 'Make', desc: 'Plataforma visual de integração.', status: 'available' },
+  { id: 'n8n', name: 'n8n Webhook', category: 'automation', icon: 'https://cdn.simpleicons.org/n8n/FF6D5A', author: 'Core', desc: 'Envie todos os eventos do CRM para o seu n8n.', status: 'available' },
+  { id: 'openai', name: 'OpenAI (Salesbot)', category: 'automation', icon: 'https://cdn.simpleicons.org/openai/white', author: 'Pulse AI', desc: 'Cérebro de Inteligência Artificial para qualificação.', status: 'available' },
+  { id: 'zapier', name: 'Zapier', category: 'automation', icon: 'https://cdn.simpleicons.org/zapier/FF4F00', author: 'Zapier Inc', desc: 'Conecte com mais de 5.000 aplicativos.', status: 'available' },
+  { id: 'make', name: 'Make', category: 'automation', icon: 'https://cdn.simpleicons.org/make/white', author: 'Make', desc: 'Plataforma visual de integração.', status: 'available' },
 
-  { id: 'stripe', name: 'Stripe', category: 'payments', icon: 'https://upload.wikimedia.org/wikipedia/commons/b/ba/Stripe_Logo%2C_revised_2016.svg', author: 'Stripe', desc: 'Gere links de pagamento direto no chat.', status: 'available' },
-  { id: 'mercadopago', name: 'Mercado Pago', category: 'payments', icon: 'https://http2.mlstatic.com/frontend-assets/ui-navigation/5.19.5/mercadopago/logo__small@2x.png', author: 'Mercado Livre', desc: 'Cobranças via Pix e Cartão.', status: 'available' },
-  { id: 'asaas', name: 'Asaas', category: 'payments', icon: 'https://sandbox.asaas.com/assets/asaas-logo-white-d380e60803c73bbbd5d21c327291a133a1e9447ed5d97f1f414407b7b13a30eb.svg', author: 'Asaas', desc: 'Emissão de boletos e Pix automatizada.', status: 'available' },
+  { id: 'stripe', name: 'Stripe', category: 'payments', icon: 'https://cdn.simpleicons.org/stripe/635BFF', author: 'Stripe', desc: 'Gere links de pagamento direto no chat.', status: 'available' },
+  { id: 'mercadopago', name: 'Mercado Pago', category: 'payments', icon: 'https://cdn.simpleicons.org/mercadopago/009EE3', author: 'Mercado Livre', desc: 'Cobranças via Pix e Cartão.', status: 'available' },
+  { id: 'asaas', name: 'Asaas', category: 'payments', icon: 'https://upload.wikimedia.org/wikipedia/commons/2/29/Asaas_logo.svg', author: 'Asaas', desc: 'Emissão de boletos e Pix automatizada.', status: 'available' },
 
-  { id: 'calendar', name: 'Google Calendar', category: 'tools', icon: 'https://upload.wikimedia.org/wikipedia/commons/a/a5/Google_Calendar_icon_%282020%29.svg', author: 'Google', desc: 'Sincronize as tarefas do CRM com sua agenda.', status: 'available' },
-  { id: 'mailchimp', name: 'Mailchimp', category: 'tools', icon: 'https://upload.wikimedia.org/wikipedia/commons/1/16/Mailchimp_Wordmark_Black.svg', author: 'Intuit', desc: 'Envio de e-mail marketing para Leads.', status: 'available' },
-  { id: 'rdstation', name: 'RD Station', category: 'tools', icon: 'https://cdn.worldvectorlogo.com/logos/rd-station-1.svg', author: 'Resultados Digitais', desc: 'Importe leads de landing pages.', status: 'available' },
+  { id: 'calendar', name: 'Google Calendar', category: 'tools', icon: 'https://cdn.simpleicons.org/googlecalendar/4285F4', author: 'Google', desc: 'Sincronize as tarefas do CRM com sua agenda.', status: 'available' },
+  { id: 'mailchimp', name: 'Mailchimp', category: 'tools', icon: 'https://cdn.simpleicons.org/mailchimp/FFE01B', author: 'Intuit', desc: 'Envio de e-mail marketing para Leads.', status: 'available' },
+  { id: 'rdstation', name: 'RD Station', category: 'tools', icon: 'https://asset.brandfetch.io/id_m-E-7kC/idUaKkM-d8.svg', author: 'Resultados Digitais', desc: 'Importe leads de landing pages.', status: 'available' },
 ];
 
 const CATEGORIES = [
