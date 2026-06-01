@@ -1,3 +1,4 @@
+import heroVideo from './video/hero-video.mp4';
 import Link from 'next/link';
 import { ArrowRight, Globe, BarChart3, MessageSquare, Zap, Palette, Phone } from 'lucide-react';
 import Image from 'next/image';
