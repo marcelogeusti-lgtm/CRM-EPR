@@ -9,7 +9,7 @@ export function ClientLayoutWrapper({ children }: { children: React.ReactNode })
   const isPublicPage = pathname === '/login' || pathname === '/'
   
   if (isPublicPage) {
-    return <main className="min-h-screen">{children}</main>
+    return <main className="min-h-screen w-full flex-1">{children}</main>
   }
 
   return (
