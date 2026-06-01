@@ -18,17 +18,17 @@ const MOCK_INTEGRATIONS = [
   { id: 'telegram', name: 'Telegram', category: 'messages', icon: 'https://cdn.simpleicons.org/telegram/26A5E4', author: 'Telegram', desc: 'Integração direta com bots do Telegram.', status: 'available' },
   
   { id: 'n8n', name: 'n8n Webhook', category: 'automation', icon: 'https://cdn.simpleicons.org/n8n/FF6D5A', author: 'Core', desc: 'Envie todos os eventos do CRM para o seu n8n.', status: 'available' },
-  { id: 'openai', name: 'OpenAI (Salesbot)', category: 'automation', icon: 'https://cdn.simpleicons.org/openai/white', author: 'Pulse AI', desc: 'Cérebro de Inteligência Artificial para qualificação.', status: 'available' },
+  { id: 'openai', name: 'OpenAI (Salesbot)', category: 'automation', icon: 'https://upload.wikimedia.org/wikipedia/commons/0/04/ChatGPT_logo.svg', author: 'Pulse AI', desc: 'Cérebro de Inteligência Artificial para qualificação.', status: 'available' },
   { id: 'zapier', name: 'Zapier', category: 'automation', icon: 'https://cdn.simpleicons.org/zapier/FF4F00', author: 'Zapier Inc', desc: 'Conecte com mais de 5.000 aplicativos.', status: 'available' },
   { id: 'make', name: 'Make', category: 'automation', icon: 'https://cdn.simpleicons.org/make/white', author: 'Make', desc: 'Plataforma visual de integração.', status: 'available' },
 
   { id: 'stripe', name: 'Stripe', category: 'payments', icon: 'https://cdn.simpleicons.org/stripe/635BFF', author: 'Stripe', desc: 'Gere links de pagamento direto no chat.', status: 'available' },
-  { id: 'mercadopago', name: 'Mercado Pago', category: 'payments', icon: 'https://cdn.simpleicons.org/mercadopago/009EE3', author: 'Mercado Livre', desc: 'Cobranças via Pix e Cartão.', status: 'available' },
-  { id: 'asaas', name: 'Asaas', category: 'payments', icon: 'https://upload.wikimedia.org/wikipedia/commons/2/29/Asaas_logo.svg', author: 'Asaas', desc: 'Emissão de boletos e Pix automatizada.', status: 'available' },
+  { id: 'mercadopago', name: 'Mercado Pago', category: 'payments', icon: 'https://http2.mlstatic.com/frontend-assets/ui-navigation/5.19.5/mercadopago/logo__small@2x.png', author: 'Mercado Livre', desc: 'Cobranças via Pix e Cartão.', status: 'available' },
+  { id: 'asaas', name: 'Asaas', category: 'payments', icon: 'https://avatars.githubusercontent.com/u/1089201?s=200&v=4', author: 'Asaas', desc: 'Emissão de boletos e Pix automatizada.', status: 'available' },
 
   { id: 'calendar', name: 'Google Calendar', category: 'tools', icon: 'https://cdn.simpleicons.org/googlecalendar/4285F4', author: 'Google', desc: 'Sincronize as tarefas do CRM com sua agenda.', status: 'available' },
   { id: 'mailchimp', name: 'Mailchimp', category: 'tools', icon: 'https://cdn.simpleicons.org/mailchimp/FFE01B', author: 'Intuit', desc: 'Envio de e-mail marketing para Leads.', status: 'available' },
-  { id: 'rdstation', name: 'RD Station', category: 'tools', icon: 'https://asset.brandfetch.io/id_m-E-7kC/idUaKkM-d8.svg', author: 'Resultados Digitais', desc: 'Importe leads de landing pages.', status: 'available' },
+  { id: 'rdstation', name: 'RD Station', category: 'tools', icon: 'https://avatars.githubusercontent.com/u/5923171?s=200&v=4', author: 'Resultados Digitais', desc: 'Importe leads de landing pages.', status: 'available' },
 ];
 
 const CATEGORIES = [
