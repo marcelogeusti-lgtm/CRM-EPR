@@ -1,4 +1,4 @@
-import heroVideo from './video/hero-video.mp4';
+// Removido import de video
 import Link from 'next/link';
 import { ArrowRight, Globe, BarChart3, MessageSquare, Zap, Palette, Phone } from 'lucide-react';
 import Image from 'next/image';
@@ -36,18 +36,19 @@ export default function LandingPage() {
       </header>
 
       {/* Hero Section */}
-      <section className="relative flex flex-col overflow-hidden min-h-screen pt-32 pb-16">
+      <section className="relative flex flex-col overflow-hidden min-h-screen pt-32 pb-16 w-full">
         {/* Animated Background */}
         <div className="absolute inset-0 z-0 overflow-hidden pointer-events-none">
-          {/* O Vídeo Importado Diretamente (z-index 0) */}
+          {/* O Vídeo sendo servido pela pasta Public de forma tradicional e garantida */}
           <video 
             autoPlay 
             loop 
             muted 
             playsInline 
+            preload="auto"
             className="absolute inset-0 w-full h-full object-cover opacity-100"
           >
-            <source src={heroVideo} type="video/mp4" />
+            <source src="/hero-video.mp4?v=3" type="video/mp4" />
           </video>
           
           {/* Removemos o overlay preto de 60% que estava engolindo o vídeo! */}
