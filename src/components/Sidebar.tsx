@@ -35,7 +35,7 @@ export function Sidebar() {
   const [comunicacoesOpen, setComunicacoesOpen] = useState(pathname.includes('/inbox') || pathname.includes('/email') || pathname.includes('/team'));
 
   const menuItems = [
-    { name: 'Início', href: '/', icon: Home },
+    { name: 'Início', href: '/dashboard', icon: Home },
     { 
       name: 'Comunicações', 
       icon: MessageCircle,

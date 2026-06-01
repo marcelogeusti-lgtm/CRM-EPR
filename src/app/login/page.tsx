@@ -1,8 +1,9 @@
 'use client'
 
 import { useState } from 'react'
+import Link from 'next/link'
 import { login, signup } from './actions'
-import { Box, Lock, Mail, ArrowRight } from 'lucide-react'
+import { Box, Lock, Mail, ArrowRight, ArrowLeft } from 'lucide-react'
 
 export default function LoginPage() {
   const [isLogin, setIsLogin] = useState(true)
@@ -37,6 +38,14 @@ export default function LoginPage() {
   return (
     <div className="min-h-screen flex items-center justify-center bg-[#0a0a0a] text-zinc-100 relative overflow-hidden">
       
+      {/* Back to Home Button */}
+      <div className="absolute top-6 left-6 z-50">
+        <Link href="/" className="inline-flex items-center gap-2 text-sm text-zinc-400 hover:text-white transition-colors bg-[#111]/80 px-4 py-2 rounded-full border border-white/10 backdrop-blur-md">
+          <ArrowLeft className="size-4" />
+          Voltar à página inicial
+        </Link>
+      </div>
+
       {/* Background Effects */}
       <div className="absolute top-1/4 left-1/4 w-[500px] h-[500px] bg-blue-600/20 rounded-full blur-[120px] pointer-events-none" />
       <div className="absolute bottom-1/4 right-1/4 w-[400px] h-[400px] bg-purple-600/20 rounded-full blur-[100px] pointer-events-none" />
