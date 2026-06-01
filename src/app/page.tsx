@@ -37,7 +37,8 @@ export default function LandingPage() {
       {/* Hero Section */}
       <section className="relative flex flex-col overflow-hidden min-h-screen pt-32 pb-16">
         {/* Animated Background */}
-        <div className="absolute inset-0 z-0 pointer-events-none bg-[#0a0a0a]">
+        <div className="absolute inset-0 z-0 overflow-hidden pointer-events-none">
+          {/* O Vídeo Puro e Absoluto (z-index 0) */}
           <video 
             autoPlay 
             loop 
@@ -48,19 +49,15 @@ export default function LandingPage() {
             <source src="/hero-background.mp4?v=2" type="video/mp4" />
           </video>
           
-          {/* Overlay escuro de 60% para garantir leitura do texto, mas deixar o vídeo visível */}
-          <div className="absolute inset-0 bg-[#0a0a0a]/60" />
+          {/* Removemos o overlay preto de 60% que estava engolindo o vídeo! */}
+          {/* Deixando apenas uma leve sombra embaixo e em cima para ler o menu */}
+          <div className="absolute inset-0 bg-gradient-to-b from-[#0a0a0a]/30 via-transparent to-[#0a0a0a]/80" />
 
-          {/* Efeitos de gradiente suaves */}
+          {/* Efeitos de gradiente super suaves (opcionais, com mix-blend) */}
           <div className="absolute top-[-20%] left-[-10%] w-[50%] h-[70%] bg-blue-600/10 blur-[150px] rounded-full mix-blend-screen" />
           <div className="absolute bottom-[-10%] right-[-10%] w-[50%] h-[70%] bg-purple-600/10 blur-[150px] rounded-full mix-blend-screen" />
           
-          {/* Textura e Grid muito sutis (20% de opacidade) */}
           <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-[0.03] mix-blend-overlay" />
-          <div className="absolute inset-0 bg-[linear-gradient(to_right,#ffffff0a_1px,transparent_1px),linear-gradient(to_bottom,#ffffff0a_1px,transparent_1px)] bg-[size:4rem_4rem] [mask-image:radial-gradient(ellipse_60%_50%_at_50%_50%,#000_70%,transparent_100%)] opacity-20" />
-
-          {/* Fade suave na parte inferior para mesclar com o resto da página */}
-          <div className="absolute bottom-0 left-0 right-0 h-40 bg-gradient-to-t from-[#0a0a0a] to-transparent" />
         </div>
 
         <div className="relative z-10 flex flex-1 flex-col items-center justify-center text-center px-6 lg:px-16 mx-auto w-full max-w-7xl">
