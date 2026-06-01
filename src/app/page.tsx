@@ -37,13 +37,24 @@ export default function LandingPage() {
       {/* Hero Section */}
       <section className="relative flex flex-col overflow-hidden min-h-screen pt-32 pb-16">
         {/* Animated Background */}
-        <div className="absolute inset-0 z-0 pointer-events-none">
+        <div className="absolute inset-0 z-0 pointer-events-none bg-[#0a0a0a]">
+          <video 
+            autoPlay 
+            loop 
+            muted 
+            playsInline 
+            className="absolute inset-0 w-full h-full object-cover opacity-20"
+          >
+            <source src="/hero-video.mp4" type="video/mp4" />
+          </video>
+          <div className="absolute inset-0 bg-gradient-to-b from-[#0a0a0a]/40 via-[#0a0a0a]/60 to-[#0a0a0a]" />
+
           <div className="absolute top-[-20%] left-[-10%] w-[50%] h-[70%] bg-blue-600/20 blur-[150px] rounded-full mix-blend-screen" />
           <div className="absolute bottom-[-10%] right-[-10%] w-[50%] h-[70%] bg-purple-600/20 blur-[150px] rounded-full mix-blend-screen" />
           <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-[0.03] mix-blend-overlay" />
           
           {/* Subtle Grid Lines like TapRef */}
-          <div className="absolute inset-0 bg-[linear-gradient(to_right,#ffffff0a_1px,transparent_1px),linear-gradient(to_bottom,#ffffff0a_1px,transparent_1px)] bg-[size:4rem_4rem] [mask-image:radial-gradient(ellipse_60%_50%_at_50%_50%,#000_70%,transparent_100%)]" />
+          <div className="absolute inset-0 bg-[linear-gradient(to_right,#ffffff0a_1px,transparent_1px),linear-gradient(to_bottom,#ffffff0a_1px,transparent_1px)] bg-[size:4rem_4rem] [mask-image:radial-gradient(ellipse_60%_50%_at_50%_50%,#000_70%,transparent_100%)] opacity-50" />
         </div>
 
         <div className="relative z-10 flex flex-1 flex-col items-center justify-center text-center px-6 lg:px-16 mx-auto w-full max-w-7xl">
@@ -76,22 +87,6 @@ export default function LandingPage() {
             <a href="#demo" className="inline-flex w-full items-center justify-center gap-2 rounded-full border border-white/10 bg-white/[0.02] px-8 py-4 text-[15px] font-medium text-white/80 backdrop-blur-sm transition-colors duration-200 hover:border-white/20 hover:bg-white/[0.05] sm:w-auto">
               Assistir Demo (30s)
             </a>
-          </div>
-
-          {/* Video Demo Section */}
-          <div className="relative mt-16 w-full max-w-5xl mx-auto rounded-2xl border border-white/10 bg-white/5 p-2 shadow-2xl backdrop-blur-md">
-            <div className="absolute inset-0 bg-gradient-to-b from-blue-500/20 to-purple-500/20 opacity-20 blur-xl" />
-            <div className="relative overflow-hidden rounded-xl bg-[#050505] shadow-[0_0_50px_rgba(0,0,0,0.5)] border border-white/5">
-              <video 
-                autoPlay 
-                loop 
-                muted 
-                playsInline 
-                className="w-full h-auto object-cover"
-              >
-                <source src="/hero-video.mp4" type="video/mp4" />
-              </video>
-            </div>
           </div>
         </div>
 
