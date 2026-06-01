@@ -39,14 +39,16 @@ export default function LandingPage() {
       <section className="relative flex flex-col overflow-hidden min-h-screen pt-32 pb-16 w-full">
         {/* Animated Background */}
         <div className="absolute inset-0 z-0 overflow-hidden pointer-events-none">
-          {/* O Vídeo sendo servido pela pasta Public de forma tradicional e garantida */}
+          {/* O Vídeo com CONTROLES para depuração e z-index forçado */}
           <video 
             autoPlay 
             loop 
             muted 
             playsInline 
             preload="auto"
-            className="absolute inset-0 w-full h-full object-cover opacity-100"
+            controls
+            style={{ pointerEvents: 'auto' }}
+            className="absolute inset-0 w-full h-full object-cover opacity-100 z-50"
           >
             <source src="/hero-video.mp4" type="video/mp4" />
           </video>
