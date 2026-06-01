@@ -48,18 +48,8 @@ export default function LandingPage() {
             preload="auto"
             className="absolute inset-0 w-full h-full object-cover opacity-100"
           >
-            <source src="/hero-video.mp4?v=3" type="video/mp4" />
+            <source src="/hero-video.mp4" type="video/mp4" />
           </video>
-          
-          {/* Removemos o overlay preto de 60% que estava engolindo o vídeo! */}
-          {/* Deixando apenas uma leve sombra embaixo e em cima para ler o menu */}
-          <div className="absolute inset-0 bg-gradient-to-b from-[#0a0a0a]/30 via-transparent to-[#0a0a0a]/80" />
-
-          {/* Efeitos de gradiente super suaves (opcionais, com mix-blend) */}
-          <div className="absolute top-[-20%] left-[-10%] w-[50%] h-[70%] bg-blue-600/10 blur-[150px] rounded-full mix-blend-screen" />
-          <div className="absolute bottom-[-10%] right-[-10%] w-[50%] h-[70%] bg-purple-600/10 blur-[150px] rounded-full mix-blend-screen" />
-          
-          <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-[0.03] mix-blend-overlay" />
         </div>
 
         <div className="relative z-10 flex flex-1 flex-col items-center justify-center text-center px-6 lg:px-16 mx-auto w-full max-w-7xl">
