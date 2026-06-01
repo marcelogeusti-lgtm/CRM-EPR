@@ -1,19 +1,37 @@
-import { type NextRequest } from 'next/server'
+import { type NextRequest, NextResponse } from 'next/server'
 import { updateSession } from '@/utils/supabase/middleware'
 
 export async function proxy(request: NextRequest) {
-  return await updateSession(request)
+  // First, let supabase handle the auth and possibly return a redirect
+  const supabaseResponse = await updateSession(request)
+
+  // If Supabase is redirecting, let it redirect.
+  if (supabaseResponse.status >= 300 && supabaseResponse.status < 400) {
+    return supabaseResponse;
+  }
+
+  // If it's not a redirect, we can apply our rewrite for the subdomain
+  const url = request.nextUrl;
+  const hostname = request.headers.get('host') || '';
+  const isPainel = hostname.startsWith('painel.');
+
+  if (isPainel && !url.pathname.startsWith('/admin')) {
+    const path = url.pathname === '/' ? '' : url.pathname;
+    url.pathname = `/admin${path}`;
+    
+    // Copy the cookies from supabaseResponse to the new rewrite response
+    const rewriteResponse = NextResponse.rewrite(url);
+    supabaseResponse.cookies.getAll().forEach(cookie => {
+        rewriteResponse.cookies.set(cookie.name, cookie.value);
+    });
+    return rewriteResponse;
+  }
+
+  return supabaseResponse;
 }
 
 export const config = {
   matcher: [
-    /*
-     * Match all request paths except for the ones starting with:
-     * - _next/static (static files)
-     * - _next/image (image optimization files)
-     * - favicon.ico (favicon file)
-     * Feel free to modify this pattern to include more paths.
-     */
     '/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
   ],
 }

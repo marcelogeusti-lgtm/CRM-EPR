@@ -35,22 +35,26 @@ export async function updateSession(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser()
 
-  // Proteger rotas (Tudo exceto /, /login e rotas publicas)
+  const hostname = request.headers.get('host') || ''
+  const isPainel = hostname.startsWith('painel.')
+
+  // Proteger rotas (Tudo exceto /, /login, /admin/login e rotas publicas)
   const isPublicRoute = request.nextUrl.pathname === '/' || 
                         request.nextUrl.pathname.startsWith('/login') || 
+                        request.nextUrl.pathname.startsWith('/admin/login') ||
                         request.nextUrl.pathname.startsWith('/api/webhooks');
 
   if (!user && !isPublicRoute) {
-    // Redireciona para o Login se não estiver autenticado e tentar acessar rota restrita
+    // Redireciona para o Login se não estiver autenticado
     const url = request.nextUrl.clone()
     url.pathname = '/login'
     return NextResponse.redirect(url)
   }
 
-  // Se o usuário já está logado e tenta acessar a página de login OU a raiz (/), redireciona para o Dashboard
-  if (user && (request.nextUrl.pathname.startsWith('/login') || request.nextUrl.pathname === '/')) {
+  // Se o usuário já está logado e tenta acessar a página de login OU a raiz (/), redireciona
+  if (user && (request.nextUrl.pathname.startsWith('/login') || request.nextUrl.pathname === '/' || request.nextUrl.pathname === '/admin/login')) {
     const url = request.nextUrl.clone()
-    url.pathname = '/dashboard'
+    url.pathname = isPainel ? '/admin' : '/dashboard'
     return NextResponse.redirect(url)
   }
 
