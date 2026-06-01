@@ -46,28 +46,29 @@ export default function LandingPage() {
           <div className="absolute inset-0 bg-[linear-gradient(to_right,#ffffff0a_1px,transparent_1px),linear-gradient(to_bottom,#ffffff0a_1px,transparent_1px)] bg-[size:4rem_4rem] [mask-image:radial-gradient(ellipse_60%_50%_at_50%_50%,#000_70%,transparent_100%)]" />
         </div>
 
-        <div className="relative z-10 flex flex-1 flex-col justify-center px-6 lg:px-16 mx-auto w-full max-w-7xl">
+        <div className="relative z-10 flex flex-1 flex-col items-center justify-center text-center px-6 lg:px-16 mx-auto w-full max-w-7xl">
           <div className="mb-8 animate-fade-in-up">
             <span className="inline-flex items-center gap-3 font-mono text-sm text-white/60">
-              <span className="h-px w-8 bg-blue-500"></span>
+              <span className="hidden sm:block h-px w-8 bg-blue-500"></span>
               A Nova Era do CRM
+              <span className="hidden sm:block h-px w-8 bg-blue-500"></span>
             </span>
           </div>
           
-          <h1 className="flex flex-col lg:flex-row lg:items-baseline font-light tracking-tight text-white mb-6" style={{ fontSize: 'clamp(2.5rem, 6.5vw, 5.5rem)', lineHeight: 1.1 }}>
-            <span className="whitespace-nowrap lg:pr-4">Conecte seus canais.</span>
-            <span className="relative flex shrink-0 items-center justify-center rounded-2xl border border-purple-500/20 bg-purple-500/10 px-6 pt-2 pb-3 shadow-[0_0_30px_rgba(168,85,247,0.15)] mt-2 lg:mt-0">
+          <h1 className="flex flex-col font-light tracking-tight text-white mb-6" style={{ fontSize: 'clamp(2.5rem, 6.5vw, 5.5rem)', lineHeight: 1.1 }}>
+            <span className="whitespace-nowrap">Conecte seus canais.</span>
+            <span className="relative inline-flex shrink-0 items-center justify-center rounded-2xl border border-purple-500/20 bg-purple-500/10 px-6 pt-2 pb-3 shadow-[0_0_30px_rgba(168,85,247,0.15)] mt-4 mx-auto w-fit">
               <span className="font-medium text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-purple-400">
                 A IA atende.
               </span>
             </span>
           </h1>
           
-          <p className="mt-6 w-full max-w-3xl text-[16px] md:text-[18px] leading-relaxed text-white/60">
+          <p className="mt-6 w-full max-w-3xl text-[16px] md:text-[18px] leading-relaxed text-white/60 mx-auto">
             Dê adeus ao atendimento manual. O Nexus é um CRM projetado para a era da Inteligência Artificial. Centralize WhatsApp, Instagram e TikTok, e deixe nossa IA responder, qualificar e agendar reuniões por você 24 horas por dia.
           </p>
           
-          <div className="mt-10 flex flex-col gap-4 sm:flex-row sm:items-center">
+          <div className="mt-10 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-center w-full max-w-md mx-auto sm:max-w-none">
             <Link className="group inline-flex w-full cursor-pointer items-center justify-center gap-2 rounded-full bg-white px-8 py-4 text-[15px] font-semibold text-black shadow-[0_0_30px_rgba(255,255,255,0.3)] transition-all duration-200 hover:shadow-[0_0_40px_rgba(255,255,255,0.5)] sm:w-auto" href="/login">
               Criar Conta Gratuita
               <ArrowRight className="h-4 w-4 transition-transform duration-200 group-hover:translate-x-0.5" />
@@ -80,17 +81,17 @@ export default function LandingPage() {
 
         {/* Stats Row */}
         <div className="relative z-10 border-t border-white/[0.05] px-6 py-8 lg:px-16 mx-auto w-full max-w-7xl mt-20">
-          <div className="flex flex-col sm:flex-row items-start sm:items-center gap-10 lg:gap-24">
-            <div className="flex flex-col gap-1.5">
-              <span className="text-3xl font-light tracking-tight text-white lg:text-4xl">4,200+</span>
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-10 lg:gap-24 text-center">
+            <div className="flex flex-col gap-1.5 items-center">
+              <span className="text-4xl lg:text-5xl font-light tracking-tight text-white">4,200+</span>
               <span className="text-xs uppercase tracking-widest text-white/50">Lojas usando Nexus</span>
             </div>
-            <div className="flex flex-col gap-1.5">
-              <span className="text-3xl font-light tracking-tight text-white lg:text-4xl">2.1M</span>
+            <div className="flex flex-col gap-1.5 items-center">
+              <span className="text-4xl lg:text-5xl font-light tracking-tight text-white">2.1M</span>
               <span className="text-xs uppercase tracking-widest text-white/50">Mensagens Automatizadas</span>
             </div>
-            <div className="flex flex-col gap-1.5">
-              <span className="text-3xl font-light tracking-tight text-white lg:text-4xl">4.9/5</span>
+            <div className="flex flex-col gap-1.5 items-center">
+              <span className="text-4xl lg:text-5xl font-light tracking-tight text-white">4.9/5</span>
               <span className="text-xs uppercase tracking-widest text-white/50">Avaliação Média</span>
             </div>
           </div>
@@ -119,7 +120,7 @@ export default function LandingPage() {
 
       {/* Features / Bento Grid */}
       <section id="features" className="relative px-6 py-24 sm:py-32 mx-auto max-w-7xl">
-        <div className="mb-16 max-w-2xl">
+        <div className="mb-16 max-w-2xl mx-auto text-center">
           <p className="text-[12px] font-semibold uppercase tracking-[0.14em] text-blue-400">Plataforma Completa</p>
           <h2 className="mt-3 text-[32px] font-light leading-tight tracking-tight text-white sm:text-[44px]">
             Tudo o que você precisa.<br />Nenhum sistema legado.
