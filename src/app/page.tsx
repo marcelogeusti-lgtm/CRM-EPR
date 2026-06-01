@@ -38,7 +38,7 @@ export default function LandingPage() {
       <section className="relative flex flex-col overflow-hidden min-h-screen pt-32 pb-16">
         {/* Animated Background */}
         <div className="absolute inset-0 z-0 overflow-hidden pointer-events-none">
-          {/* O Vídeo Puro e Absoluto (z-index 0) */}
+          {/* O Vídeo Importado Diretamente (z-index 0) */}
           <video 
             autoPlay 
             loop 
@@ -46,7 +46,7 @@ export default function LandingPage() {
             playsInline 
             className="absolute inset-0 w-full h-full object-cover opacity-100"
           >
-            <source src="/hero-background.mp4?v=2" type="video/mp4" />
+            <source src={heroVideo} type="video/mp4" />
           </video>
           
           {/* Removemos o overlay preto de 60% que estava engolindo o vídeo! */}
