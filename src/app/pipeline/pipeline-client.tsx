@@ -5,7 +5,7 @@ import {
   Columns, List as ListIcon, Search, MoreHorizontal, Zap, Plus,
   Filter, X, ChevronDown, Calendar, Users, Tag, RefreshCw
 } from 'lucide-react';
-import { createLead } from '../actions/pipeline';
+import { createLead, updateLeadStage } from '../actions/pipeline';
 
 // This matches the Prisma shape + include: contact
 type Lead = {
@@ -17,6 +17,7 @@ type Lead = {
 };
 
 export default function PipelineClient({ initialLeads }: { initialLeads: Lead[] }) {
+  const [leads, setLeads] = useState<Lead[]>(initialLeads);
   const [viewMode, setViewMode] = useState<'kanban' | 'list'>('kanban');
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   const [isManageTagsOpen, setIsManageTagsOpen] = useState(false);
@@ -26,6 +27,7 @@ export default function PipelineClient({ initialLeads }: { initialLeads: Lead[] 
   });
   const [isNewLeadModalOpen, setIsNewLeadModalOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [draggedLeadId, setDraggedLeadId] = useState<string | null>(null);
 
   const columns = [
     { id: 1, name: 'COMENTÁRIO OU DM', color: 'bg-zinc-500' },
@@ -42,14 +44,55 @@ export default function PipelineClient({ initialLeads }: { initialLeads: Lead[] 
     e.preventDefault();
     setIsSubmitting(true);
     const formData = new FormData(e.currentTarget);
-    await createLead(formData);
+    const result = await createLead(formData);
+    
+    // Optmistic Update Se Sucesso
+    if (result.success && result.data) {
+      setLeads([...leads, {
+        id: result.data.id,
+        title: result.data.title,
+        value: result.data.value,
+        stage: 'COMENTÁRIO OU DM',
+        contact: {
+          name: formData.get('contactName') as string || 'Sem Nome',
+          phone: formData.get('contactPhone') as string || null,
+          email: null
+        }
+      }]);
+    }
+
     setIsSubmitting(false);
     setIsNewLeadModalOpen(false);
   }
 
   // Calculate stats for columns
-  const getColumnLeads = (stageName: string) => initialLeads.filter(l => l.stage === stageName);
+  const getColumnLeads = (stageName: string) => leads.filter(l => l.stage === stageName);
   const formatCurrency = (val: number) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(val);
+
+  // --- Drag and Drop Handlers ---
+  const handleDragStart = (e: React.DragEvent, id: string) => {
+    e.dataTransfer.setData('leadId', id);
+    setDraggedLeadId(id);
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault(); // Necessário para permitir o onDrop
+  };
+
+  const handleDrop = async (e: React.DragEvent, stageName: string) => {
+    e.preventDefault();
+    const leadId = e.dataTransfer.getData('leadId');
+    if (!leadId) return;
+
+    // Atualização otimista local
+    setLeads(prevLeads => prevLeads.map(lead => 
+      lead.id === leadId ? { ...lead, stage: stageName } : lead
+    ));
+    setDraggedLeadId(null);
+
+    // Salvar no backend
+    await updateLeadStage(leadId, stageName);
+  };
 
   return (
     <div className="h-screen flex flex-col bg-[#0a0a0a] text-zinc-200 overflow-hidden relative">
@@ -106,7 +149,12 @@ export default function PipelineClient({ initialLeads }: { initialLeads: Lead[] 
               const columnLeads = getColumnLeads(col.name);
               const columnTotal = columnLeads.reduce((sum, l) => sum + l.value, 0);
               return (
-                <div key={col.id} className="flex-shrink-0 w-[300px] flex flex-col h-full bg-[#111] rounded-lg border border-[#222] overflow-hidden">
+                <div 
+                  key={col.id} 
+                  className="flex-shrink-0 w-[300px] flex flex-col h-full bg-[#111] rounded-lg border border-[#222] overflow-hidden transition-colors hover:border-[#333]"
+                  onDragOver={handleDragOver}
+                  onDrop={(e) => handleDrop(e, col.name)}
+                >
                   <div className="pt-0 bg-[#141414] border-b border-[#222]">
                     <div className={`h-1 w-full ${col.color} shadow-[0_0_10px_currentColor] opacity-70`} />
                     <div className="p-3 text-center">
@@ -123,7 +171,13 @@ export default function PipelineClient({ initialLeads }: { initialLeads: Lead[] 
                     
                     {/* Render Real Leads */}
                     {columnLeads.map(lead => (
-                      <div key={lead.id} className="bg-[#1a1a1a] border border-[#333] hover:border-[#444] rounded-lg p-3 shadow-lg cursor-pointer transition-colors">
+                      <div 
+                        key={lead.id} 
+                        draggable
+                        onDragStart={(e) => handleDragStart(e, lead.id)}
+                        onDragEnd={() => setDraggedLeadId(null)}
+                        className={`bg-[#1a1a1a] border border-[#333] hover:border-[#555] rounded-lg p-3 shadow-lg cursor-grab active:cursor-grabbing transition-all ${draggedLeadId === lead.id ? 'opacity-50 scale-95' : 'opacity-100'}`}
+                      >
                         <div className="flex justify-between items-start mb-2">
                            <span className="text-[13px] font-bold text-white">{lead.title}</span>
                            <span className="text-[12px] text-green-400 font-medium">{formatCurrency(lead.value)}</span>

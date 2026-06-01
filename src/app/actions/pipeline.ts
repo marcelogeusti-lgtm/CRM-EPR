@@ -117,3 +117,30 @@ export async function createLead(formData: FormData) {
     return { success: false, error: 'Failed to create lead' };
   }
 }
+
+export async function updateLeadStage(leadId: string, newStageName: string) {
+  try {
+    let tenant = await prisma.tenant.findFirst();
+    if (!tenant) return { success: false, error: 'No tenant found' };
+
+    const pipeline = await prisma.pipeline.findFirst({ where: { tenantId: tenant.id } });
+    if (!pipeline) return { success: false, error: 'No pipeline found' };
+
+    const targetStage = await prisma.stage.findFirst({
+      where: { pipelineId: pipeline.id, name: newStageName }
+    });
+
+    if (!targetStage) return { success: false, error: 'Stage not found' };
+
+    const deal = await prisma.deal.update({
+      where: { id: leadId },
+      data: { stageId: targetStage.id }
+    });
+
+    revalidatePath('/pipeline');
+    return { success: true, data: deal };
+  } catch (error) {
+    console.error('Error updating lead stage:', error);
+    return { success: false, error: 'Failed to update lead stage' };
+  }
+}
