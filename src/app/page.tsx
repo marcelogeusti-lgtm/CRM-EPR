@@ -53,7 +53,7 @@ export default function LandingPage() {
                   preload="auto" 
                   class="absolute inset-0 w-full h-full object-cover opacity-100"
                 >
-                  <source src="/hero-video.mp4" type="video/mp4" />
+                  <source src="/hero-video-v4.mp4" type="video/mp4" />
                 </video>
               `,
             }}
