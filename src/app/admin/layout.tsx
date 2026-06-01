@@ -1,5 +1,5 @@
 import React from 'react';
-import { Database, ShieldAlert, KeyRound, Users, LayoutDashboard, Settings } from 'lucide-react';
+import { Database, ShieldAlert, KeyRound, Users, LayoutDashboard, Settings, Menu } from 'lucide-react';
 
 export default function AdminLayout({
   children,
@@ -7,9 +7,23 @@ export default function AdminLayout({
   children: React.ReactNode
 }) {
   return (
-    <div className="flex h-screen bg-[#000000] text-zinc-300 font-sans">
-      {/* Sidebar do Super Admin */}
-      <div className="w-64 bg-[#0a0a0a] border-r border-[#1f1f1f] flex flex-col">
+    <div className="flex flex-col md:flex-row h-screen bg-[#000000] text-zinc-300 font-sans">
+      
+      {/* Mobile Header (Only visible on small screens) */}
+      <div className="md:hidden flex items-center justify-between p-4 border-b border-[#1f1f1f] bg-[#0a0a0a]">
+        <div className="flex items-center gap-3">
+          <div className="w-8 h-8 rounded bg-red-500/10 flex items-center justify-center border border-red-500/20">
+            <ShieldAlert className="size-4 text-red-500" />
+          </div>
+          <h2 className="font-bold text-zinc-100 text-sm">Super Admin</h2>
+        </div>
+        <button className="text-zinc-400">
+          <Menu className="size-6" />
+        </button>
+      </div>
+
+      {/* Sidebar do Super Admin (Hidden on mobile by default, flex on md) */}
+      <div className="hidden md:flex w-64 bg-[#0a0a0a] border-r border-[#1f1f1f] flex-col shrink-0">
         <div className="p-6 border-b border-[#1f1f1f] flex items-center gap-3">
           <div className="w-8 h-8 rounded bg-red-500/10 flex items-center justify-center border border-red-500/20">
             <ShieldAlert className="size-4 text-red-500" />
