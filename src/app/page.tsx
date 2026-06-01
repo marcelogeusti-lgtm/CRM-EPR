@@ -45,7 +45,7 @@ export default function LandingPage() {
             playsInline 
             className="absolute inset-0 w-full h-full object-cover opacity-100"
           >
-            <source src="/hero-background.mp4" type="video/mp4" />
+            <source src="/hero-background.mp4?v=2" type="video/mp4" />
           </video>
           
           {/* Overlay escuro de 60% para garantir leitura do texto, mas deixar o vídeo visível */}
