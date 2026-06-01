@@ -1,5 +1,7 @@
 import { NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma'; // Assumindo que temos a instancia do prisma exportada
+import { PrismaClient } from '@prisma/client';
+
+const prisma = new PrismaClient();
 
 // 1. ROTA GET - Desafio de Verificação (Webhook Challenge da Meta)
 export async function GET(request: Request) {
