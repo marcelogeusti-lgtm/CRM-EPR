@@ -1,14 +1,24 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { formatDistanceToNow } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { Search, User } from 'lucide-react';
+import { useRouter } from 'next/navigation';
 import { LeadInboxPanel } from '@/components/LeadInboxPanel';
 
 export function InboxClientView({ initialDeals }: { initialDeals: any[] }) {
-  const [deals] = useState(initialDeals);
+  const router = useRouter();
+  const deals = initialDeals; // Usa a prop diretamente para receber os updates do router.refresh()
   const [selectedDealId, setSelectedDealId] = useState<string | null>(null);
+
+  // Efeito de Polling (Auto-Refresh)
+  useEffect(() => {
+    const interval = setInterval(() => {
+      router.refresh();
+    }, 3000); // Atualiza a cada 3 segundos
+    return () => clearInterval(interval);
+  }, [router]);
 
   const selectedDeal = deals.find(d => d.id === selectedDealId);
 
