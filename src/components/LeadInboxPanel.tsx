@@ -102,7 +102,7 @@ export function LeadInboxPanel({ deal, onClose }: LeadInboxPanelProps) {
         </div>
       </div>
 
-      <div ref={scrollRef} className="flex-1 overflow-y-auto p-4 flex flex-col gap-4 bg-[url('https://i.imgur.com/3qC5xP7.png')] bg-repeat bg-[length:300px_300px] opacity-90" style={{ backgroundBlendMode: 'overlay', backgroundColor: '#0f0f0f' }}>
+      <div ref={scrollRef} className="flex-1 overflow-y-auto p-4 flex flex-col gap-4 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] bg-repeat opacity-[0.03]" style={{ backgroundColor: '#0a0a0a' }}>
         
         {activities.map((act) => {
           if (act.type === 'STATUS_CHANGE') {

@@ -135,7 +135,7 @@ async function processWhatsAppMessage(fromPhone: string, textBody: string, phone
     console.log(`💬 Nova Conversa iniciada!`);
   }
 
-  // 6. Inserir Message
+  // 6. Inserir Message (Nova Arquitetura)
   const newMessage = await prisma.message.create({
     data: {
       conversationId: conversation.id,
@@ -143,6 +143,18 @@ async function processWhatsAppMessage(fromPhone: string, textBody: string, phone
       content: textBody
     }
   });
+
+  // 7. Inserir Activity (Para compatibilidade com o Frontend Atual da Timeline)
+  await prisma.activity.create({
+    data: {
+      tenantId,
+      dealId: deal.id,
+      type: 'MESSAGE',
+      content: textBody,
+      author: 'Contact'
+    }
+  });
+
   console.log(`💾 Mensagem gravada no DB com sucesso! ID: ${newMessage.id}`);
 }
 
