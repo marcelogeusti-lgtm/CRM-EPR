@@ -43,18 +43,24 @@ export default function LandingPage() {
             loop 
             muted 
             playsInline 
-            className="absolute inset-0 w-full h-full object-cover opacity-20"
+            className="absolute inset-0 w-full h-full object-cover opacity-100"
           >
             <source src="/hero-video.mp4" type="video/mp4" />
           </video>
-          <div className="absolute inset-0 bg-gradient-to-b from-[#0a0a0a]/40 via-[#0a0a0a]/60 to-[#0a0a0a]" />
-
-          <div className="absolute top-[-20%] left-[-10%] w-[50%] h-[70%] bg-blue-600/20 blur-[150px] rounded-full mix-blend-screen" />
-          <div className="absolute bottom-[-10%] right-[-10%] w-[50%] h-[70%] bg-purple-600/20 blur-[150px] rounded-full mix-blend-screen" />
-          <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-[0.03] mix-blend-overlay" />
           
-          {/* Subtle Grid Lines like TapRef */}
-          <div className="absolute inset-0 bg-[linear-gradient(to_right,#ffffff0a_1px,transparent_1px),linear-gradient(to_bottom,#ffffff0a_1px,transparent_1px)] bg-[size:4rem_4rem] [mask-image:radial-gradient(ellipse_60%_50%_at_50%_50%,#000_70%,transparent_100%)] opacity-50" />
+          {/* Overlay escuro de 60% para garantir leitura do texto, mas deixar o vídeo visível */}
+          <div className="absolute inset-0 bg-[#0a0a0a]/60" />
+
+          {/* Efeitos de gradiente suaves */}
+          <div className="absolute top-[-20%] left-[-10%] w-[50%] h-[70%] bg-blue-600/10 blur-[150px] rounded-full mix-blend-screen" />
+          <div className="absolute bottom-[-10%] right-[-10%] w-[50%] h-[70%] bg-purple-600/10 blur-[150px] rounded-full mix-blend-screen" />
+          
+          {/* Textura e Grid muito sutis (20% de opacidade) */}
+          <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-[0.03] mix-blend-overlay" />
+          <div className="absolute inset-0 bg-[linear-gradient(to_right,#ffffff0a_1px,transparent_1px),linear-gradient(to_bottom,#ffffff0a_1px,transparent_1px)] bg-[size:4rem_4rem] [mask-image:radial-gradient(ellipse_60%_50%_at_50%_50%,#000_70%,transparent_100%)] opacity-20" />
+
+          {/* Fade suave na parte inferior para mesclar com o resto da página */}
+          <div className="absolute bottom-0 left-0 right-0 h-40 bg-gradient-to-t from-[#0a0a0a] to-transparent" />
         </div>
 
         <div className="relative z-10 flex flex-1 flex-col items-center justify-center text-center px-6 lg:px-16 mx-auto w-full max-w-7xl">
