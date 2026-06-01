@@ -10,10 +10,10 @@ function cn(...inputs: any[]) {
   return twMerge(clsx(inputs));
 }
 
-// Mock de integrações para criar volume
+// Atualizado com Meta Oficial e TikTok
 const MOCK_INTEGRATIONS = [
-  { id: 'whatsapp', name: 'WhatsApp API', category: 'messages', icon: 'https://upload.wikimedia.org/wikipedia/commons/6/6b/WhatsApp.svg', author: 'Oficial', desc: 'Conecte seu WhatsApp via Evolution API ou Baileys.', status: 'available' },
-  { id: 'instagram', name: 'Instagram', category: 'messages', icon: 'https://upload.wikimedia.org/wikipedia/commons/e/e7/Instagram_logo_2016.svg', author: 'Meta', desc: 'Responda DMs do Instagram direto do CRM.', status: 'available' },
+  { id: 'meta', name: 'Meta Oficial (WhatsApp & Instagram)', category: 'messages', icon: 'https://upload.wikimedia.org/wikipedia/commons/2/22/Meta_Inc._logo.svg', author: 'Meta Oficial', desc: 'Conecte a API Oficial do WhatsApp Cloud e Instagram Graph.', status: 'available' },
+  { id: 'tiktok', name: 'TikTok for Business', category: 'messages', icon: 'https://upload.wikimedia.org/wikipedia/en/a/a9/TikTok_logo.svg', author: 'TikTok', desc: 'Receba e responda DMs do TikTok pelo CRM.', status: 'available' },
   { id: 'messenger', name: 'Facebook Messenger', category: 'messages', icon: 'https://upload.wikimedia.org/wikipedia/commons/b/be/Facebook_Messenger_logo_2020.svg', author: 'Meta', desc: 'Centralize as mensagens da sua página.', status: 'available' },
   { id: 'telegram', name: 'Telegram', category: 'messages', icon: 'https://upload.wikimedia.org/wikipedia/commons/8/82/Telegram_logo.svg', author: 'Telegram', desc: 'Integração direta com bots do Telegram.', status: 'available' },
   
@@ -48,6 +48,13 @@ export default function IntegrationsPage() {
   const [selectedApp, setSelectedApp] = useState<any>(null);
   const [apiKey, setApiKey] = useState('');
   const [webhookUrl, setWebhookUrl] = useState('');
+  
+  // Custom Configs
+  const [metaPhoneId, setMetaPhoneId] = useState('');
+  const [metaVerifyToken, setMetaVerifyToken] = useState('');
+  const [tiktokAppId, setTiktokAppId] = useState('');
+  const [tiktokAppSecret, setTiktokAppSecret] = useState('');
+
   const [isSaving, setIsSaving] = useState(false);
 
   // DB State
@@ -75,7 +82,20 @@ export default function IntegrationsPage() {
 
   const handleSaveIntegration = async () => {
     setIsSaving(true);
-    await saveIntegration(selectedApp.id, apiKey, webhookUrl);
+    let configObj: any = {};
+    if (selectedApp.id === 'meta') {
+      configObj = { phoneId: metaPhoneId, verifyToken: metaVerifyToken };
+    } else if (selectedApp.id === 'tiktok') {
+      configObj = { appId: tiktokAppId, appSecret: tiktokAppSecret };
+    }
+
+    await saveIntegration(
+      selectedApp.id, 
+      apiKey, 
+      webhookUrl, 
+      Object.keys(configObj).length > 0 ? JSON.stringify(configObj) : undefined
+    );
+
     setInstalledApps(await getIntegrations());
     setIsSaving(false);
     setSelectedApp(null);
@@ -92,9 +112,22 @@ export default function IntegrationsPage() {
     if (config) {
       setApiKey(config.apiKey || '');
       setWebhookUrl(config.webhookUrl || '');
+      
+      const parsedConfig = config.config ? JSON.parse(config.config) : {};
+      if (app.id === 'meta') {
+        setMetaPhoneId(parsedConfig.phoneId || '');
+        setMetaVerifyToken(parsedConfig.verifyToken || '');
+      } else if (app.id === 'tiktok') {
+        setTiktokAppId(parsedConfig.appId || '');
+        setTiktokAppSecret(parsedConfig.appSecret || '');
+      }
     } else {
       setApiKey('');
       setWebhookUrl('');
+      setMetaPhoneId('');
+      setMetaVerifyToken('');
+      setTiktokAppId('');
+      setTiktokAppSecret('');
     }
     setSelectedApp(app);
   };
@@ -117,13 +150,13 @@ export default function IntegrationsPage() {
           
           <div className="relative z-10 hidden md:flex items-center gap-4">
              <div className="w-16 h-16 bg-white rounded-2xl p-3 shadow-2xl rotate-[-10deg] border border-zinc-200/20">
-               <img src="https://upload.wikimedia.org/wikipedia/commons/6/6b/WhatsApp.svg" alt="WhatsApp" className="w-full h-full object-contain" />
+               <img src="https://upload.wikimedia.org/wikipedia/commons/2/22/Meta_Inc._logo.svg" alt="Meta" className="w-full h-full object-contain" />
              </div>
              <div className="w-20 h-20 bg-[#1a1a1a] rounded-2xl p-4 shadow-2xl z-20 border border-zinc-800">
                <img src="https://n8n.io/favicon.ico" alt="n8n" className="w-full h-full object-contain" />
              </div>
              <div className="w-16 h-16 bg-white rounded-2xl p-3 shadow-2xl rotate-[10deg] border border-zinc-200/20">
-               <img src="https://upload.wikimedia.org/wikipedia/commons/0/04/ChatGPT_logo.svg" alt="OpenAI" className="w-full h-full object-contain" />
+               <img src="https://upload.wikimedia.org/wikipedia/en/a/a9/TikTok_logo.svg" alt="TikTok" className="w-full h-full object-contain" />
              </div>
           </div>
           
@@ -228,41 +261,88 @@ export default function IntegrationsPage() {
               </button>
             </div>
 
-            <div className="p-6 space-y-4">
+            <div className="p-6 space-y-4 max-h-[60vh] overflow-y-auto custom-scrollbar">
               <p className="text-sm text-zinc-400 mb-6">{selectedApp.desc}</p>
 
-              {(selectedApp.id === 'n8n' || selectedApp.id === 'whatsapp' || selectedApp.id === 'stripe') && (
-                <div>
-                  <label className="text-xs font-bold uppercase tracking-widest text-zinc-500 mb-2 block">Webhook URL / API URL</label>
-                  <input 
-                    type="text" 
-                    value={webhookUrl}
-                    onChange={(e) => setWebhookUrl(e.target.value)}
-                    placeholder="https://sua-url-aqui.com/webhook"
-                    className="w-full bg-[#0a0a0a] border border-[#333333] rounded-lg p-3 text-sm text-zinc-300 focus:outline-none focus:border-blue-500/50"
-                  />
-                </div>
+              {/* RENDER FOR META */}
+              {selectedApp.id === 'meta' && (
+                <>
+                  <div className="p-3 bg-blue-500/10 border border-blue-500/20 rounded-lg mb-4">
+                    <p className="text-xs text-blue-400 font-medium">
+                      O seu Webhook de recebimento no Portal da Meta deve ser configurado como: <br/>
+                      <strong className="text-blue-300 break-all">https://crm-erp-nextgen.vercel.app/api/webhooks/meta</strong>
+                    </p>
+                  </div>
+                  <div>
+                    <label className="text-xs font-bold uppercase tracking-widest text-zinc-500 mb-2 block">System User Access Token Permanente (Meta)</label>
+                    <input type="password" value={apiKey} onChange={(e) => setApiKey(e.target.value)} placeholder="EAAG..." className="w-full bg-[#0a0a0a] border border-[#333333] rounded-lg p-3 text-sm text-zinc-300 focus:outline-none focus:border-blue-500/50" />
+                  </div>
+                  <div>
+                    <label className="text-xs font-bold uppercase tracking-widest text-zinc-500 mb-2 block">ID do Número de Telefone (WhatsApp)</label>
+                    <input type="text" value={metaPhoneId} onChange={(e) => setMetaPhoneId(e.target.value)} placeholder="Ex: 1122334455" className="w-full bg-[#0a0a0a] border border-[#333333] rounded-lg p-3 text-sm text-zinc-300 focus:outline-none focus:border-blue-500/50" />
+                  </div>
+                  <div>
+                    <label className="text-xs font-bold uppercase tracking-widest text-zinc-500 mb-2 block">Token de Verificação (Webhook Verify Token)</label>
+                    <input type="text" value={metaVerifyToken} onChange={(e) => setMetaVerifyToken(e.target.value)} placeholder="Uma senha sua (ex: nexus2024)" className="w-full bg-[#0a0a0a] border border-[#333333] rounded-lg p-3 text-sm text-zinc-300 focus:outline-none focus:border-blue-500/50" />
+                  </div>
+                </>
               )}
 
-              {selectedApp.id !== 'n8n' && (
-                <div>
-                  <label className="text-xs font-bold uppercase tracking-widest text-zinc-500 mb-2 block">Token / API Key</label>
-                  <input 
-                    type="password" 
-                    value={apiKey}
-                    onChange={(e) => setApiKey(e.target.value)}
-                    placeholder="sk_test_..."
-                    className="w-full bg-[#0a0a0a] border border-[#333333] rounded-lg p-3 text-sm text-zinc-300 focus:outline-none focus:border-blue-500/50"
-                  />
-                </div>
+              {/* RENDER FOR TIKTOK */}
+              {selectedApp.id === 'tiktok' && (
+                <>
+                  <div>
+                    <label className="text-xs font-bold uppercase tracking-widest text-zinc-500 mb-2 block">TikTok Access Token</label>
+                    <input type="password" value={apiKey} onChange={(e) => setApiKey(e.target.value)} placeholder="Token de acesso do TikTok" className="w-full bg-[#0a0a0a] border border-[#333333] rounded-lg p-3 text-sm text-zinc-300 focus:outline-none focus:border-blue-500/50" />
+                  </div>
+                  <div>
+                    <label className="text-xs font-bold uppercase tracking-widest text-zinc-500 mb-2 block">App ID</label>
+                    <input type="text" value={tiktokAppId} onChange={(e) => setTiktokAppId(e.target.value)} placeholder="TikTok App ID" className="w-full bg-[#0a0a0a] border border-[#333333] rounded-lg p-3 text-sm text-zinc-300 focus:outline-none focus:border-blue-500/50" />
+                  </div>
+                  <div>
+                    <label className="text-xs font-bold uppercase tracking-widest text-zinc-500 mb-2 block">App Secret</label>
+                    <input type="password" value={tiktokAppSecret} onChange={(e) => setTiktokAppSecret(e.target.value)} placeholder="TikTok App Secret" className="w-full bg-[#0a0a0a] border border-[#333333] rounded-lg p-3 text-sm text-zinc-300 focus:outline-none focus:border-blue-500/50" />
+                  </div>
+                </>
               )}
 
-              {/* Fake state para apps que não tem nada pronto no backend ainda para não quebrar a ilusão */}
-              {selectedApp.id !== 'n8n' && selectedApp.id !== 'openai' && selectedApp.id !== 'whatsapp' && (
-                <div className="mt-4 p-3 bg-amber-500/10 border border-amber-500/20 rounded-lg flex gap-3 text-amber-500 text-sm">
-                  <Zap className="size-5 flex-shrink-0" />
-                  <p>Essa ferramenta no momento só pode ser ativada via <strong>n8n Webhook</strong>. Por favor, instale o n8n primeiro.</p>
-                </div>
+              {/* RENDER FOR OTHERS */}
+              {selectedApp.id !== 'meta' && selectedApp.id !== 'tiktok' && (
+                <>
+                  {(selectedApp.id === 'n8n' || selectedApp.id === 'stripe') && (
+                    <div>
+                      <label className="text-xs font-bold uppercase tracking-widest text-zinc-500 mb-2 block">Webhook URL / API URL</label>
+                      <input 
+                        type="text" 
+                        value={webhookUrl}
+                        onChange={(e) => setWebhookUrl(e.target.value)}
+                        placeholder="https://sua-url-aqui.com/webhook"
+                        className="w-full bg-[#0a0a0a] border border-[#333333] rounded-lg p-3 text-sm text-zinc-300 focus:outline-none focus:border-blue-500/50"
+                      />
+                    </div>
+                  )}
+
+                  {selectedApp.id !== 'n8n' && (
+                    <div>
+                      <label className="text-xs font-bold uppercase tracking-widest text-zinc-500 mb-2 block">Token / API Key</label>
+                      <input 
+                        type="password" 
+                        value={apiKey}
+                        onChange={(e) => setApiKey(e.target.value)}
+                        placeholder="sk_test_..."
+                        className="w-full bg-[#0a0a0a] border border-[#333333] rounded-lg p-3 text-sm text-zinc-300 focus:outline-none focus:border-blue-500/50"
+                      />
+                    </div>
+                  )}
+
+                  {/* Fake state para apps que não tem nada pronto no backend ainda para não quebrar a ilusão */}
+                  {selectedApp.id !== 'n8n' && selectedApp.id !== 'openai' && (
+                    <div className="mt-4 p-3 bg-amber-500/10 border border-amber-500/20 rounded-lg flex gap-3 text-amber-500 text-sm">
+                      <Zap className="size-5 flex-shrink-0" />
+                      <p>Essa ferramenta no momento só pode ser ativada via <strong>n8n Webhook</strong>. Por favor, instale o n8n primeiro.</p>
+                    </div>
+                  )}
+                </>
               )}
 
             </div>

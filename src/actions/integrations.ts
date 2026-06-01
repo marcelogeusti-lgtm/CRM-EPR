@@ -5,7 +5,7 @@ import { revalidatePath } from 'next/cache';
 
 const prisma = new PrismaClient();
 
-export async function saveIntegration(provider: string, apiKey?: string, webhookUrl?: string) {
+export async function saveIntegration(provider: string, apiKey?: string, webhookUrl?: string, config?: string) {
   const tenant = await prisma.tenant.findFirst();
   if (!tenant) throw new Error('Tenant not found');
 
@@ -19,6 +19,7 @@ export async function saveIntegration(provider: string, apiKey?: string, webhook
     update: {
       apiKey: apiKey,
       webhookUrl: webhookUrl,
+      config: config,
       isActive: true
     },
     create: {
@@ -26,6 +27,7 @@ export async function saveIntegration(provider: string, apiKey?: string, webhook
       provider: provider,
       apiKey: apiKey,
       webhookUrl: webhookUrl,
+      config: config,
       isActive: true
     }
   });
