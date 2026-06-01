@@ -38,11 +38,9 @@ export default function LandingPage() {
       {/* Hero Section */}
       <section className="relative flex flex-col overflow-hidden min-h-screen pt-32 pb-16 w-full">
         {/* Animated Background */}
-        <div className="absolute inset-0 z-0 overflow-hidden pointer-events-none">
-          {/* Usamos dangerouslySetInnerHTML para garantir o autoplay no Edge/Chrome,
-              pois às vezes o React falha em aplicar a propriedade 'muted' a tempo */}
+        <div className="absolute inset-0 z-0 overflow-hidden pointer-events-none bg-[#0a0a0a]">
           <div
-            className="absolute inset-0 w-full h-full"
+            className="absolute inset-0 w-full h-full opacity-30"
             dangerouslySetInnerHTML={{
               __html: `
                 <video 
@@ -51,13 +49,20 @@ export default function LandingPage() {
                   muted 
                   playsinline 
                   preload="auto" 
-                  class="absolute inset-0 w-full h-full object-cover opacity-100"
+                  class="absolute inset-0 w-full h-full object-cover"
                 >
                   <source src="/hero-video-v4.mp4" type="video/mp4" />
                 </video>
               `,
             }}
           />
+          
+          <div className="absolute inset-0 bg-gradient-to-b from-[#0a0a0a]/80 via-[#0a0a0a]/60 to-[#0a0a0a]" />
+
+          <div className="absolute top-[-20%] left-[-10%] w-[50%] h-[70%] bg-blue-600/10 blur-[150px] rounded-full mix-blend-screen" />
+          <div className="absolute bottom-[-10%] right-[-10%] w-[50%] h-[70%] bg-purple-600/10 blur-[150px] rounded-full mix-blend-screen" />
+          
+          <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-[0.03] mix-blend-overlay" />
         </div>
 
         <div className="relative z-10 flex flex-1 flex-col items-center justify-center text-center px-6 lg:px-16 mx-auto w-full max-w-7xl">
