@@ -77,6 +77,22 @@ export default function LandingPage() {
               Assistir Demo (30s)
             </a>
           </div>
+
+          {/* Video Demo Section */}
+          <div className="relative mt-16 w-full max-w-5xl mx-auto rounded-2xl border border-white/10 bg-white/5 p-2 shadow-2xl backdrop-blur-md">
+            <div className="absolute inset-0 bg-gradient-to-b from-blue-500/20 to-purple-500/20 opacity-20 blur-xl" />
+            <div className="relative overflow-hidden rounded-xl bg-[#050505] shadow-[0_0_50px_rgba(0,0,0,0.5)] border border-white/5">
+              <video 
+                autoPlay 
+                loop 
+                muted 
+                playsInline 
+                className="w-full h-auto object-cover"
+              >
+                <source src="/hero-video.mp4" type="video/mp4" />
+              </video>
+            </div>
+          </div>
         </div>
 
         {/* Stats Row */}
