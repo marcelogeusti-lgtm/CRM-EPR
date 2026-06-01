@@ -279,3 +279,12 @@ model AiAgent {
   tenant           Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 }
 
+// ==========================================
+// 8. CONFIGURAÇÕES GLOBAIS (Super Admin)
+// ==========================================
+
+model SystemConfig {
+  key       String   @id // Ex: "OPENAI_MASTER_KEY"
+  value     String
+  updatedAt DateTime @updatedAt
+}
