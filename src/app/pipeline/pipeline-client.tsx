@@ -70,17 +70,28 @@ export default function PipelineClient({ initialLeads }: { initialLeads: Lead[] 
   const formatCurrency = (val: number) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(val);
 
   // --- Drag and Drop Handlers ---
+  const [dragOverColumn, setDragOverColumn] = useState<string | null>(null);
+
   const handleDragStart = (e: React.DragEvent, id: string) => {
     e.dataTransfer.setData('leadId', id);
     setDraggedLeadId(id);
   };
 
-  const handleDragOver = (e: React.DragEvent) => {
+  const handleDragOver = (e: React.DragEvent, stageName: string) => {
     e.preventDefault(); // Necessário para permitir o onDrop
+    if (dragOverColumn !== stageName) {
+      setDragOverColumn(stageName);
+    }
+  };
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    setDragOverColumn(null);
   };
 
   const handleDrop = async (e: React.DragEvent, stageName: string) => {
     e.preventDefault();
+    setDragOverColumn(null);
     const leadId = e.dataTransfer.getData('leadId');
     if (!leadId) return;
 
@@ -151,12 +162,13 @@ export default function PipelineClient({ initialLeads }: { initialLeads: Lead[] 
               return (
                 <div 
                   key={col.id} 
-                  className="flex-shrink-0 w-[300px] flex flex-col h-full bg-[#111] rounded-lg border border-[#222] overflow-hidden transition-colors hover:border-[#333]"
-                  onDragOver={handleDragOver}
+                  className={`flex-shrink-0 w-[300px] flex flex-col h-full bg-[#111] rounded-lg border overflow-hidden transition-all duration-300 ${dragOverColumn === col.name ? 'border-purple-500 shadow-[0_0_20px_rgba(168,85,247,0.2)] scale-[1.02]' : 'border-[#222] hover:border-[#333]'}`}
+                  onDragOver={(e) => handleDragOver(e, col.name)}
+                  onDragLeave={handleDragLeave}
                   onDrop={(e) => handleDrop(e, col.name)}
                 >
-                  <div className="pt-0 bg-[#141414] border-b border-[#222]">
-                    <div className={`h-1 w-full ${col.color} shadow-[0_0_10px_currentColor] opacity-70`} />
+                  <div className={`pt-0 bg-[#141414] border-b transition-colors ${dragOverColumn === col.name ? 'border-purple-500/50' : 'border-[#222]'}`}>
+                    <div className={`h-1 w-full ${dragOverColumn === col.name ? 'bg-purple-500' : col.color} shadow-[0_0_10px_currentColor] opacity-70 transition-colors`} />
                     <div className="p-3 text-center">
                       <h3 className="text-[11px] font-bold text-zinc-300 uppercase tracking-wider mb-1">{col.name}</h3>
                       <p className="text-[11px] text-zinc-500">{columnLeads.length} leads: {formatCurrency(columnTotal)}</p>
