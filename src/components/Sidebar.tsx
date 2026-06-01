@@ -3,6 +3,7 @@
 import React, { useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import { logout } from '@/app/login/actions';
 import { 
   Home,
   MessageCircle,
@@ -19,7 +20,8 @@ import {
   ChevronDown,
   ChevronRight,
   PanelLeftClose,
-  Box
+  Box,
+  LogOut
 } from 'lucide-react';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
@@ -194,14 +196,25 @@ export function Sidebar() {
 
       {/* User Profile */}
       <div className="px-5 pt-4 pb-4 mt-auto border-t border-[#222]">
-        <div className="flex items-center gap-3 cursor-pointer group">
-          <div className="w-9 h-9 rounded-full bg-gradient-to-tr from-blue-600 to-purple-600 flex items-center justify-center text-xs font-bold text-white shrink-0 shadow-lg shadow-purple-900/20">
-            MG
+        <div className="flex items-center justify-between group">
+          <div className="flex items-center gap-3 cursor-pointer">
+            <div className="w-9 h-9 rounded-full bg-gradient-to-tr from-blue-600 to-purple-600 flex items-center justify-center text-xs font-bold text-white shrink-0 shadow-lg shadow-purple-900/20">
+              MG
+            </div>
+            <div className="flex flex-col overflow-hidden">
+              <span className="text-zinc-200 text-sm font-semibold truncate group-hover:text-blue-400 transition-colors">Marcelo Geusti</span>
+              <span className="text-zinc-500 text-xs truncate">CEO & Founder</span>
+            </div>
           </div>
-          <div className="flex flex-col overflow-hidden">
-            <span className="text-zinc-200 text-sm font-semibold truncate group-hover:text-blue-400 transition-colors">Marcelo Geusti</span>
-            <span className="text-zinc-500 text-xs truncate">CEO & Founder</span>
-          </div>
+          <form action={logout}>
+            <button 
+              type="submit" 
+              className="p-2 text-zinc-500 hover:text-red-400 hover:bg-red-400/10 rounded-lg transition-colors"
+              title="Sair"
+            >
+              <LogOut className="size-4" />
+            </button>
+          </form>
         </div>
       </div>
 
