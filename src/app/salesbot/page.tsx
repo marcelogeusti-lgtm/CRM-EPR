@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react';
 import { Bot, Sparkles, Phone, User, Database, Zap, Settings, RefreshCw, Send, ChevronLeft, Volume2, Maximize, Activity } from 'lucide-react';
+import { useChat } from '@ai-sdk/react';
 
 type Tab = 'painel' | 'persona' | 'fontes' | 'acoes' | 'integracoes' | 'configs';
 
@@ -16,27 +17,12 @@ export default function SalesbotPage() {
   const [pauseSeconds, setPauseSeconds] = useState("3");
 
   // Simulator states
-  const [simMessage, setSimMessage] = useState('');
-  const [simChat, setSimChat] = useState([
-    { id: 1, author: 'AI', text: 'Sou seu agente de IA! Você pode me testar fazendo perguntas para ver o que eu sei.', time: '02:27' }
-  ]);
-
-  const handleSimulateSend = () => {
-    if(!simMessage.trim()) return;
-    const userMsg = { id: Date.now(), author: 'USER', text: simMessage, time: new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) };
-    setSimChat(prev => [...prev, userMsg]);
-    setSimMessage('');
-    
-    // Simulate AI typing
-    setTimeout(() => {
-      setSimChat(prev => [...prev, { 
-        id: Date.now()+1, 
-        author: 'AI', 
-        text: 'Neste momento eu sou apenas a interface visual do seu Cérebro. O motor da OpenAI será conectado em breve!', 
-        time: new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) 
-      }]);
-    }, 1500);
-  };
+  const { messages, input, handleInputChange, handleSubmit, setMessages, isLoading } = useChat({
+    api: '/api/chat',
+    initialMessages: [
+      { id: '1', role: 'assistant', content: 'Sou seu agente de IA conectado ao Cérebro da OpenAI! Você pode me testar fazendo perguntas para ver o que eu sei.' }
+    ]
+  });
 
   const tabs = [
     { id: 'painel', name: 'Painel', icon: Activity },
@@ -192,7 +178,7 @@ export default function SalesbotPage() {
             <h2 className="font-bold text-zinc-100">Simulador</h2>
           </div>
           <button 
-            onClick={() => setSimChat([{ id: 1, author: 'AI', text: 'Sou seu agente de IA! Você pode me testar fazendo perguntas para ver o que eu sei.', time: '02:27' }])}
+            onClick={() => setMessages([{ id: '1', role: 'assistant', content: 'Sou seu agente de IA conectado ao Cérebro da OpenAI! Você pode me testar fazendo perguntas para ver o que eu sei.' }])}
             className="flex items-center gap-2 px-3 py-1.5 bg-[#1a1a1a] hover:bg-[#222] rounded-lg text-xs text-zinc-400 transition-colors border border-[#333]"
           >
             <RefreshCw className="size-3" />
@@ -225,46 +211,46 @@ export default function SalesbotPage() {
             {/* WhatsApp Doodle background simulation */}
             <div className="absolute inset-0 opacity-[0.06] bg-[url('https://static.whatsapp.net/rsrc.php/v3/yl/r/r2qK74-L7_D.png')] bg-repeat pointer-events-none" style={{ backgroundSize: '400px' }}></div>
             
-            {simChat.map((msg) => (
-              <div key={msg.id} className={`flex relative z-10 ${msg.author === 'USER' ? 'justify-end' : 'justify-start'}`}>
-                {msg.author === 'AI' && (
+            {messages.map((msg) => (
+              <div key={msg.id} className={`flex relative z-10 ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+                {msg.role !== 'user' && (
                   <div className="w-6 h-6 rounded-full bg-indigo-500 shrink-0 mr-2 flex items-center justify-center mt-auto shadow-sm">
                     <Sparkles className="size-3 text-white" />
                   </div>
                 )}
                 <div className={`p-3 rounded-2xl max-w-[85%] shadow-sm relative ${
-                  msg.author === 'USER' 
+                  msg.role === 'user' 
                     ? 'bg-[#d9fdd3] text-[#111b21] rounded-tr-none' 
                     : 'bg-white text-[#111b21] rounded-tl-none'
                 }`}>
-                  <p className="text-[13px] leading-relaxed">{msg.text}</p>
-                  <span className="text-[10px] text-gray-500 float-right mt-1 ml-3">{msg.time}</span>
+                  <p className="text-[13px] leading-relaxed whitespace-pre-wrap">{msg.content}</p>
                 </div>
               </div>
             ))}
           </div>
 
           {/* Phone Input Area */}
-          <div className="bg-[#f0f2f5] p-3 flex items-center gap-2 shrink-0">
+          <form onSubmit={handleSubmit} className="bg-[#f0f2f5] p-3 flex items-center gap-2 shrink-0">
             <div className="flex-1 bg-white rounded-full flex items-center px-4 py-2 shadow-sm border border-gray-200">
               <input 
                 type="text" 
-                value={simMessage}
-                onChange={(e) => setSimMessage(e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && handleSimulateSend()}
+                value={input}
+                onChange={handleInputChange}
                 placeholder="Mensagem..." 
                 className="w-full text-[14px] focus:outline-none text-gray-800 bg-transparent"
+                disabled={isLoading}
               />
             </div>
             <button 
-              onClick={handleSimulateSend}
+              type="submit"
+              disabled={isLoading || !input.trim()}
               className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 transition-colors ${
-                simMessage.trim() ? 'bg-emerald-500 text-white shadow-md' : 'bg-transparent text-gray-400'
+                input.trim() && !isLoading ? 'bg-emerald-500 text-white shadow-md' : 'bg-transparent text-gray-400'
               }`}
             >
-              {simMessage.trim() ? <Send className="size-4 ml-1" /> : <Volume2 className="size-5" />}
+              {input.trim() ? <Send className="size-4 ml-1" /> : <Volume2 className="size-5" />}
             </button>
-          </div>
+          </form>
         </div>
 
       </div>
