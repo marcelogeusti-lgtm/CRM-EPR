@@ -17,7 +17,7 @@ export default function SalesbotPage() {
   const [pauseSeconds, setPauseSeconds] = useState("3");
   // Simulator states
   const [input, setInput] = useState('');
-  const { messages, sendMessage, setMessages, isLoading } = useChat({
+  const { messages, sendMessage, setMessages } = useChat({
     api: '/api/chat',
     initialMessages: [
       { id: '1', role: 'assistant', content: 'Sou seu agente de IA conectado ao Cérebro da OpenAI! Você pode me testar fazendo perguntas para ver o que eu sei.' }
@@ -245,14 +245,13 @@ export default function SalesbotPage() {
                 onChange={(e) => setInput(e.target.value)}
                 placeholder="Mensagem..." 
                 className="w-full text-[14px] focus:outline-none text-gray-800 bg-transparent"
-                disabled={isLoading}
               />
             </div>
             <button 
               type="submit"
-              disabled={isLoading || !input.trim()}
+              disabled={!input.trim()}
               className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 transition-colors ${
-                input.trim() && !isLoading ? 'bg-emerald-500 text-white shadow-md' : 'bg-transparent text-gray-400'
+                input.trim() ? 'bg-emerald-500 text-white shadow-md' : 'bg-transparent text-gray-400'
               }`}
             >
               {input.trim() ? <Send className="size-4 ml-1" /> : <Volume2 className="size-5" />}
