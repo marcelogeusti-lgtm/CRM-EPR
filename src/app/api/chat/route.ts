@@ -51,8 +51,7 @@ export async function POST(req: Request) {
       system: systemPrompt,
       messages: messages as any,
     });
-
-    return result.toDataStreamResponse();
+    return result.toTextStreamResponse();
     
   } catch (error) {
     console.error('Erro no AI SDK:', error);
