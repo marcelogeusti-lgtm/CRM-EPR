@@ -1,5 +1,5 @@
 import { createOpenAI } from '@ai-sdk/openai';
-import { streamText, type CoreMessage } from 'ai';
+import { streamText, type UIMessage } from 'ai';
 import { PrismaClient } from '@prisma/client';
 import { NextResponse } from 'next/server';
 
@@ -49,7 +49,7 @@ export async function POST(req: Request) {
     const result = await streamText({
       model: openai('gpt-4o-mini'),
       system: systemPrompt,
-      messages: messages as CoreMessage[],
+      messages: messages as UIMessage[],
     });
 
     return result.toDataStreamResponse();
