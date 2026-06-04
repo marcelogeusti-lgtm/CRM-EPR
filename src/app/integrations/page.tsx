@@ -148,7 +148,7 @@ export default function IntegrationsPage() {
     setIsSaving(true);
     let configObj: any = {};
     if (selectedApp.id === 'instagram' || selectedApp.id === 'whatsapp') {
-      configObj = { phoneId: metaPhoneId, verifyToken: metaVerifyToken };
+      configObj = { metaPhoneId: metaPhoneId, verifyToken: metaVerifyToken };
     } else if (selectedApp.id === 'tiktok') {
       configObj = { appId: tiktokAppId, appSecret: tiktokAppSecret };
     }
@@ -179,7 +179,7 @@ export default function IntegrationsPage() {
       
       const parsedConfig = config.config ? JSON.parse(config.config) : {};
       if (app.id === 'instagram' || app.id === 'whatsapp') {
-        setMetaPhoneId(parsedConfig.phoneId || '');
+        setMetaPhoneId(parsedConfig.metaPhoneId || '');
         setMetaVerifyToken(parsedConfig.verifyToken || '');
       } else if (app.id === 'tiktok') {
         setTiktokAppId(parsedConfig.appId || '');
