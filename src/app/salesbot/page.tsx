@@ -15,14 +15,21 @@ export default function SalesbotPage() {
   const [tone, setTone] = useState("Amigável");
   const [responseSize, setResponseSize] = useState("Médias");
   const [pauseSeconds, setPauseSeconds] = useState("3");
-
   // Simulator states
-  const { messages, input, handleInputChange, handleSubmit, setMessages, isLoading } = useChat({
+  const [input, setInput] = useState('');
+  const { messages, append, setMessages, isLoading } = useChat({
     api: '/api/chat',
     initialMessages: [
       { id: '1', role: 'assistant', content: 'Sou seu agente de IA conectado ao Cérebro da OpenAI! Você pode me testar fazendo perguntas para ver o que eu sei.' }
     ]
   });
+
+  const onSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!input.trim()) return;
+    append({ role: 'user', content: input });
+    setInput('');
+  };
 
   const tabs = [
     { id: 'painel', name: 'Painel', icon: Activity },
@@ -230,12 +237,12 @@ export default function SalesbotPage() {
           </div>
 
           {/* Phone Input Area */}
-          <form onSubmit={handleSubmit} className="bg-[#f0f2f5] p-3 flex items-center gap-2 shrink-0">
+          <form onSubmit={onSubmit} className="bg-[#f0f2f5] p-3 flex items-center gap-2 shrink-0">
             <div className="flex-1 bg-white rounded-full flex items-center px-4 py-2 shadow-sm border border-gray-200">
               <input 
                 type="text" 
                 value={input}
-                onChange={handleInputChange}
+                onChange={(e) => setInput(e.target.value)}
                 placeholder="Mensagem..." 
                 className="w-full text-[14px] focus:outline-none text-gray-800 bg-transparent"
                 disabled={isLoading}
