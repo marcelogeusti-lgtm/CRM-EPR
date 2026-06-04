@@ -30,7 +30,10 @@ export async function getInboxDeals() {
   return deals;
 }
 
+import { unstable_noStore as noStore } from 'next/cache';
+
 export async function getDealActivities(dealId: string) {
+  noStore();
   const tenantId = await getDefaultTenant();
 
   return await prisma.activity.findMany({

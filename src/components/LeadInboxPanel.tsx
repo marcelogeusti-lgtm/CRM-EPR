@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useRef } from 'react';
-import { X, Send, Bot, Check, MoreVertical, Phone } from 'lucide-react';
+import { X, Send, Bot, Check, MoreVertical, Phone, Paperclip, Mic } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { getDealActivities, sendMessage, addInternalNote } from '@/actions/inbox';
@@ -187,29 +187,49 @@ export function LeadInboxPanel({ deal, onClose }: LeadInboxPanelProps) {
 
       <div className={`p-4 border-t ${inputMode === 'NOTE' ? 'bg-amber-950/20 border-amber-900/30' : inputMode === 'TASK' ? 'bg-rose-950/20 border-rose-900/30' : 'bg-[#141414] border-[#262626]'}`}>
         <div className="relative flex items-center">
+          <button 
+            onClick={() => alert('Envio de arquivos em breve!')}
+            className={`absolute left-2 p-2 transition-colors ${
+              inputMode === 'MESSAGE' ? 'text-zinc-500 hover:text-zinc-300' : 'hidden'
+            }`}
+          >
+            <Paperclip className="size-4" />
+          </button>
+          
           <input
             type="text"
             value={message}
             onChange={(e) => setMessage(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && handleSend()}
             placeholder={inputMode === 'NOTE' ? 'Digite uma anotação interna...' : inputMode === 'TASK' ? 'O que precisa ser feito?' : 'Digite uma mensagem (WhatsApp)...'}
-            className={`w-full border rounded-xl pl-4 pr-12 py-3 text-sm focus:outline-none transition-colors ${
+            className={`w-full border rounded-xl ${inputMode === 'MESSAGE' ? 'pl-10 pr-24' : 'pl-4 pr-12'} py-3 text-sm focus:outline-none transition-colors ${
               inputMode === 'NOTE' ? 'bg-amber-500/5 border-amber-500/20 text-amber-100 placeholder:text-amber-700/50 focus:border-amber-500/50' : 
               inputMode === 'TASK' ? 'bg-rose-500/5 border-rose-500/20 text-rose-100 placeholder:text-rose-700/50 focus:border-rose-500/50' : 
               'bg-[#222222] border-[#333333] text-zinc-200 placeholder:text-zinc-500 focus:border-blue-500/50'
             }`}
           />
-          <button 
-            onClick={handleSend}
-            disabled={isSending || !message.trim()}
-            className={`absolute right-2 p-2 disabled:opacity-50 text-white rounded-lg transition-colors ${
-              inputMode === 'NOTE' ? 'bg-amber-600 hover:bg-amber-500' :
-              inputMode === 'TASK' ? 'bg-rose-600 hover:bg-rose-500' :
-              'bg-blue-600 hover:bg-blue-500'
-            }`}
-          >
-            <Send className="size-4" />
-          </button>
+          
+          <div className="absolute right-2 flex items-center gap-1">
+            <button 
+              onClick={() => alert('Gravação de áudio em breve!')}
+              className={`p-2 transition-colors ${
+                inputMode === 'MESSAGE' ? 'text-zinc-500 hover:text-zinc-300' : 'hidden'
+              }`}
+            >
+              <Mic className="size-4" />
+            </button>
+            <button 
+              onClick={handleSend}
+              disabled={isSending || !message.trim()}
+              className={`p-2 disabled:opacity-50 text-white rounded-lg transition-colors ${
+                inputMode === 'NOTE' ? 'bg-amber-600 hover:bg-amber-500' :
+                inputMode === 'TASK' ? 'bg-rose-600 hover:bg-rose-500' :
+                'bg-blue-600 hover:bg-blue-500'
+              }`}
+            >
+              <Send className="size-4" />
+            </button>
+          </div>
         </div>
         <div className="flex gap-4 mt-2 px-2">
           <button 
