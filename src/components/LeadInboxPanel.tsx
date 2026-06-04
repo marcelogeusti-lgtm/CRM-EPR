@@ -18,16 +18,23 @@ export function LeadInboxPanel({ deal, onClose }: LeadInboxPanelProps) {
   const [activities, setActivities] = useState<any[]>([]);
   const [isSending, setIsSending] = useState(false);
   const [inputMode, setInputMode] = useState<InputMode>('MESSAGE');
+  const [aiEnabled, setAiEnabled] = useState(false); // IA Toggle State
   const scrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     async function fetchActivities() {
       if (deal?.id) {
         const data = await getDealActivities(deal.id);
-        setActivities(data);
+        // Só atualiza se o tamanho mudar para não quebrar scroll
+        setActivities(prev => prev.length !== data.length ? data : prev);
       }
     }
+    
     fetchActivities();
+    
+    // Polling a cada 3 segundos para buscar novas mensagens
+    const interval = setInterval(fetchActivities, 3000);
+    return () => clearInterval(interval);
   }, [deal?.id]);
 
   useEffect(() => {
@@ -84,7 +91,20 @@ export function LeadInboxPanel({ deal, onClose }: LeadInboxPanelProps) {
             </div>
           </div>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-3">
+          {/* AI Toggle Button */}
+          <button 
+            onClick={() => setAiEnabled(!aiEnabled)}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-bold uppercase tracking-widest transition-all border ${
+              aiEnabled 
+                ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30 shadow-[0_0_10px_rgba(16,185,129,0.2)]' 
+                : 'bg-zinc-800 text-zinc-400 border-zinc-700 hover:bg-zinc-700'
+            }`}
+          >
+            <Bot className={`size-3.5 ${aiEnabled ? 'animate-pulse' : ''}`} />
+            {aiEnabled ? 'IA Ativa' : 'IA Desligada'}
+          </button>
+          
           <button onClick={onClose} className="p-2 text-zinc-400 hover:text-zinc-100 transition-colors bg-[#222222] rounded-lg">
             <X className="size-4" />
           </button>
