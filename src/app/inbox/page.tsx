@@ -2,6 +2,8 @@ import React from 'react';
 import { getInboxDeals } from '@/actions/inbox';
 import { InboxClientView } from './InboxClientView';
 
+export const dynamic = 'force-dynamic';
+
 export default async function InboxPage() {
   const deals = await getInboxDeals();
 
