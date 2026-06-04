@@ -2,7 +2,6 @@
 
 import React, { useState } from 'react';
 import { Bot, Sparkles, Phone, User, Database, Zap, Settings, RefreshCw, Send, ChevronLeft, Volume2, Maximize, Activity } from 'lucide-react';
-import { useChat } from '@ai-sdk/react';
 
 type Tab = 'painel' | 'persona' | 'fontes' | 'acoes' | 'integracoes' | 'configs';
 
@@ -17,18 +16,51 @@ export default function SalesbotPage() {
   const [pauseSeconds, setPauseSeconds] = useState("3");
   // Simulator states
   const [input, setInput] = useState('');
-  const { messages, sendMessage, setMessages } = useChat({
-    api: '/api/chat',
-    initialMessages: [
-      { id: '1', role: 'assistant', content: 'Sou seu agente de IA conectado ao Cérebro da OpenAI! Você pode me testar fazendo perguntas para ver o que eu sei.' }
-    ]
-  });
+  const [messages, setMessages] = useState([
+    { id: '1', role: 'assistant', content: 'Sou seu agente de IA conectado ao Cérebro da OpenAI! Você pode me testar fazendo perguntas para ver o que eu sei.' }
+  ]);
+  const [isLoading, setIsLoading] = useState(false);
 
-  const onSubmit = (e: React.FormEvent) => {
+  const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!input.trim()) return;
-    sendMessage({ role: 'user', content: input });
+    if (!input.trim() || isLoading) return;
+    
+    const userMsg = { id: Date.now().toString(), role: 'user', content: input };
+    const newMessages = [...messages, userMsg];
+    setMessages(newMessages);
     setInput('');
+    setIsLoading(true);
+
+    try {
+      const response = await fetch('/api/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ messages: newMessages })
+      });
+
+      if (!response.body) throw new Error('No response body');
+      
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let done = false;
+      
+      const aiMsg = { id: (Date.now() + 1).toString(), role: 'assistant', content: '' };
+      setMessages([...newMessages, aiMsg]);
+      
+      while (!done) {
+        const { value, done: readerDone } = await reader.read();
+        done = readerDone;
+        if (value) {
+          const chunk = decoder.decode(value, { stream: true });
+          aiMsg.content += chunk;
+          setMessages([...newMessages, { ...aiMsg }]);
+        }
+      }
+    } catch (error) {
+      console.error(error);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const tabs = [
@@ -249,9 +281,9 @@ export default function SalesbotPage() {
             </div>
             <button 
               type="submit"
-              disabled={!input.trim()}
+              disabled={isLoading || !input.trim()}
               className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 transition-colors ${
-                input.trim() ? 'bg-emerald-500 text-white shadow-md' : 'bg-transparent text-gray-400'
+                input.trim() && !isLoading ? 'bg-emerald-500 text-white shadow-md' : 'bg-transparent text-gray-400'
               }`}
             >
               {input.trim() ? <Send className="size-4 ml-1" /> : <Volume2 className="size-5" />}
