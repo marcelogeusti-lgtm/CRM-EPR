@@ -17,7 +17,7 @@ export default function SalesbotPage() {
   const [pauseSeconds, setPauseSeconds] = useState("3");
   // Simulator states
   const [input, setInput] = useState('');
-  const { messages, append, setMessages, isLoading } = useChat({
+  const { messages, sendMessage, setMessages, isLoading } = useChat({
     api: '/api/chat',
     initialMessages: [
       { id: '1', role: 'assistant', content: 'Sou seu agente de IA conectado ao Cérebro da OpenAI! Você pode me testar fazendo perguntas para ver o que eu sei.' }
@@ -27,7 +27,7 @@ export default function SalesbotPage() {
   const onSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!input.trim()) return;
-    append({ role: 'user', content: input });
+    sendMessage({ role: 'user', content: input });
     setInput('');
   };
 
