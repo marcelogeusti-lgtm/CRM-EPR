@@ -39,22 +39,22 @@ export default function AdminLayout({
             <LayoutDashboard className="size-4" />
             Dashboard
           </a>
-          <a href="/admin/tenants" className="flex items-center gap-3 px-3 py-2 rounded-lg text-zinc-400 hover:text-white hover:bg-[#111] transition-colors font-medium text-sm">
+          <a href="/admin" className="flex items-center gap-3 px-3 py-2 rounded-lg text-zinc-400 hover:text-white hover:bg-[#111] transition-colors font-medium text-sm">
             <Users className="size-4" />
             Clientes (Tenants)
           </a>
-          <a href="/admin/keys" className="flex items-center gap-3 px-3 py-2 rounded-lg text-zinc-400 hover:text-white hover:bg-[#111] transition-colors font-medium text-sm">
+          <a href="/admin" className="flex items-center gap-3 px-3 py-2 rounded-lg text-zinc-400 hover:text-white hover:bg-[#111] transition-colors font-medium text-sm">
             <KeyRound className="size-4" />
             Cofre de Chaves
           </a>
-          <a href="/admin/database" className="flex items-center gap-3 px-3 py-2 rounded-lg text-zinc-400 hover:text-white hover:bg-[#111] transition-colors font-medium text-sm">
+          <a href="/admin" className="flex items-center gap-3 px-3 py-2 rounded-lg text-zinc-400 hover:text-white hover:bg-[#111] transition-colors font-medium text-sm">
             <Database className="size-4" />
             Banco de Dados
           </a>
         </nav>
 
         <div className="p-4 border-t border-[#1f1f1f]">
-          <a href="/" className="flex items-center gap-3 px-3 py-2 rounded-lg text-zinc-500 hover:text-zinc-300 transition-colors text-sm">
+          <a href="/dashboard" className="flex items-center gap-3 px-3 py-2 rounded-lg text-zinc-500 hover:text-zinc-300 transition-colors text-sm">
             <Settings className="size-4" />
             Voltar ao CRM
           </a>
