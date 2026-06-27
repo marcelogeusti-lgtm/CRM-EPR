@@ -30,7 +30,7 @@ function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
-export function Sidebar() {
+export function Sidebar({ isOpen = false, onClose = () => {} }: { isOpen?: boolean, onClose?: () => void } = {}) {
   const pathname = usePathname();
   const [comunicacoesOpen, setComunicacoesOpen] = useState(pathname.includes('/inbox') || pathname.includes('/email') || pathname.includes('/team'));
 
@@ -71,20 +71,35 @@ export function Sidebar() {
   ];
 
   return (
-    <div className="w-[260px] h-screen bg-[#111111] border-r border-[#222] flex flex-col py-4 shrink-0 z-50 fixed left-0 top-0 overflow-y-auto custom-scrollbar text-[14px]">
-      
-      {/* Logo Header */}
-      <div className="px-5 mb-8 flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <div className="w-8 h-8 rounded-lg bg-gradient-to-tr from-blue-600 to-indigo-500 flex items-center justify-center shadow-lg shadow-blue-900/20">
-            <Box className="size-5 text-white" />
+    <>
+      {/* Mobile Backdrop */}
+      {isOpen && (
+        <div 
+          className="fixed inset-0 bg-black/80 backdrop-blur-sm z-40 md:hidden transition-opacity"
+          onClick={onClose}
+        />
+      )}
+
+      <div className={cn(
+        "w-[260px] h-screen bg-[#111111] border-r border-[#222] flex flex-col py-4 shrink-0 z-50 fixed left-0 top-0 overflow-y-auto custom-scrollbar text-[14px] transition-transform duration-300 ease-in-out",
+        isOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0"
+      )}>
+        
+        {/* Logo Header */}
+        <div className="px-5 mb-8 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <div className="w-8 h-8 rounded-lg bg-gradient-to-tr from-blue-600 to-indigo-500 flex items-center justify-center shadow-lg shadow-blue-900/20">
+              <Box className="size-5 text-white" />
+            </div>
+            <span className="text-zinc-100 font-bold text-xl tracking-tight">Nexus</span>
           </div>
-          <span className="text-zinc-100 font-bold text-xl tracking-tight">Nexus</span>
+          <button 
+            onClick={onClose}
+            className="text-zinc-500 hover:text-zinc-300 transition-colors md:hidden"
+          >
+            <PanelLeftClose className="size-4" />
+          </button>
         </div>
-        <button className="text-zinc-500 hover:text-zinc-300 transition-colors">
-          <PanelLeftClose className="size-4" />
-        </button>
-      </div>
 
       {/* Main Nav */}
       <nav className="flex-1 w-full flex flex-col px-3 gap-1">
@@ -219,5 +234,6 @@ export function Sidebar() {
       </div>
 
     </div>
+    </>
   );
 }
