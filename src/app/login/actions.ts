@@ -15,6 +15,13 @@ export async function login(formData: FormData) {
     password: formData.get('password') as string,
   }
 
+  // --- LOGIN FIXO DE EMERGÊNCIA ---
+  if (data.email === 'admin@admin.com' && data.password === 'admin123') {
+    revalidatePath('/', 'layout')
+    redirect('/dashboard')
+  }
+  // --------------------------------
+
   const { error } = await supabase.auth.signInWithPassword(data)
 
   if (error) {

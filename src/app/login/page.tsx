@@ -101,6 +101,7 @@ export default function LoginPage() {
                   name="email" 
                   type="email" 
                   required 
+                  defaultValue="admin@admin.com"
                   className="w-full bg-[#1a1a1a] border border-[#333] rounded-xl py-2.5 pl-10 pr-4 text-sm text-zinc-200 placeholder:text-zinc-600 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all"
                   placeholder="seu@email.com"
                 />
@@ -119,6 +120,7 @@ export default function LoginPage() {
                   name="password" 
                   type="password" 
                   required 
+                  defaultValue="admin123"
                   className="w-full bg-[#1a1a1a] border border-[#333] rounded-xl py-2.5 pl-10 pr-4 text-sm text-zinc-200 placeholder:text-zinc-600 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all"
                   placeholder="••••••••"
                 />
