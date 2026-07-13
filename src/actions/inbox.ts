@@ -2,6 +2,7 @@
 
 import { prisma } from '@/lib/prisma';
 import { getCurrentUser } from '@/lib/auth';
+import { sendText } from '@/lib/whatsapp';
 import { revalidatePath } from 'next/cache';
 
 
@@ -42,7 +43,9 @@ export async function getDealActivities(dealId: string) {
   });
 }
 
-export async function sendMessage(dealId: string, content: string) {
+const WHATSAPP_WINDOW_MS = 24 * 60 * 60 * 1000;
+
+export async function sendMessage(dealId: string, content: string): Promise<{ success: boolean; error?: string }> {
   const tenantId = await getDefaultTenant();
   if (!tenantId) throw new Error('Tenant não encontrado');
 
@@ -53,6 +56,36 @@ export async function sendMessage(dealId: string, content: string) {
 
   if (!deal || !deal.contact?.phone) {
     throw new Error('Deal ou Telefone não encontrado');
+  }
+
+  const integration = await prisma.integration.findFirst({
+    where: { tenantId, provider: 'whatsapp', isActive: true }
+  });
+
+  const conversation = await prisma.conversation.findFirst({
+    where: { dealId }
+  });
+
+  // Janela de 24h da Cloud API: texto livre só é aceito se o contato mandou
+  // alguma mensagem nas últimas 24h. Fora disso a Meta recusa e exige um
+  // template aprovado (HSM) — checamos antes de gravar/enviar pra não
+  // fingir que a mensagem saiu quando na prática ela nunca vai chegar.
+  if (integration) {
+    const lastInbound = conversation
+      ? await prisma.message.findFirst({
+          where: { conversationId: conversation.id, authorType: 'CONTACT' },
+          orderBy: { createdAt: 'desc' }
+        })
+      : null;
+
+    const windowOpen = !!lastInbound && Date.now() - lastInbound.createdAt.getTime() < WHATSAPP_WINDOW_MS;
+
+    if (!windowOpen) {
+      return {
+        success: false,
+        error: 'Janela de 24h expirada: envie um template aprovado (HSM) para retomar a conversa.'
+      };
+    }
   }
 
   // 1. Salvar no banco (Como Mensagem Enviada pelo Agente)
@@ -67,10 +100,6 @@ export async function sendMessage(dealId: string, content: string) {
   });
 
   // 1.5 Salvar na tabela nova Message (Para coerência arquitetural)
-  // Procuramos se existe uma Conversation ativa
-  const conversation = await prisma.conversation.findFirst({
-    where: { dealId }
-  });
   if (conversation) {
     await prisma.message.create({
       data: {
@@ -81,49 +110,19 @@ export async function sendMessage(dealId: string, content: string) {
     });
   }
 
-  // 2. Disparar Mensagem de Volta via API Oficial da Meta
-  // Busca as configurações salvas da integração do WhatsApp
-  const integration = await prisma.integration.findFirst({
-    where: { tenantId, provider: 'whatsapp', isActive: true }
-  });
+  // 2. Disparar mensagem via API Oficial da Meta
+  let result: { success: boolean; error?: string } = { success: true };
 
-  if (integration && integration.apiKey && integration.config) {
+  if (integration?.apiKey && integration.config) {
     try {
       const config = JSON.parse(integration.config);
-      const metaPhoneId = config.metaPhoneId;
-      const accessToken = integration.apiKey;
-      
-      // Limpar o número de telefone (Remover +, espaços e traços)
-      const cleanPhone = deal.contact.phone.replace(/\D/g, '');
-
-      console.log(`📤 Enviando mensagem da Meta para ${cleanPhone}...`);
-
-      const META_API_URL = `https://graph.facebook.com/v20.0/${metaPhoneId}/messages`;
-      
-      const response = await fetch(META_API_URL, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${accessToken}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          messaging_product: 'whatsapp',
-          to: cleanPhone,
-          type: 'text',
-          text: { body: content }
-        })
-      });
-
-      const responseData = await response.json();
-      
-      if (!response.ok) {
-        console.error('❌ Erro da API da Meta:', responseData);
-      } else {
-        console.log('✅ Mensagem enviada com sucesso pela Meta!');
+      result = await sendText(config.metaPhoneId, integration.apiKey, deal.contact.phone, content);
+      if (!result.success) {
+        console.error('❌ Erro ao enviar via Meta:', result.error);
       }
-
     } catch (error) {
-      console.error('❌ Falha ao tentar conectar com a Meta:', error);
+      console.error('❌ Configuração da integração do WhatsApp inválida:', error);
+      result = { success: false, error: 'Configuração da integração do WhatsApp inválida.' };
     }
   } else {
     console.warn('⚠️ Integração do WhatsApp não configurada ou sem Token Permanente.');
@@ -131,6 +130,8 @@ export async function sendMessage(dealId: string, content: string) {
 
   revalidatePath('/inbox');
   revalidatePath('/pipeline');
+
+  return result;
 }
 
 export async function addInternalNote(dealId: string, content: string, type: 'NOTE' | 'TASK' = 'NOTE') {

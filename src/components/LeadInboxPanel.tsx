@@ -61,7 +61,15 @@ export function LeadInboxPanel({ deal, onClose }: LeadInboxPanelProps) {
 
     try {
       if (inputMode === 'MESSAGE') {
-        await sendMessage(deal.id, currentMessage);
+        const result = await sendMessage(deal.id, currentMessage);
+        if (!result.success) {
+          // Mensagem não saiu (ex.: janela de 24h expirada) — remove o item
+          // otimista pra não fingir que foi entregue, e avisa o agente.
+          setActivities(prev => prev.filter(a => a.id !== optimisticMessage.id));
+          alert(result.error || 'Falha ao enviar mensagem');
+          setMessage(currentMessage);
+          return;
+        }
       } else {
         await addInternalNote(deal.id, currentMessage, inputMode);
       }
