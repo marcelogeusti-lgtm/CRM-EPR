@@ -1,18 +1,18 @@
 'use server';
 
-import { PrismaClient } from '@prisma/client';
+import { prisma } from '@/lib/prisma';
+import { getCurrentUser } from '@/lib/auth';
 import { revalidatePath } from 'next/cache';
 
-const prisma = new PrismaClient();
 
 async function getDefaultTenant() {
-  const tenant = await prisma.tenant.findFirst();
-  return tenant?.id;
+  const user = await getCurrentUser();
+  return user?.tenantId;
 }
 
 export async function getInboxDeals() {
   const tenantId = await getDefaultTenant();
-  
+
   if (!tenantId) return [];
 
   const deals = await prisma.deal.findMany({

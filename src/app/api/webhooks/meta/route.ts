@@ -1,7 +1,28 @@
 import { NextResponse } from 'next/server';
-import { PrismaClient } from '@prisma/client';
+import crypto from 'node:crypto';
+import { prisma } from '@/lib/prisma';
 
-const prisma = new PrismaClient();
+/**
+ * Valida a assinatura HMAC-SHA256 que a Meta envia no header
+ * `x-hub-signature-256`. Sem isso, qualquer um pode forjar mensagens
+ * fazendo POST no endpoint. Usa comparação de tempo constante.
+ */
+function isValidMetaSignature(rawBody: string, signatureHeader: string | null): boolean {
+  const appSecret = process.env.META_APP_SECRET;
+  if (!appSecret) {
+    console.error('❌ [WEBHOOK META] META_APP_SECRET não configurado — recusando por segurança.');
+    return false;
+  }
+  if (!signatureHeader?.startsWith('sha256=')) return false;
+
+  const expected =
+    'sha256=' + crypto.createHmac('sha256', appSecret).update(rawBody, 'utf-8').digest('hex');
+
+  const a = Buffer.from(signatureHeader);
+  const b = Buffer.from(expected);
+  return a.length === b.length && crypto.timingSafeEqual(a, b);
+}
+
 
 // 1. ROTA GET - Desafio de Verificação (Webhook Challenge da Meta)
 export async function GET(request: Request) {
@@ -65,15 +86,15 @@ async function processWhatsAppMessage(fromPhone: string, textBody: string, phone
       return cfg.metaPhoneId === phoneNumberId;
     } catch(e) { return false; }
   });
-  
-  // Fallback para o primeiro tenant caso não ache pelo ID exato (Útil em ambiente de testes/MVP)
-  const fallbackTenant = await prisma.tenant.findFirst();
-  const tenantId = integration ? integration.tenantId : fallbackTenant?.id;
-  
-  if(!tenantId) {
-    console.warn('❌ [WEBHOOK] Nenhum Tenant encontrado para processar a mensagem.');
+
+  // SEM fallback: se não houver integração que reivindique este phone_number_id,
+  // recusamos. Cair no "primeiro tenant" misturaria mensagens de clientes
+  // diferentes na mesma conta — vazamento grave de dados.
+  if (!integration) {
+    console.warn(`❌ [WEBHOOK] Nenhuma integração registrada para o phone_number_id ${phoneNumberId}. Mensagem ignorada.`);
     return;
   }
+  const tenantId = integration.tenantId;
 
   // 2. Procurar ou criar o Contato
   let contact = await prisma.contact.findFirst({
@@ -161,9 +182,16 @@ async function processWhatsAppMessage(fromPhone: string, textBody: string, phone
 // 2. ROTA POST - Recepção de Mensagens (Onde a Mágica Acontece)
 export async function POST(request: Request) {
   try {
-    const body = await request.json();
-    console.log('📥 [WEBHOOK META] Pacote recebido:', JSON.stringify(body, null, 2));
+    // Lê o corpo CRU (texto) — necessário para conferir a assinatura byte a byte.
+    const rawBody = await request.text();
+    const signature = request.headers.get('x-hub-signature-256');
 
+    if (!isValidMetaSignature(rawBody, signature)) {
+      console.warn('❌ [WEBHOOK META] Assinatura inválida. Request recusado.');
+      return new NextResponse('Invalid signature', { status: 401 });
+    }
+
+    const body = JSON.parse(rawBody);
     const objectType = body.object;
 
     if (objectType === 'page') {

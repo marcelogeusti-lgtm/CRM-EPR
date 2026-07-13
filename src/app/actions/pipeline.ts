@@ -1,17 +1,13 @@
 'use server';
 
-import { PrismaClient } from '@prisma/client';
+import { prisma } from '@/lib/prisma';
+import { requireTenantId } from '@/lib/auth';
 import { revalidatePath } from 'next/cache';
-
-const prisma = new PrismaClient();
-
-// Placeholder Tenant ID for now
-const DEFAULT_TENANT_ID = '00000000-0000-0000-0000-000000000000';
 
 // Helper to ensure a Pipeline and Stages exist
 async function ensureDefaultPipeline(tenantId: string) {
   let pipeline = await prisma.pipeline.findFirst({ where: { tenantId } });
-  
+
   if (!pipeline) {
     pipeline = await prisma.pipeline.create({
       data: {
@@ -33,15 +29,11 @@ async function ensureDefaultPipeline(tenantId: string) {
 
 export async function getLeads() {
   try {
-    let tenant = await prisma.tenant.findFirst();
-    if (!tenant) {
-      tenant = await prisma.tenant.create({ data: { name: 'Nexus Workspace' } });
-    }
-
-    const pipeline = await ensureDefaultPipeline(tenant.id);
+    const tenantId = await requireTenantId();
+    const pipeline = await ensureDefaultPipeline(tenantId);
 
     const leads = await prisma.deal.findMany({
-      where: { tenantId: tenant.id, pipelineId: pipeline.id },
+      where: { tenantId, pipelineId: pipeline.id },
       include: {
         contact: true,
         stage: true // Include stage to get the name
@@ -71,18 +63,15 @@ export async function getLeads() {
 
 export async function createLead(formData: FormData) {
   try {
+    const tenantId = await requireTenantId();
+
     const title = formData.get('title') as string;
     const value = parseFloat(formData.get('value') as string) || 0;
     const contactName = formData.get('contactName') as string || 'Sem Nome';
     const contactPhone = formData.get('contactPhone') as string || '';
 
-    let tenant = await prisma.tenant.findFirst();
-    if (!tenant) {
-      tenant = await prisma.tenant.create({ data: { name: 'Nexus Workspace' } });
-    }
+    const pipeline = await ensureDefaultPipeline(tenantId);
 
-    const pipeline = await ensureDefaultPipeline(tenant.id);
-    
     // Get the first stage (Comentário ou DM)
     const firstStage = await prisma.stage.findFirst({
       where: { pipelineId: pipeline.id },
@@ -95,7 +84,7 @@ export async function createLead(formData: FormData) {
       data: {
         name: contactName,
         phone: contactPhone,
-        tenantId: tenant.id
+        tenantId
       }
     });
 
@@ -106,7 +95,7 @@ export async function createLead(formData: FormData) {
         stageId: firstStage.id,
         pipelineId: pipeline.id,
         contactId: contact.id,
-        tenantId: tenant.id
+        tenantId
       }
     });
 
@@ -120,10 +109,9 @@ export async function createLead(formData: FormData) {
 
 export async function updateLeadStage(leadId: string, newStageName: string) {
   try {
-    let tenant = await prisma.tenant.findFirst();
-    if (!tenant) return { success: false, error: 'No tenant found' };
+    const tenantId = await requireTenantId();
 
-    const pipeline = await prisma.pipeline.findFirst({ where: { tenantId: tenant.id } });
+    const pipeline = await prisma.pipeline.findFirst({ where: { tenantId } });
     if (!pipeline) return { success: false, error: 'No pipeline found' };
 
     const targetStage = await prisma.stage.findFirst({
@@ -132,13 +120,16 @@ export async function updateLeadStage(leadId: string, newStageName: string) {
 
     if (!targetStage) return { success: false, error: 'Stage not found' };
 
-    const deal = await prisma.deal.update({
-      where: { id: leadId },
+    // Escopa o update ao tenant para impedir mover deal de outro cliente.
+    const result = await prisma.deal.updateMany({
+      where: { id: leadId, tenantId },
       data: { stageId: targetStage.id }
     });
 
+    if (result.count === 0) return { success: false, error: 'Deal not found' };
+
     revalidatePath('/pipeline');
-    return { success: true, data: deal };
+    return { success: true };
   } catch (error) {
     console.error('Error updating lead stage:', error);
     return { success: false, error: 'Failed to update lead stage' };

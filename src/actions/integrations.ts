@@ -1,18 +1,17 @@
 'use server';
 
-import { PrismaClient } from '@prisma/client';
+import { prisma } from '@/lib/prisma';
+import { requireTenantId } from '@/lib/auth';
 import { revalidatePath } from 'next/cache';
 
-const prisma = new PrismaClient();
 
 export async function saveIntegration(provider: string, apiKey?: string, webhookUrl?: string, config?: string) {
-  const tenant = await prisma.tenant.findFirst();
-  if (!tenant) throw new Error('Tenant not found');
+  const tenantId = await requireTenantId();
 
   await prisma.integration.upsert({
     where: {
       tenantId_provider: {
-        tenantId: tenant.id,
+        tenantId,
         provider: provider
       }
     },
@@ -23,7 +22,7 @@ export async function saveIntegration(provider: string, apiKey?: string, webhook
       isActive: true
     },
     create: {
-      tenantId: tenant.id,
+      tenantId,
       provider: provider,
       apiKey: apiKey,
       webhookUrl: webhookUrl,
@@ -37,10 +36,9 @@ export async function saveIntegration(provider: string, apiKey?: string, webhook
 }
 
 export async function getIntegrations() {
-  const tenant = await prisma.tenant.findFirst();
-  if (!tenant) return [];
+  const tenantId = await requireTenantId();
 
   return prisma.integration.findMany({
-    where: { tenantId: tenant.id }
+    where: { tenantId }
   });
 }

@@ -1,22 +1,16 @@
 'use server';
 
-import { PrismaClient } from '@prisma/client';
+import { prisma } from '@/lib/prisma';
+import { requireTenantId } from '@/lib/auth';
 import { revalidatePath } from 'next/cache';
 
-const prisma = new PrismaClient();
-
-// Placeholder Tenant ID until Auth is implemented
-const DEFAULT_TENANT_ID = '00000000-0000-0000-0000-000000000000';
 
 export async function getTasks() {
   try {
-    let tenant = await prisma.tenant.findFirst();
-    if (!tenant) {
-      tenant = await prisma.tenant.create({ data: { name: 'Nexus Workspace' } });
-    }
+    const tenantId = await requireTenantId();
 
     const tasks = await prisma.task.findMany({
-      where: { tenantId: tenant.id },
+      where: { tenantId },
       include: {
         deal: {
           select: { title: true }
@@ -41,17 +35,14 @@ export async function createTask(formData: FormData) {
     const dateStr = formData.get('dueDate') as string;
     const dueDate = dateStr ? new Date(dateStr) : new Date();
 
-    let tenant = await prisma.tenant.findFirst();
-    if (!tenant) {
-      tenant = await prisma.tenant.create({ data: { name: 'Nexus Workspace' } });
-    }
+    const tenantId = await requireTenantId();
 
     const task = await prisma.task.create({
       data: {
         title,
         type,
         dueDate,
-        tenantId: tenant.id
+        tenantId
       }
     });
 

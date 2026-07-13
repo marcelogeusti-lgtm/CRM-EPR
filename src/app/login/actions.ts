@@ -1,35 +1,25 @@
 'use server'
 
-import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 import { createClient } from '@/utils/supabase/server'
-import { PrismaClient } from '@prisma/client'
+import { prisma } from '@/lib/prisma';
 
-const prisma = new PrismaClient()
 
 export async function login(formData: FormData) {
-  const supabase = await createClient()
-
   const data = {
     email: formData.get('email') as string,
     password: formData.get('password') as string,
   }
 
-  // --- LOGIN FIXO DE EMERGÊNCIA ---
-  if (data.email === 'admin@admin.com' && data.password === 'admin123') {
-    revalidatePath('/', 'layout')
-    redirect('/dashboard')
-  }
-  // --------------------------------
+  const supabase = await createClient()
 
   const { error } = await supabase.auth.signInWithPassword(data)
 
   if (error) {
-    return { error: 'E-mail ou senha incorretos' }
+    return { error: 'Credenciais inválidas ou erro no login.' }
   }
 
-  revalidatePath('/', 'layout')
-  redirect('/dashboard')
+  return { success: true }
 }
 
 export async function logout() {
@@ -53,21 +43,22 @@ export async function signup(formData: FormData) {
     return { error: error.message }
   }
 
-  // Verifica se o Tenant padrão existe, senão cria
-  let tenant = await prisma.tenant.findFirst()
-  if (!tenant) {
-    tenant = await prisma.tenant.create({ data: { name: 'Nexus Workspace' } })
-  }
-
-  // Se o usuário foi criado no Supabase Auth, sincroniza no Prisma
+  // Cada cadastro cria seu PRÓPRIO workspace (tenant) e entra como ADMIN dele.
+  // É isso que garante o isolamento multi-tenant: nada de colar todo mundo
+  // no "primeiro tenant". Convites de funcionários para um workspace
+  // existente serão um fluxo separado (RBAC).
   if (data.user) {
+    const workspaceName = (formData.get('workspaceName') as string)?.trim()
     await prisma.user.create({
       data: {
         id: data.user.id,
         email: data.user.email!,
         name: email.split('@')[0], // Nome provisório
-        tenantId: tenant.id
-      }
+        role: 'ADMIN',
+        tenant: {
+          create: { name: workspaceName || `Workspace de ${email.split('@')[0]}` },
+        },
+      },
     })
   }
 

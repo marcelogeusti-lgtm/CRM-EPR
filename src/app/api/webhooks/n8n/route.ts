@@ -1,15 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { PrismaClient } from '@prisma/client';
+import { prisma } from '@/lib/prisma';
 
-const prisma = new PrismaClient();
 
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
     
-    // Autenticação básica (em prod, use headers ou secret keys)
+    // Secret vem do ambiente — nunca hardcoded. Se não estiver configurado,
+    // recusamos por padrão (fail closed) em vez de aceitar qualquer request.
+    const expectedSecret = process.env.N8N_WEBHOOK_SECRET;
     const apiKey = req.headers.get('x-api-key');
-    if (apiKey !== 'n8n-kommo-secret-123') {
+    if (!expectedSecret || apiKey !== expectedSecret) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 

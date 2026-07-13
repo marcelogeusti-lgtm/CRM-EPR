@@ -1,9 +1,8 @@
 import { createOpenAI } from '@ai-sdk/openai';
 import { streamText } from 'ai';
-import { PrismaClient } from '@prisma/client';
+import { prisma } from '@/lib/prisma';
 import { NextResponse } from 'next/server';
 
-const prisma = new PrismaClient();
 
 // Aumenta o tempo limite de execução na Vercel (útil para IA)
 export const maxDuration = 30; 

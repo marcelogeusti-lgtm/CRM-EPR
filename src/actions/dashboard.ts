@@ -1,15 +1,15 @@
 'use server';
 
-import { PrismaClient } from '@prisma/client';
+import { prisma } from '@/lib/prisma';
+import { getCurrentUser } from '@/lib/auth';
 
-const prisma = new PrismaClient();
 
 export async function getDashboardStats() {
-  const tenant = await prisma.tenant.findFirst();
-  if (!tenant) return null;
+  const user = await getCurrentUser();
+  if (!user) return null;
 
   const deals = await prisma.deal.findMany({
-    where: { tenantId: tenant.id },
+    where: { tenantId: user.tenantId },
     include: { stage: true }
   });
 

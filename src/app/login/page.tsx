@@ -2,10 +2,12 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import { login, signup } from './actions'
 import { Box, Lock, Mail, ArrowRight, ArrowLeft } from 'lucide-react'
 
 export default function LoginPage() {
+  const router = useRouter()
   const [isLogin, setIsLogin] = useState(true)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -19,18 +21,28 @@ export default function LoginPage() {
     try {
       if (isLogin) {
         const res = await login(formData)
-        if (res?.error) setError(res.error)
+        if (res?.error) {
+          setError(res.error)
+          setLoading(false)
+        } else if (res?.success) {
+          // Hard redirect prevents layout tearing and guarantees clean state
+          window.location.href = '/dashboard'
+          // Do NOT set loading(false) here so the spinner stays while the page unloads
+        }
       } else {
         const res = await signup(formData)
-        if (res?.error) setError(res.error)
+        if (res?.error) {
+          setError(res.error)
+          setLoading(false)
+        }
         if (res?.success) {
           setSuccess(res.success)
           setIsLogin(true) // Switch to login after successful registration
+          setLoading(false)
         }
       }
     } catch (err: any) {
       setError(err.message || 'Ocorreu um erro inesperado.')
-    } finally {
       setLoading(false)
     }
   }
@@ -78,7 +90,14 @@ export default function LoginPage() {
             </p>
           </div>
 
-          <form action={handleSubmit} className="space-y-4">
+          <form 
+            onSubmit={(e) => {
+              e.preventDefault();
+              const formData = new FormData(e.currentTarget);
+              handleSubmit(formData);
+            }} 
+            className="space-y-4"
+          >
             
             {/* Error / Success Messages */}
             {error && (
@@ -99,9 +118,8 @@ export default function LoginPage() {
                 <input 
                   id="email" 
                   name="email" 
-                  type="email" 
-                  required 
-                  defaultValue="admin@admin.com"
+                  type="email"
+                  required
                   className="w-full bg-[#1a1a1a] border border-[#333] rounded-xl py-2.5 pl-10 pr-4 text-sm text-zinc-200 placeholder:text-zinc-600 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all"
                   placeholder="seu@email.com"
                 />
@@ -118,9 +136,8 @@ export default function LoginPage() {
                 <input 
                   id="password" 
                   name="password" 
-                  type="password" 
-                  required 
-                  defaultValue="admin123"
+                  type="password"
+                  required
                   className="w-full bg-[#1a1a1a] border border-[#333] rounded-xl py-2.5 pl-10 pr-4 text-sm text-zinc-200 placeholder:text-zinc-600 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all"
                   placeholder="••••••••"
                 />

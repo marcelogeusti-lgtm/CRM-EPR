@@ -1,17 +1,17 @@
 import React from 'react';
-import { PrismaClient } from '@prisma/client';
+import { prisma } from '@/lib/prisma';
+import { getCurrentUser } from '@/lib/auth';
 import { Users, Building2, Search, Filter } from 'lucide-react';
 
-const prisma = new PrismaClient();
 
 export default async function ListsPage() {
-  const tenant = await prisma.tenant.findFirst();
-  
-  const contacts = await prisma.contact.findMany({
-    where: { tenantId: tenant?.id },
+  const user = await getCurrentUser();
+
+  const contacts = user ? await prisma.contact.findMany({
+    where: { tenantId: user.tenantId },
     include: { company: true },
     orderBy: { createdAt: 'desc' }
-  });
+  }) : [];
 
   return (
     <div className="flex flex-col h-full bg-[#0a0a0a] text-white">
