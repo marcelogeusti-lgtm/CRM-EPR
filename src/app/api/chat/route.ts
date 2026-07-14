@@ -1,6 +1,7 @@
 import { createOpenAI } from '@ai-sdk/openai';
 import { streamText } from 'ai';
 import { prisma } from '@/lib/prisma';
+import { getCurrentUser } from '@/lib/auth';
 import { NextResponse } from 'next/server';
 
 
@@ -23,10 +24,11 @@ export async function POST(req: Request) {
       );
     }
 
-    // 2. Buscar as regras (Persona) do Agente de IA
-    // Em um SaaS real, buscaríamos pelo tenantId do usuário logado.
-    // Aqui vamos pegar o primeiro configurado para o teste.
-    const agent = await prisma.aiAgent.findFirst();
+    // 2. Buscar as regras (Persona) do Agente de IA do tenant logado.
+    const user = await getCurrentUser();
+    const agent = user
+      ? await prisma.aiAgent.findUnique({ where: { tenantId: user.tenantId } })
+      : null;
     
     // Constrói o Prompt de Sistema com base nas configurações
     const systemPrompt = `

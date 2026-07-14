@@ -127,7 +127,36 @@ isolado por tenant.
   compatibilidade do frontend antigo. Unificar na timeline nova e aposentar `Activity` p/ chat.
 - `playwright` está em `dependencies` (deveria ser `devDependency`) — mover exige
   regenerar `package-lock.json` (`npm install`), senão quebra `npm ci` na Vercel.
-- Várias páginas ainda são mock (`salesbot`, `integrations`, `automations`,
-  `feedback`, `help`, `notifications`).
-- `src/app/api/chat/route.ts` usa `aiAgent.findFirst()` (não escopado por tenant) —
-  corrigir ao integrar a IA no fluxo real (Fase 1.3).
+- `StageAutomation.activateAgent` liga o `AiAgent.isActive` do **tenant inteiro**,
+  não da conversa específica — não existe (ainda) um toggle de IA por
+  conversa/deal no schema. O botão "IA" no `LeadInboxPanel` também é só estado
+  local (não persiste). Resolver isso é pré-requisito real da Fase 1.3
+  (hand-off por conversa).
+- `/automations` só oferece dois toggles fixos por etapa (ativar IA / disparar
+  webhook n8n) — um motor de automação de verdade (builder de regras/ações)
+  continua sendo escopo da Fase 2.
+- `/notifications` é um feed **derivado e somente leitura** (sem tabela própria,
+  sem marcar como lida) — juntando Deals/Activities/Tasks recentes.
+
+## ⚠️ Migration pendente (rodar com DATABASE_URL configurado)
+Foram adicionados os modelos `StageAutomation` e `Feedback` ao
+`prisma/schema.prisma` (2026-07-14) para tirar `/automations` e `/feedback`
+do estado mock. Não há `.env.local`/`DATABASE_URL` no ambiente onde essas
+mudanças foram feitas, então a migration **não foi aplicada ao banco**.
+Antes de usar essas duas páginas em produção, rodar:
+```bash
+npx prisma migrate dev --name add_stage_automation_and_feedback
+```
+
+## Mock → real (2026-07-14)
+- `salesbot` (aba Persona): agora lê/grava o `AiAgent` real do tenant via
+  `src/actions/salesbot.ts`. De quebra, corrigido `src/app/api/chat/route.ts`
+  que usava `aiAgent.findFirst()` sem escopo de tenant.
+- `automations`: versão mínima real (ver dívida técnica acima).
+- `feedback`: formulário real gravando em `Feedback`, com lista das últimas
+  submissões do tenant.
+- `help`: FAQ estático com conteúdo real sobre as funcionalidades do CRM.
+- `notifications`: feed derivado real (ver dívida técnica acima).
+- `integrations` já era funcional antes disso (carrega/salva `Integration`
+  real) — só o card de apps ainda é uma lista estática (`MOCK_INTEGRATIONS`)
+  pra maioria dos provedores fora WhatsApp/Instagram/TikTok.

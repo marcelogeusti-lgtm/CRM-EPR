@@ -13,20 +13,22 @@ datasource db {
 // ==========================================
 
 model Tenant {
-  id           String        @id @default(uuid())
-  name         String
-  createdAt    DateTime      @default(now())
-  updatedAt    DateTime      @updatedAt
-  
-  users        User[]
-  companies    Company[]
-  contacts     Contact[]
-  pipelines    Pipeline[]
-  deals        Deal[]
-  tasks        Task[]
-  integrations Integration[]
-  tags         Tag[]
-  aiAgent      AiAgent?
+  id        String   @id @default(uuid())
+  name      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  users            User[]
+  companies        Company[]
+  contacts         Contact[]
+  pipelines        Pipeline[]
+  deals            Deal[]
+  tasks            Task[]
+  integrations     Integration[]
+  tags             Tag[]
+  aiAgent          AiAgent?
+  stageAutomations StageAutomation[]
+  feedbacks        Feedback[]
 }
 
 model User {
@@ -39,10 +41,11 @@ model User {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  deals     Deal[]   // Deals assigned to this user
-  tasks     Task[]   // Tasks assigned to this user
+  tenant    Tenant     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  deals     Deal[] // Deals assigned to this user
+  tasks     Task[] // Tasks assigned to this user
   messages  Message[] // Messages sent by this user
+  feedbacks Feedback[]
 }
 
 // ==========================================
@@ -58,9 +61,9 @@ model Company {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  tenant    Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  contacts  Contact[] // A company has many contacts
-  deals     Deal[]    // Deals directly tied to the company
+  tenant   Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  contacts Contact[] // A company has many contacts
+  deals    Deal[] // Deals directly tied to the company
 }
 
 model Contact {
@@ -74,10 +77,10 @@ model Contact {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  company   Company? @relation(fields: [companyId], references: [id], onDelete: SetNull)
-  deals     Deal[]
-  tags      TagsOnContacts[]
+  tenant  Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  company Company?         @relation(fields: [companyId], references: [id], onDelete: SetNull)
+  deals   Deal[]
+  tags    TagsOnContacts[]
 }
 
 // ==========================================
@@ -87,52 +90,53 @@ model Contact {
 model Pipeline {
   id        String   @id @default(uuid())
   tenantId  String
-  name      String   // Ex: "Funil de Vendas", "Pós-Venda"
+  name      String // Ex: "Funil de Vendas", "Pós-Venda"
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  stages    Stage[]
-  deals     Deal[]
+  tenant Tenant  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  stages Stage[]
+  deals  Deal[]
 }
 
 model Stage {
   id         String   @id @default(uuid())
   pipelineId String
-  name       String   // Ex: "Comentário ou DM", "Qualificado"
-  order      Int      // To sort columns (0, 1, 2...)
-  color      String?  // Ex: "bg-blue-500"
+  name       String // Ex: "Comentário ou DM", "Qualificado"
+  order      Int // To sort columns (0, 1, 2...)
+  color      String? // Ex: "bg-blue-500"
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
 
-  pipeline   Pipeline @relation(fields: [pipelineId], references: [id], onDelete: Cascade)
+  pipeline   Pipeline         @relation(fields: [pipelineId], references: [id], onDelete: Cascade)
   deals      Deal[]
+  automation StageAutomation?
 }
 
 model Deal {
-  id         String     @id @default(uuid())
+  id         String   @id @default(uuid())
   tenantId   String
   pipelineId String
   stageId    String
   contactId  String?
   companyId  String?
-  assignedTo String?    // User ID
+  assignedTo String? // User ID
   title      String
-  value      Float      @default(0)
-  createdAt  DateTime   @default(now())
-  updatedAt  DateTime   @updatedAt
+  value      Float    @default(0)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
 
-  tenant        Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  pipeline      Pipeline       @relation(fields: [pipelineId], references: [id], onDelete: Restrict)
-  stage         Stage          @relation(fields: [stageId], references: [id], onDelete: Restrict)
-  contact       Contact?       @relation(fields: [contactId], references: [id], onDelete: SetNull)
-  company       Company?       @relation(fields: [companyId], references: [id], onDelete: SetNull)
-  assignee      User?          @relation(fields: [assignedTo], references: [id], onDelete: SetNull)
-  
+  tenant   Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  pipeline Pipeline @relation(fields: [pipelineId], references: [id], onDelete: Restrict)
+  stage    Stage    @relation(fields: [stageId], references: [id], onDelete: Restrict)
+  contact  Contact? @relation(fields: [contactId], references: [id], onDelete: SetNull)
+  company  Company? @relation(fields: [companyId], references: [id], onDelete: SetNull)
+  assignee User?    @relation(fields: [assignedTo], references: [id], onDelete: SetNull)
+
   tasks         Task[]
   tags          TagsOnDeals[]
   conversations Conversation[]
-  activities    Activity[]     // System logs (moved stage, changed value)
+  activities    Activity[] // System logs (moved stage, changed value)
 }
 
 // ==========================================
@@ -152,9 +156,9 @@ model Task {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  deal        Deal?    @relation(fields: [dealId], references: [id], onDelete: Cascade)
-  assignee    User?    @relation(fields: [assignedTo], references: [id], onDelete: SetNull)
+  tenant   Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  deal     Deal?  @relation(fields: [dealId], references: [id], onDelete: Cascade)
+  assignee User?  @relation(fields: [assignedTo], references: [id], onDelete: SetNull)
 }
 
 // ==========================================
@@ -162,12 +166,12 @@ model Task {
 // ==========================================
 
 model Channel {
-  id         String   @id @default(uuid())
-  tenantId   String
-  name       String   // "WhatsApp da Loja", "Instagram Principal"
-  provider   String   // "whatsapp", "instagram"
-  isActive   Boolean  @default(true)
-  createdAt  DateTime @default(now())
+  id        String   @id @default(uuid())
+  tenantId  String
+  name      String // "WhatsApp da Loja", "Instagram Principal"
+  provider  String // "whatsapp", "instagram"
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
 
   conversations Conversation[]
 }
@@ -180,21 +184,21 @@ model Conversation {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  deal      Deal      @relation(fields: [dealId], references: [id], onDelete: Cascade)
-  channel   Channel   @relation(fields: [channelId], references: [id], onDelete: Restrict)
-  messages  Message[]
+  deal     Deal      @relation(fields: [dealId], references: [id], onDelete: Cascade)
+  channel  Channel   @relation(fields: [channelId], references: [id], onDelete: Restrict)
+  messages Message[]
 }
 
 model Message {
   id             String   @id @default(uuid())
   conversationId String
-  authorId       String?  // If sent by a User
-  authorType     String   // "CONTACT", "USER", "AI", "SYSTEM"
+  authorId       String? // If sent by a User
+  authorType     String // "CONTACT", "USER", "AI", "SYSTEM"
   content        String
   createdAt      DateTime @default(now())
 
-  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
-  userAuthor     User?        @relation(fields: [authorId], references: [id], onDelete: SetNull)
+  conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  userAuthor   User?        @relation(fields: [authorId], references: [id], onDelete: SetNull)
 }
 
 // ==========================================
@@ -208,16 +212,17 @@ model Tag {
   color     String?
   createdAt DateTime @default(now())
 
-  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  deals     TagsOnDeals[]
-  contacts  TagsOnContacts[]
+  tenant   Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  deals    TagsOnDeals[]
+  contacts TagsOnContacts[]
 }
 
 model TagsOnDeals {
   dealId String
   tagId  String
-  deal   Deal @relation(fields: [dealId], references: [id], onDelete: Cascade)
-  tag    Tag  @relation(fields: [tagId], references: [id], onDelete: Cascade)
+  deal   Deal   @relation(fields: [dealId], references: [id], onDelete: Cascade)
+  tag    Tag    @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
   @@id([dealId, tagId])
 }
 
@@ -226,6 +231,7 @@ model TagsOnContacts {
   tagId     String
   contact   Contact @relation(fields: [contactId], references: [id], onDelete: Cascade)
   tag       Tag     @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
   @@id([contactId, tagId])
 }
 
@@ -234,12 +240,12 @@ model Activity {
   id        String   @id @default(uuid())
   tenantId  String
   dealId    String
-  type      String   // STAGE_CHANGED, NOTE_ADDED
+  type      String // STAGE_CHANGED, NOTE_ADDED
   content   String
-  author    String   // "System", "Agent"
+  author    String // "System", "Agent"
   createdAt DateTime @default(now())
 
-  deal      Deal     @relation(fields: [dealId], references: [id], onDelete: Cascade)
+  deal Deal @relation(fields: [dealId], references: [id], onDelete: Cascade)
 }
 
 model Integration {
@@ -253,7 +259,8 @@ model Integration {
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
 
-  tenant     Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
   @@unique([tenantId, provider])
 }
 
@@ -262,21 +269,21 @@ model Integration {
 // ==========================================
 
 model AiAgent {
-  id               String   @id @default(uuid())
-  tenantId         String   @unique
-  name             String   @default("Assistente de Vendas")
-  isActive         Boolean  @default(false)
-  systemPrompt     String?  // O "Persona"
-  toneOfVoice      String   @default("Amigável")
-  responseSize     String   @default("Médias")
-  responseLanguage String   @default("Correspondente")
-  pauseSeconds     Int      @default(3)
-  directives       String?  // JSON stringified array of rules
-  
-  createdAt        DateTime @default(now())
-  updatedAt        DateTime @updatedAt
+  id               String  @id @default(uuid())
+  tenantId         String  @unique
+  name             String  @default("Assistente de Vendas")
+  isActive         Boolean @default(false)
+  systemPrompt     String? // O "Persona"
+  toneOfVoice      String  @default("Amigável")
+  responseSize     String  @default("Médias")
+  responseLanguage String  @default("Correspondente")
+  pauseSeconds     Int     @default(3)
+  directives       String? // JSON stringified array of rules
 
-  tenant           Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 }
 
 // ==========================================
@@ -287,4 +294,42 @@ model SystemConfig {
   key       String   @id // Ex: "OPENAI_MASTER_KEY"
   value     String
   updatedAt DateTime @updatedAt
+}
+
+// ==========================================
+// 9. AUTOMAÇÕES (versão mínima — motor completo é Fase 2)
+// ==========================================
+
+// Liga o Agente de IA e/ou dispara o webhook do n8n quando QUALQUER deal
+// entra nesta etapa. Não é um builder de regras (isso é Fase 2): só liga o
+// que já existe (AiAgent do tenant, Integration provider="n8n").
+// `activateAgent` ativa o AiAgent do tenant inteiro — ainda não há um toggle
+// de IA por conversa/deal no schema.
+model StageAutomation {
+  id             String   @id @default(uuid())
+  tenantId       String
+  stageId        String   @unique
+  activateAgent  Boolean  @default(false)
+  fireN8nWebhook Boolean  @default(false)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  stage  Stage  @relation(fields: [stageId], references: [id], onDelete: Cascade)
+}
+
+// ==========================================
+// 10. FEEDBACK DE PRODUTO
+// ==========================================
+
+model Feedback {
+  id        String   @id @default(uuid())
+  tenantId  String
+  userId    String?
+  type      String   @default("SUGGESTION") // SUGGESTION, BUG, OTHER
+  message   String
+  createdAt DateTime @default(now())
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  user   User?  @relation(fields: [userId], references: [id], onDelete: SetNull)
 }

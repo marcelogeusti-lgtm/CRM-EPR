@@ -1,19 +1,99 @@
 'use client';
 
-import React, { useState } from 'react';
-import { Bot, Sparkles, Phone, User, Database, Zap, Settings, RefreshCw, Send, ChevronLeft, Volume2, Maximize, Activity } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Bot, Sparkles, Phone, User, Database, Zap, Settings, RefreshCw, Send, ChevronLeft, Volume2, Maximize, Activity, X, Loader2, Check } from 'lucide-react';
+import { getAiAgent, saveAiAgent, setAiAgentActive } from '@/actions/salesbot';
 
 type Tab = 'painel' | 'persona' | 'fontes' | 'acoes' | 'integracoes' | 'configs';
+
+const DEFAULT_PERSONA = "Você é um assistente de vendas e consulta inteligente que ajuda os clientes a escolher o sistema de gestão NEXT para suas barbearias...";
+const DEFAULT_DIRECTIVES = [
+  "Comunique-se em primeira pessoa, como um representante real.",
+  "Saudações devem ser feitas apenas na primeira interação.",
+  "Pergunte de forma educada se as informações estiverem incompletas."
+];
 
 export default function SalesbotPage() {
   const [activeTab, setActiveTab] = useState<Tab>('persona');
   const [isAgentActive, setIsAgentActive] = useState(false);
-  
+  const [isTogglingAgent, setIsTogglingAgent] = useState(false);
+
   // Persona states
-  const [persona, setPersona] = useState("Você é um assistente de vendas e consulta inteligente que ajuda os clientes a escolher o sistema de gestão NEXT para suas barbearias...");
+  const [isLoadingAgent, setIsLoadingAgent] = useState(true);
+  const [isSavingPersona, setIsSavingPersona] = useState(false);
+  const [justSaved, setJustSaved] = useState(false);
+  const [persona, setPersona] = useState(DEFAULT_PERSONA);
   const [tone, setTone] = useState("Amigável");
   const [responseSize, setResponseSize] = useState("Médias");
   const [pauseSeconds, setPauseSeconds] = useState("3");
+  const [directives, setDirectives] = useState<string[]>(DEFAULT_DIRECTIVES);
+
+  useEffect(() => {
+    getAiAgent().then(agent => {
+      if (agent) {
+        setIsAgentActive(agent.isActive);
+        setPersona(agent.systemPrompt || DEFAULT_PERSONA);
+        setTone(agent.toneOfVoice);
+        setResponseSize(agent.responseSize);
+        setPauseSeconds(String(agent.pauseSeconds));
+        try {
+          const parsed = agent.directives ? JSON.parse(agent.directives) : DEFAULT_DIRECTIVES;
+          setDirectives(Array.isArray(parsed) ? parsed : DEFAULT_DIRECTIVES);
+        } catch {
+          setDirectives(DEFAULT_DIRECTIVES);
+        }
+      }
+      setIsLoadingAgent(false);
+    });
+  }, []);
+
+  async function handleToggleAgent() {
+    setIsTogglingAgent(true);
+    const next = !isAgentActive;
+    try {
+      const agent = await setAiAgentActive(next);
+      setIsAgentActive(agent.isActive);
+    } catch (e) {
+      console.error(e);
+      alert('Falha ao alterar o status do agente.');
+    } finally {
+      setIsTogglingAgent(false);
+    }
+  }
+
+  async function handleSavePersona() {
+    setIsSavingPersona(true);
+    setJustSaved(false);
+    try {
+      await saveAiAgent({
+        systemPrompt: persona,
+        toneOfVoice: tone,
+        responseSize,
+        pauseSeconds: parseInt(pauseSeconds, 10) || 0,
+        directives,
+      });
+      setJustSaved(true);
+      setTimeout(() => setJustSaved(false), 2000);
+    } catch (e) {
+      console.error(e);
+      alert('Falha ao salvar as configurações do agente.');
+    } finally {
+      setIsSavingPersona(false);
+    }
+  }
+
+  function updateDirective(idx: number, value: string) {
+    setDirectives(prev => prev.map((d, i) => i === idx ? value : d));
+  }
+
+  function removeDirective(idx: number) {
+    setDirectives(prev => prev.filter((_, i) => i !== idx));
+  }
+
+  function addDirective() {
+    setDirectives(prev => [...prev, '']);
+  }
+
   // Simulator states
   const [input, setInput] = useState('');
   const [messages, setMessages] = useState([
@@ -87,12 +167,14 @@ export default function SalesbotPage() {
               </div>
               <h1 className="text-2xl font-bold tracking-tight text-zinc-100">NEXT Assistente de Vendas</h1>
             </div>
-            <button 
-              onClick={() => setIsAgentActive(!isAgentActive)}
-              className={`px-4 py-2 rounded-lg text-sm font-bold transition-all flex items-center gap-2 ${
+            <button
+              onClick={handleToggleAgent}
+              disabled={isTogglingAgent || isLoadingAgent}
+              className={`px-4 py-2 rounded-lg text-sm font-bold transition-all flex items-center gap-2 disabled:opacity-50 ${
                 isAgentActive ? 'bg-emerald-600 hover:bg-emerald-500 text-white' : 'bg-blue-600 hover:bg-blue-500 text-white'
               }`}
             >
+              {isTogglingAgent && <Loader2 className="size-4 animate-spin" />}
               {isAgentActive ? 'Agente de IA Ativo' : 'Ativar agente de IA'}
             </button>
           </div>
@@ -177,19 +259,42 @@ export default function SalesbotPage() {
               <div className="space-y-3 pt-4 border-t border-[#222]">
                 <div className="flex justify-between items-center">
                   <label className="text-sm font-bold text-zinc-200">Diretrizes (Regras Opcionais)</label>
-                  <button className="text-indigo-400 text-sm hover:text-indigo-300 font-medium">+ Adicionar diretriz</button>
+                  <button onClick={addDirective} className="text-indigo-400 text-sm hover:text-indigo-300 font-medium">+ Adicionar diretriz</button>
                 </div>
                 <div className="space-y-2">
-                  {[
-                    "Comunique-se em primeira pessoa, como um representante real.",
-                    "Saudações devem ser feitas apenas na primeira interação.",
-                    "Pergunte de forma educada se as informações estiverem incompletas."
-                  ].map((rule, idx) => (
-                    <div key={idx} className="bg-[#161616] border border-[#2a2a2a] p-3 rounded-lg text-sm text-zinc-400">
-                      {rule}
+                  {directives.map((rule, idx) => (
+                    <div key={idx} className="flex items-center gap-2 bg-[#161616] border border-[#2a2a2a] p-1.5 pl-3 rounded-lg text-sm text-zinc-400">
+                      <input
+                        value={rule}
+                        onChange={(e) => updateDirective(idx, e.target.value)}
+                        placeholder="Escreva uma regra para o agente seguir..."
+                        className="flex-1 bg-transparent focus:outline-none text-zinc-300"
+                      />
+                      <button onClick={() => removeDirective(idx)} className="p-1.5 text-zinc-500 hover:text-red-400 transition-colors shrink-0">
+                        <X className="size-4" />
+                      </button>
                     </div>
                   ))}
+                  {directives.length === 0 && (
+                    <p className="text-xs text-zinc-600">Nenhuma diretriz adicional configurada.</p>
+                  )}
                 </div>
+              </div>
+
+              <div className="flex items-center justify-end gap-3 pt-4 border-t border-[#222]">
+                {justSaved && (
+                  <span className="flex items-center gap-1.5 text-emerald-400 text-sm font-medium animate-in fade-in">
+                    <Check className="size-4" /> Salvo
+                  </span>
+                )}
+                <button
+                  onClick={handleSavePersona}
+                  disabled={isSavingPersona || isLoadingAgent}
+                  className="bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white px-5 py-2.5 rounded-lg text-sm font-bold transition-colors flex items-center gap-2"
+                >
+                  {isSavingPersona && <Loader2 className="size-4 animate-spin" />}
+                  Salvar alterações
+                </button>
               </div>
 
             </div>

@@ -2,6 +2,7 @@
 
 import { prisma } from '@/lib/prisma';
 import { requireTenantId } from '@/lib/auth';
+import { runStageAutomations } from '@/actions/automations';
 import { revalidatePath } from 'next/cache';
 
 // Helper to ensure a Pipeline and Stages exist
@@ -127,6 +128,8 @@ export async function updateLeadStage(leadId: string, newStageName: string) {
     });
 
     if (result.count === 0) return { success: false, error: 'Deal not found' };
+
+    await runStageAutomations(tenantId, targetStage.id, leadId);
 
     revalidatePath('/pipeline');
     return { success: true };
