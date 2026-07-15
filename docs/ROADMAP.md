@@ -148,21 +148,32 @@ isolado por tenant.
 - `/notifications` é um feed **derivado e somente leitura** (sem tabela própria,
   sem marcar como lida) — juntando Deals/Activities/Tasks recentes.
 
-## ⚠️ Migrations pendentes (rodar com DATABASE_URL configurado)
-Duas rodadas de mudança de schema (2026-07-14) ainda não foram aplicadas ao
-banco — feitas num ambiente sem `DATABASE_URL`/`.env.local`:
+## ✅ Migrations aplicadas (2026-07-15)
+As duas rodadas de mudança de schema pendentes (`StageAutomation`/`Feedback`
+e o enriquecimento do `AiAgent`) foram aplicadas com sucesso direto no banco
+**Nexus** (`uqktlxqdfnrmlvmqxveb`) via MCP do Supabase. SQL salvo em
+`prisma/migrations/20260715224156_enrich_agent_and_automations/migration.sql`.
 
-1. Modelos `StageAutomation` e `Feedback` (tira `/automations` e `/feedback` do mock).
-2. `AiAgent` enriquecido: campo `toneOfVoice` **removido** (substituído por
-   `personalityTags`) e adicionados `typicalExpressions`, `negativePrompt`,
-   `AgentScriptStep`, `AgentObjection`. Se já existir algum `AiAgent` real no
-   banco, o valor antigo de `toneOfVoice` **será perdido** — aceitável neste
-   estágio do projeto (sem clientes reais ainda), mas confira antes de rodar.
-
-Rodar (uma vez, cobre as duas):
-```bash
-npx prisma migrate dev --name enrich_agent_and_automations
-```
+**⚠️ Descoberta importante sobre este banco:**
+- A tabela `_prisma_migrations` **não existe** — este banco nunca foi
+  sincronizado via `prisma migrate dev/deploy`, provavelmente foi criado via
+  `prisma db push` ou aplicado manualmente. Não fabriquei entradas nessa
+  tabela (arriscado sem o checksum exato do Prisma). **Daqui pra frente,
+  mudanças de schema devem ser aplicadas por SQL direto (via MCP do Supabase
+  ou `prisma db push`), não por `prisma migrate dev/deploy`** — não há
+  baseline de histórico para o Prisma reconciliar.
+- **RLS (Row Level Security) está desabilitado em todas as tabelas** —
+  achado crítico da varredura de segurança do Supabase MCP. Qualquer um com
+  a `NEXT_PUBLIC_SUPABASE_ANON_KEY` (pública por design, já usada no app
+  mobile) pode ler/escrever em qualquer linha via API do Supabase, pulando o
+  isolamento por tenant do Prisma. **Ainda não corrigido** — decisão
+  consciente de adiar pra tratar com calma (habilitar RLS sem políticas
+  bloqueia todo acesso; precisa desenhar as políticas primeiro). Prioridade
+  alta da Fase 1.4.
+- Também descobrimos que o ID real do projeto Supabase "Nexus" é
+  `uqktlxqdfnrmlvmqxveb` — não confundir com o projeto "grupovips"
+  (`aosfxntdsquknymwooqp`) na mesma organização, que é um app completamente
+  diferente (Fase 0 já documentava esse tipo de mix-up de conta).
 
 ## Mock → real (2026-07-14)
 - `salesbot` (aba Persona): agora lê/grava o `AiAgent` real do tenant via
