@@ -1,35 +1,32 @@
 // Removido import de video
 import Link from 'next/link';
-import { ArrowRight, Globe, BarChart3, MessageSquare, Zap, Palette, Phone } from 'lucide-react';
-import Image from 'next/image';
+import { ArrowRight, Globe, BarChart3, Zap, Palette, Phone } from 'lucide-react';
 
 export default function LandingPage() {
   return (
     <div className="min-h-screen bg-[#0a0a0a] text-white font-sans selection:bg-purple-500/30">
       
       {/* Header */}
-      <header className="fixed inset-x-0 top-4 z-50 mx-auto flex w-[calc(100%-2rem)] max-w-5xl flex-col rounded-full border border-white/5 bg-[#0a0a0a]/50 backdrop-blur-md transition-all duration-300">
+      <header className="fixed inset-x-0 top-4 z-50 mx-auto flex w-[calc(100%-2rem)] max-w-5xl flex-col rounded-full border border-white/5 bg-[#0a0a0a]/50 backdrop-blur-md transition-colors duration-300">
         <div className="flex h-14 items-center justify-between px-6">
           <div className="flex items-center gap-2">
             <div className="w-8 h-8 bg-gradient-to-tr from-blue-500 to-purple-500 rounded-xl flex items-center justify-center shadow-[0_0_20px_rgba(59,130,246,0.3)]">
-              <Zap className="size-4 text-white fill-white" />
+              <Zap className="size-4 text-white fill-white" aria-hidden="true" />
             </div>
             <span className="text-xl font-bold tracking-tight">Nexus</span>
           </div>
-          
+
           <nav className="hidden items-center gap-8 text-[13px] font-medium text-white/55 md:flex">
             <a className="transition-colors duration-200 hover:text-white" href="#features">Recursos</a>
-            <a className="transition-colors duration-200 hover:text-white" href="#modes">Como Funciona</a>
-            <a className="transition-colors duration-200 hover:text-white" href="#pricing">Preços</a>
           </nav>
-          
+
           <div className="hidden items-center gap-4 md:flex">
             <Link className="rounded-full px-4 py-2 text-[13px] font-medium text-white/65 transition-colors duration-200 hover:text-white hover:bg-white/[0.05]" href="/login">
               Entrar
             </Link>
-            <Link className="group inline-flex items-center gap-1.5 rounded-full bg-white px-5 py-2 text-[13px] font-bold text-black shadow-[0_0_20px_rgba(255,255,255,0.2)] transition-all duration-200 hover:scale-105 hover:shadow-[0_0_30px_rgba(255,255,255,0.4)]" href="/login">
+            <Link className="group inline-flex items-center gap-1.5 rounded-full bg-white px-5 py-2 text-[13px] font-bold text-black shadow-[0_0_20px_rgba(255,255,255,0.2)] transition-[transform,box-shadow] duration-200 hover:scale-105 hover:shadow-[0_0_30px_rgba(255,255,255,0.4)]" href="/login">
               Começar Agora
-              <ArrowRight className="h-4 w-4 transition-transform duration-200 group-hover:translate-x-0.5" />
+              <ArrowRight className="h-4 w-4 transition-transform duration-200 group-hover:translate-x-0.5" aria-hidden="true" />
             </Link>
           </div>
         </div>
@@ -43,13 +40,13 @@ export default function LandingPage() {
             className="absolute inset-0 w-full h-full opacity-30"
             dangerouslySetInnerHTML={{
               __html: `
-                <video 
-                  autoplay 
-                  loop 
-                  muted 
-                  playsinline 
-                  preload="auto" 
-                  class="absolute inset-0 w-full h-full object-cover"
+                <video
+                  autoplay
+                  loop
+                  muted
+                  playsinline
+                  preload="auto"
+                  class="hero-bg-video absolute inset-0 w-full h-full object-cover"
                 >
                   <source src="/hero-video-v4.mp4" type="video/mp4" />
                 </video>
@@ -88,12 +85,12 @@ export default function LandingPage() {
           </p>
           
           <div className="mt-10 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-center w-full max-w-md mx-auto sm:max-w-none">
-            <Link className="group inline-flex w-full cursor-pointer items-center justify-center gap-2 rounded-full bg-white px-8 py-4 text-[15px] font-semibold text-black shadow-[0_0_30px_rgba(255,255,255,0.3)] transition-all duration-200 hover:shadow-[0_0_40px_rgba(255,255,255,0.5)] sm:w-auto" href="/login">
+            <Link className="group inline-flex w-full cursor-pointer items-center justify-center gap-2 rounded-full bg-white px-8 py-4 text-[15px] font-semibold text-black shadow-[0_0_30px_rgba(255,255,255,0.3)] transition-shadow duration-200 hover:shadow-[0_0_40px_rgba(255,255,255,0.5)] sm:w-auto" href="/login">
               Criar Conta Gratuita
-              <ArrowRight className="h-4 w-4 transition-transform duration-200 group-hover:translate-x-0.5" />
+              <ArrowRight className="h-4 w-4 transition-transform duration-200 group-hover:translate-x-0.5" aria-hidden="true" />
             </Link>
-            <a href="#demo" className="inline-flex w-full items-center justify-center gap-2 rounded-full border border-white/10 bg-white/[0.02] px-8 py-4 text-[15px] font-medium text-white/80 backdrop-blur-sm transition-colors duration-200 hover:border-white/20 hover:bg-white/[0.05] sm:w-auto">
-              Assistir Demo (30s)
+            <a href="#features" className="inline-flex w-full items-center justify-center gap-2 rounded-full border border-white/10 bg-white/[0.02] px-8 py-4 text-[15px] font-medium text-white/80 backdrop-blur-sm transition-colors duration-200 hover:border-white/20 hover:bg-white/[0.05] sm:w-auto">
+              Ver Recursos
             </a>
           </div>
         </div>
@@ -138,7 +135,7 @@ export default function LandingPage() {
       </div>
 
       {/* Features / Bento Grid */}
-      <section id="features" className="relative px-6 py-24 sm:py-32 mx-auto max-w-7xl">
+      <section id="features" className="relative scroll-mt-24 px-6 py-24 sm:py-32 mx-auto max-w-7xl">
         <div className="mb-16 max-w-2xl mx-auto text-center">
           <p className="text-[12px] font-semibold uppercase tracking-[0.14em] text-blue-400">Plataforma Completa</p>
           <h2 className="mt-3 text-[32px] font-light leading-tight tracking-tight text-white sm:text-[44px]">
@@ -155,7 +152,7 @@ export default function LandingPage() {
             
             <div className="relative z-10 w-full md:w-2/3">
               <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-white/[0.04] ring-1 ring-inset ring-white/[0.08] text-purple-400 mb-6">
-                <Globe className="h-6 w-6" />
+                <Globe className="h-6 w-6" aria-hidden="true" />
               </div>
               <h3 className="text-[26px] font-light tracking-tight text-white mb-3">Omnichannel Nativo.</h3>
               <p className="text-[15px] leading-relaxed text-white/50">
@@ -169,7 +166,7 @@ export default function LandingPage() {
              <div className="absolute inset-0 z-0 opacity-0 group-hover:opacity-100 transition-opacity duration-700 bg-[radial-gradient(circle_at_top_left,rgba(59,130,246,0.15),transparent_60%)]" />
              <div className="relative z-10 h-full flex flex-col">
                 <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-white/[0.04] ring-1 ring-inset ring-white/[0.08] text-blue-400 mb-6">
-                  <BarChart3 className="h-6 w-6" />
+                  <BarChart3 className="h-6 w-6" aria-hidden="true" />
                 </div>
                 <h3 className="text-[22px] font-medium tracking-tight text-white mb-3">Métricas Reais</h3>
                 <p className="text-[14px] leading-relaxed text-white/50 flex-grow">
@@ -183,7 +180,7 @@ export default function LandingPage() {
              <div className="absolute inset-0 z-0 opacity-0 group-hover:opacity-100 transition-opacity duration-700 bg-[radial-gradient(circle_at_bottom_left,rgba(34,197,94,0.1),transparent_60%)]" />
              <div className="relative z-10 h-full flex flex-col">
                 <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-white/[0.04] ring-1 ring-inset ring-white/[0.08] text-emerald-400 mb-6">
-                  <Phone className="h-6 w-6" />
+                  <Phone className="h-6 w-6" aria-hidden="true" />
                 </div>
                 <h3 className="text-[22px] font-medium tracking-tight text-white mb-3">App Integrado</h3>
                 <p className="text-[14px] leading-relaxed text-white/50 flex-grow">
@@ -197,7 +194,7 @@ export default function LandingPage() {
              <div className="absolute inset-0 z-0 opacity-0 group-hover:opacity-100 transition-opacity duration-700 bg-[radial-gradient(circle_at_center,rgba(236,72,153,0.1),transparent_80%)]" />
              <div className="relative z-10 w-full md:w-2/3">
                 <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-white/[0.04] ring-1 ring-inset ring-white/[0.08] text-pink-400 mb-6">
-                  <Palette className="h-6 w-6" />
+                  <Palette className="h-6 w-6" aria-hidden="true" />
                 </div>
                 <h3 className="text-[26px] font-light tracking-tight text-white mb-3">Funil Automático.</h3>
                 <p className="text-[15px] leading-relaxed text-white/50">
@@ -216,9 +213,9 @@ export default function LandingPage() {
           <h2 className="text-4xl md:text-5xl font-light tracking-tight text-white mb-8">
             Pronto para revolucionar seu atendimento?
           </h2>
-          <Link className="inline-flex cursor-pointer items-center justify-center gap-2 rounded-full bg-white px-10 py-5 text-[16px] font-semibold text-black shadow-[0_0_40px_rgba(255,255,255,0.2)] transition-all hover:scale-105 hover:shadow-[0_0_60px_rgba(255,255,255,0.4)]" href="/login">
+          <Link className="inline-flex cursor-pointer items-center justify-center gap-2 rounded-full bg-white px-10 py-5 text-[16px] font-semibold text-black shadow-[0_0_40px_rgba(255,255,255,0.2)] transition-[transform,box-shadow] hover:scale-105 hover:shadow-[0_0_60px_rgba(255,255,255,0.4)]" href="/login">
             Criar Conta Gratuitamente
-            <ArrowRight className="h-5 w-5" />
+            <ArrowRight className="h-5 w-5" aria-hidden="true" />
           </Link>
         </div>
       </section>

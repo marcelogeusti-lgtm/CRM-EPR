@@ -60,3 +60,13 @@ html {
 .animate-\\[marqueeLeft_30s_linear_infinite\\] {
   animation: marqueeLeft 30s linear infinite;
 }
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-\\[marqueeLeft_30s_linear_infinite\\] {
+    animation: none;
+  }
+
+  .hero-bg-video {
+    display: none;
+  }
+}
