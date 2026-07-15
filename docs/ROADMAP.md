@@ -190,3 +190,17 @@ e o enriquecimento do `AiAgent`) foram aplicadas com sucesso direto no banco
 - `integrations` já era funcional antes disso (carrega/salva `Integration`
   real) — só o card de apps ainda é uma lista estática (`MOCK_INTEGRATIONS`)
   pra maioria dos provedores fora WhatsApp/Instagram/TikTok.
+
+## Mock → real (2026-07-15)
+- `insights` (Painel): substituída a versão "em construção" por um painel
+  real (`src/actions/insights.ts`) — mensagens recebidas/respondidas pela IA
+  nos últimos 30 dias, novos leads, taxa de conclusão de tarefas, e
+  mensagens por canal. Complementa o "Início" (que foca em vendas/funil)
+  com uma visão de atendimento/IA. Havia também uma versão local não
+  commitada dessa página com dados totalmente inventados (nome de negócio
+  "Online Vidraçaria", números fixos) — substituída.
+- Ainda mockadas, **fora do roadmap atual**, exigem decisão de escopo antes
+  de codificar: `/email` (Inbox de e-mail — precisaria de integração real
+  com provedor, Gmail API ou IMAP/SMTP) e `/team` (Chats da equipe —
+  precisaria de um sistema de chat interno novo, com modelo próprio no
+  banco e tempo real). Ambas acessíveis pelo menu Comunicações.
