@@ -162,14 +162,17 @@ e o enriquecimento do `AiAgent`) foram aplicadas com sucesso direto no banco
   mudanças de schema devem ser aplicadas por SQL direto (via MCP do Supabase
   ou `prisma db push`), não por `prisma migrate dev/deploy`** — não há
   baseline de histórico para o Prisma reconciliar.
-- **RLS (Row Level Security) está desabilitado em todas as tabelas** —
-  achado crítico da varredura de segurança do Supabase MCP. Qualquer um com
-  a `NEXT_PUBLIC_SUPABASE_ANON_KEY` (pública por design, já usada no app
-  mobile) pode ler/escrever em qualquer linha via API do Supabase, pulando o
-  isolamento por tenant do Prisma. **Ainda não corrigido** — decisão
-  consciente de adiar pra tratar com calma (habilitar RLS sem políticas
-  bloqueia todo acesso; precisa desenhar as políticas primeiro). Prioridade
-  alta da Fase 1.4.
+- [x] **RLS habilitado em todas as 22 tabelas (2026-07-15)** — sem nenhuma
+  política de acesso, de propósito: hoje nada no código consulta essas
+  tabelas via chave anônima do Supabase (o app web usa Prisma via Server
+  Actions, que ignora RLS; o app mobile só usa `supabase.auth`, nunca faz
+  select/insert direto). Isso fecha a brecha por completo sem quebrar nada.
+  Se algo no futuro precisar de acesso direto via chave anônima (ex:
+  Supabase Realtime no mobile), vai precisar de políticas específicas
+  então — hoje não existem porque não são necessárias.
+- Aviso à parte (não relacionado ao schema): "Leaked Password Protection"
+  está desativado no Supabase Auth — liga em Authentication → Settings no
+  painel, quando quiser.
 - Também descobrimos que o ID real do projeto Supabase "Nexus" é
   `uqktlxqdfnrmlvmqxveb` — não confundir com o projeto "grupovips"
   (`aosfxntdsquknymwooqp`) na mesma organização, que é um app completamente
