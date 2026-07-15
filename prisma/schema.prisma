@@ -269,21 +269,54 @@ model Integration {
 // ==========================================
 
 model AiAgent {
-  id               String  @id @default(uuid())
-  tenantId         String  @unique
-  name             String  @default("Assistente de Vendas")
-  isActive         Boolean @default(false)
-  systemPrompt     String? // O "Persona"
-  toneOfVoice      String  @default("Amigável")
-  responseSize     String  @default("Médias")
-  responseLanguage String  @default("Correspondente")
-  pauseSeconds     Int     @default(3)
-  directives       String? // JSON stringified array of rules
+  id                 String  @id @default(uuid())
+  tenantId           String  @unique
+  name               String  @default("Assistente de Vendas")
+  isActive           Boolean @default(false)
+  systemPrompt       String? // O "Persona"
+  personalityTags    String? // JSON stringified array (ex: ["Confiante","Direto"]) — substitui o antigo toneOfVoice
+  responseSize       String  @default("Médias")
+  responseLanguage   String  @default("Correspondente")
+  pauseSeconds       Int     @default(3)
+  directives         String? // JSON stringified array de regras gerais
+  typicalExpressions String? // JSON stringified array de frases/bordões do atendimento
+  negativePrompt     String? // O que o agente NUNCA deve fazer ou dizer
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  tenant      Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  scriptSteps AgentScriptStep[]
+  objections  AgentObjection[]
+}
+
+// Etapas nomeadas e ordenáveis do roteiro de conversa — `type` separa o
+// funil de atendimento (qualificação) do funil de fechamento (venda).
+model AgentScriptStep {
+  id        String   @id @default(uuid())
+  aiAgentId String
+  type      String // "ATENDIMENTO" | "FECHAMENTO"
+  order     Int
+  title     String
+  content   String? // instrução/roteiro que a IA deve seguir nesta etapa
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  aiAgent AiAgent @relation(fields: [aiAgentId], references: [id], onDelete: Cascade)
+}
+
+// Biblioteca de objeções conhecidas ("Tá caro", "Vou pensar"...) e como o
+// agente deve responder a cada uma.
+model AgentObjection {
+  id        String   @id @default(uuid())
+  aiAgentId String
+  order     Int
+  title     String
+  response  String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  aiAgent AiAgent @relation(fields: [aiAgentId], references: [id], onDelete: Cascade)
 }
 
 // ==========================================

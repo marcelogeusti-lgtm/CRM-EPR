@@ -90,12 +90,22 @@ Entrega em 3 blocos, nesta ordem:
 - [ ] Meta Embedded Signup para o cliente conectar vários números sem suporte manual.
 
 ### 1.3 — IA respondendo sozinha + hand-off humano
+- [x] `AiAgent` enriquecido (2026-07-14, inspirado no ZapSuite IA Studio):
+      `personalityTags` (multi-select, substitui `toneOfVoice`), `typicalExpressions`,
+      `negativePrompt`, e os relacionamentos `AgentScriptStep` (script de
+      atendimento + fechamento, etapas ordenáveis) e `AgentObjection`
+      (biblioteca de objeções → resposta). Montagem do prompt centralizada em
+      `src/lib/agentPrompt.ts` (usada por `/api/chat` e, futuramente, pelo
+      fluxo real do WhatsApp — nunca duplicar essa lógica).
 - [ ] No webhook, após gravar a mensagem do contato: se `AiAgent.isActive`,
-      gerar resposta (reusar a lógica de `src/app/api/chat/route.ts`) e enviar via 1.1.
-- [ ] `AiAgent` já tem persona/tom/pausa no schema. Adicionar **tools** (function calling)
-      para a IA consultar o CRM (dados do deal/contato) e **hand-off**: quando escalar,
-      marcar `Conversation.status = WAITING` e parar de responder.
+      gerar resposta (reusar `buildSystemPrompt` de `src/lib/agentPrompt.ts`) e enviar via 1.1.
+- [ ] Adicionar **tools** (function calling) para a IA consultar o CRM (dados
+      do deal/contato) e **hand-off**: quando escalar, marcar
+      `Conversation.status = WAITING` e parar de responder.
 - [ ] `pauseSeconds` do agente: aguardar antes de responder (evita atropelar o cliente).
+- [ ] Dívida: `activateAgent` (automations) e o toggle "IA" do `LeadInboxPanel`
+      ligam a IA por **tenant inteiro**, não por conversa — falta um campo tipo
+      `Conversation.aiEnabled` pra granularidade real por deal.
 
 ### 1.4 — Segurança que falta (fazer junto)
 - [ ] **Criptografar** tokens/chaves em `Integration` e `SystemConfig` (hoje texto puro).
@@ -138,14 +148,20 @@ isolado por tenant.
 - `/notifications` é um feed **derivado e somente leitura** (sem tabela própria,
   sem marcar como lida) — juntando Deals/Activities/Tasks recentes.
 
-## ⚠️ Migration pendente (rodar com DATABASE_URL configurado)
-Foram adicionados os modelos `StageAutomation` e `Feedback` ao
-`prisma/schema.prisma` (2026-07-14) para tirar `/automations` e `/feedback`
-do estado mock. Não há `.env.local`/`DATABASE_URL` no ambiente onde essas
-mudanças foram feitas, então a migration **não foi aplicada ao banco**.
-Antes de usar essas duas páginas em produção, rodar:
+## ⚠️ Migrations pendentes (rodar com DATABASE_URL configurado)
+Duas rodadas de mudança de schema (2026-07-14) ainda não foram aplicadas ao
+banco — feitas num ambiente sem `DATABASE_URL`/`.env.local`:
+
+1. Modelos `StageAutomation` e `Feedback` (tira `/automations` e `/feedback` do mock).
+2. `AiAgent` enriquecido: campo `toneOfVoice` **removido** (substituído por
+   `personalityTags`) e adicionados `typicalExpressions`, `negativePrompt`,
+   `AgentScriptStep`, `AgentObjection`. Se já existir algum `AiAgent` real no
+   banco, o valor antigo de `toneOfVoice` **será perdido** — aceitável neste
+   estágio do projeto (sem clientes reais ainda), mas confira antes de rodar.
+
+Rodar (uma vez, cobre as duas):
 ```bash
-npx prisma migrate dev --name add_stage_automation_and_feedback
+npx prisma migrate dev --name enrich_agent_and_automations
 ```
 
 ## Mock → real (2026-07-14)

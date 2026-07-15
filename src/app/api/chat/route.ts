@@ -2,6 +2,7 @@ import { createOpenAI } from '@ai-sdk/openai';
 import { streamText } from 'ai';
 import { prisma } from '@/lib/prisma';
 import { getCurrentUser } from '@/lib/auth';
+import { buildSystemPrompt } from '@/lib/agentPrompt';
 import { NextResponse } from 'next/server';
 
 
@@ -27,19 +28,16 @@ export async function POST(req: Request) {
     // 2. Buscar as regras (Persona) do Agente de IA do tenant logado.
     const user = await getCurrentUser();
     const agent = user
-      ? await prisma.aiAgent.findUnique({ where: { tenantId: user.tenantId } })
+      ? await prisma.aiAgent.findUnique({
+          where: { tenantId: user.tenantId },
+          include: { scriptSteps: true, objections: true },
+        })
       : null;
-    
+
     // Constrói o Prompt de Sistema com base nas configurações
-    const systemPrompt = `
-      ${agent?.systemPrompt || 'Você é um assistente útil e amigável.'}
-      
-      Diretrizes adicionais:
-      - Tom de voz: ${agent?.toneOfVoice || 'Amigável'}
-      - Tamanho da resposta: ${agent?.responseSize || 'Médias'}
-      - Idioma: ${agent?.responseLanguage || 'Correspondente à mensagem recebida'}
-      ${agent?.directives ? `\nRegras de ouro:\n${agent.directives}` : ''}
-    `;
+    const systemPrompt = agent
+      ? buildSystemPrompt(agent)
+      : 'Você é um assistente útil e amigável.';
 
     // 3. Inicializar a OpenAI com a chave do banco de dados
     const openai = createOpenAI({
