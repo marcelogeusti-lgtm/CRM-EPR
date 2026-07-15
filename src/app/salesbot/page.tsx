@@ -143,6 +143,7 @@ export default function SalesbotPage() {
   const [personalityTags, setPersonalityTags] = useState<string[]>(['Amigável']);
   const [responseSize, setResponseSize] = useState("Médias");
   const [pauseSeconds, setPauseSeconds] = useState("3");
+  const [responseLanguage, setResponseLanguage] = useState("Correspondente");
   const [directives, setDirectives] = useState<string[]>(DEFAULT_DIRECTIVES);
   const [typicalExpressions, setTypicalExpressions] = useState<string[]>([]);
   const [negativePrompt, setNegativePrompt] = useState('');
@@ -156,6 +157,7 @@ export default function SalesbotPage() {
         setIsAgentActive(agent.isActive);
         setPersona(agent.systemPrompt || DEFAULT_PERSONA);
         setResponseSize(agent.responseSize);
+        setResponseLanguage(agent.responseLanguage);
         setPauseSeconds(String(agent.pauseSeconds));
         setNegativePrompt(agent.negativePrompt || '');
 
@@ -209,6 +211,7 @@ export default function SalesbotPage() {
         systemPrompt: persona,
         personalityTags,
         responseSize,
+        responseLanguage,
         pauseSeconds: parseInt(pauseSeconds, 10) || 0,
         directives,
         typicalExpressions,
@@ -370,30 +373,6 @@ export default function SalesbotPage() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-6">
-                <div className="space-y-3">
-                  <label className="text-sm font-bold text-zinc-200">Tamanho das respostas</label>
-                  <select
-                    value={responseSize}
-                    onChange={(e) => setResponseSize(e.target.value)}
-                    className="w-full bg-[#111] border border-[#333] rounded-lg px-4 py-3 text-sm text-zinc-300 focus:outline-none focus:border-indigo-500/50"
-                  >
-                    <option>Curtas</option>
-                    <option>Médias</option>
-                    <option>Longas (Explicativas)</option>
-                  </select>
-                </div>
-                <div className="space-y-3">
-                  <label className="text-sm font-bold text-zinc-200">Pausa antes da resposta (segundos)</label>
-                  <input
-                    type="number"
-                    value={pauseSeconds}
-                    onChange={(e) => setPauseSeconds(e.target.value)}
-                    className="w-full bg-[#111] border border-[#333] rounded-lg px-4 py-3 text-sm text-zinc-300 focus:outline-none focus:border-indigo-500/50"
-                  />
-                </div>
-              </div>
-
               <div className="space-y-3 pt-4 border-t border-[#222]">
                 <label className="text-sm font-bold text-zinc-200">Script de Atendimento</label>
                 <p className="text-xs text-zinc-500">Etapas, em ordem, que a IA deve seguir para qualificar o lead.</p>
@@ -468,11 +447,79 @@ export default function SalesbotPage() {
             </div>
           )}
 
-          {activeTab !== 'persona' && (
+          {activeTab === 'configs' && (
+            <div className="max-w-3xl space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
+              <div>
+                <h2 className="text-sm font-medium text-zinc-400 mb-1">Parâmetros técnicos de como o agente formata e ritma as respostas.</h2>
+              </div>
+
+              <div className="grid grid-cols-2 gap-6">
+                <div className="space-y-3">
+                  <label className="text-sm font-bold text-zinc-200">Tamanho das respostas</label>
+                  <select
+                    value={responseSize}
+                    onChange={(e) => setResponseSize(e.target.value)}
+                    className="w-full bg-[#111] border border-[#333] rounded-lg px-4 py-3 text-sm text-zinc-300 focus:outline-none focus:border-indigo-500/50"
+                  >
+                    <option>Curtas</option>
+                    <option>Médias</option>
+                    <option>Longas (Explicativas)</option>
+                  </select>
+                </div>
+                <div className="space-y-3">
+                  <label className="text-sm font-bold text-zinc-200">Idioma</label>
+                  <select
+                    value={responseLanguage}
+                    onChange={(e) => setResponseLanguage(e.target.value)}
+                    className="w-full bg-[#111] border border-[#333] rounded-lg px-4 py-3 text-sm text-zinc-300 focus:outline-none focus:border-indigo-500/50"
+                  >
+                    <option>Correspondente</option>
+                    <option>Português</option>
+                    <option>Inglês</option>
+                    <option>Espanhol</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="space-y-3">
+                <label className="text-sm font-bold text-zinc-200">Pausa antes da resposta (segundos)</label>
+                <p className="text-xs text-zinc-500">Isso evita que o robô responda rápido demais e pareça artificial. Ele simulará a digitação.</p>
+                <input
+                  type="number"
+                  value={pauseSeconds}
+                  onChange={(e) => setPauseSeconds(e.target.value)}
+                  className="w-full max-w-[150px] bg-[#111] border border-[#333] rounded-lg px-4 py-3 text-sm text-zinc-300 focus:outline-none focus:border-indigo-500/50"
+                />
+              </div>
+
+              <div className="flex items-center justify-end gap-3 pt-4 border-t border-[#222]">
+                {justSaved && (
+                  <span className="flex items-center gap-1.5 text-emerald-400 text-sm font-medium animate-in fade-in">
+                    <Check className="size-4" /> Salvo
+                  </span>
+                )}
+                <button
+                  onClick={handleSavePersona}
+                  disabled={isSavingPersona || isLoadingAgent}
+                  className="bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white px-5 py-2.5 rounded-lg text-sm font-bold transition-colors flex items-center gap-2"
+                >
+                  {isSavingPersona && <Loader2 className="size-4 animate-spin" />}
+                  Salvar alterações
+                </button>
+              </div>
+            </div>
+          )}
+
+          {(activeTab === 'painel' || activeTab === 'fontes' || activeTab === 'acoes' || activeTab === 'integracoes') && (
             <div className="h-full flex flex-col items-center justify-center text-zinc-500 animate-in fade-in">
               <Database className="size-12 mb-4 opacity-20" />
               <h3 className="text-lg font-bold text-zinc-400">Em Desenvolvimento</h3>
-              <p className="text-sm mt-2 max-w-sm text-center">A aba de {tabs.find(t=>t.id===activeTab)?.name} está sendo construída para integração com o Banco de Dados Vetorial (RAG).</p>
+              <p className="text-sm mt-2 max-w-sm text-center">
+                {activeTab === 'fontes' && 'Base de conhecimento (RAG): documentos que a IA vai poder consultar para responder — ainda não construído.'}
+                {activeTab === 'acoes' && 'Ferramentas que a IA poderá executar (function calling), como consultar dados do negócio no CRM — próximo passo da Fase 1.3 do roadmap.'}
+                {activeTab === 'integracoes' && 'Vínculo deste agente com canais específicos (WhatsApp/Instagram) — hoje o agente vale para o workspace inteiro.'}
+                {activeTab === 'painel' && 'Métricas do agente (conversas, taxa de conversão) — ainda não construído.'}
+              </p>
             </div>
           )}
 

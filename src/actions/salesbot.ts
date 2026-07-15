@@ -29,6 +29,7 @@ interface SaveAiAgentInput {
   systemPrompt: string;
   personalityTags: string[];
   responseSize: string;
+  responseLanguage: string;
   pauseSeconds: number;
   directives: string[];
   typicalExpressions: string[];
@@ -45,6 +46,7 @@ export async function saveAiAgent(data: SaveAiAgentInput) {
     systemPrompt: data.systemPrompt,
     personalityTags: JSON.stringify(data.personalityTags),
     responseSize: data.responseSize,
+    responseLanguage: data.responseLanguage,
     pauseSeconds: data.pauseSeconds,
     directives: JSON.stringify(data.directives),
     typicalExpressions: JSON.stringify(data.typicalExpressions),
