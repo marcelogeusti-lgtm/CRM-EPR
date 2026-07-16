@@ -8,14 +8,19 @@ export async function getDashboardStats() {
   const user = await getCurrentUser();
   if (!user) return null;
 
-  const deals = await prisma.deal.findMany({
-    where: { tenantId: user.tenantId },
-    include: { stage: true }
-  });
+  const tenantId = user.tenantId;
+
+  const [deals, contactsCount, usersCount, activeIntegration, aiAgent] = await Promise.all([
+    prisma.deal.findMany({ where: { tenantId }, include: { stage: true } }),
+    prisma.contact.count({ where: { tenantId } }),
+    prisma.user.count({ where: { tenantId } }),
+    prisma.integration.findFirst({ where: { tenantId, isActive: true } }),
+    prisma.aiAgent.findUnique({ where: { tenantId } }),
+  ]);
 
   const totalLeads = deals.length;
   const totalValue = deals.reduce((acc, deal) => acc + (deal.value || 0), 0);
-  
+
   // Pipeline distribution for the chart - dynamically generated based on the new Schema
   const stageCounts: Record<string, number> = {};
   deals.forEach(d => {
@@ -37,9 +42,15 @@ export async function getDashboardStats() {
   const winRate = totalLeads > 0 ? Math.round((wonDeals / totalLeads) * 100) : 0;
 
   return {
+    userName: user.name,
     totalLeads,
     totalValue,
     winRate,
-    pipelineData
+    pipelineData,
+    contactsCount,
+    usersCount,
+    hasChannelConnected: !!activeIntegration,
+    aiAgentConfigured: !!aiAgent?.systemPrompt,
+    aiAgentActive: aiAgent?.isActive ?? false,
   };
 }

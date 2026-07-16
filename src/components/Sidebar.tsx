@@ -12,7 +12,7 @@ import {
   List,
   Bot,
   Zap,
-  LineChart,
+  Gauge,
   Settings,
   HelpCircle,
   Heart,
@@ -53,7 +53,7 @@ export function Sidebar({ isOpen = false, onClose = () => {} }: { isOpen?: boole
     { name: 'Listas', href: '/lists', icon: List },
     { name: 'Agente de IA', href: '/salesbot', icon: Bot },
     { name: 'Automações', href: '/automations', icon: Zap },
-    { name: 'Insights', href: '/insights', icon: LineChart },
+    { name: 'Painel', href: '/insights', icon: Gauge },
   ];
 
   const bottomItems = [

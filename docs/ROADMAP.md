@@ -199,6 +199,18 @@ e o enriquecimento do `AiAgent`) foram aplicadas com sucesso direto no banco
   com uma visão de atendimento/IA. Havia também uma versão local não
   commitada dessa página com dados totalmente inventados (nome de negócio
   "Online Vidraçaria", números fixos) — substituída.
+- **Início (`/dashboard`)**: era 100% estático (tanto a versão commitada
+  quanto uma versão local não commitada, que inclusive se chamava "Kommo" em
+  vez de "Nexus") — nome de plano fake ("Plano Empresarial — Expirado"),
+  números fixos ("1.241/2.500 leads", "1.5/10 GB"), botões que não faziam
+  nada, e uma seção "Novidades" anunciando uma feature que não existe
+  ("Agentes de Voz"). Reescrita usando `getDashboardStats()` (que já
+  existia mas não era chamada por ninguém!) — agora mostra: negócios,
+  valor em negociação, taxa de conversão, contatos, status real do Agente
+  de IA, e uma checklist de primeiros passos que reflete o estado real do
+  tenant (canal conectado? agente configurado?). "Convidar equipe" fica
+  desabilitado e marcado "Em breve" — não existe fluxo de convite ainda
+  (RBAC é Fase 2).
 - Ainda mockadas, **fora do roadmap atual**, exigem decisão de escopo antes
   de codificar: `/email` (Inbox de e-mail — precisaria de integração real
   com provedor, Gmail API ou IMAP/SMTP) e `/team` (Chats da equipe —
