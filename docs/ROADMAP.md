@@ -204,3 +204,27 @@ e o enriquecimento do `AiAgent`) foram aplicadas com sucesso direto no banco
   com provedor, Gmail API ou IMAP/SMTP) e `/team` (Chats da equipe —
   precisaria de um sistema de chat interno novo, com modelo próprio no
   banco e tempo real). Ambas acessíveis pelo menu Comunicações.
+
+## 🐛 Bug corrigido: spinner infinito em /salesbot, /automations, /insights, /integrations (2026-07-15)
+**Sintoma:** usuário logado normalmente, mas essas 4 páginas ficavam
+carregando pra sempre.
+
+**Causa raiz:** `getCurrentUser()` (`src/lib/auth.ts`) estava envolvido em
+`React.cache()`. Esse `cache()` deduplica chamadas dentro do render de uma
+**Server Component** — mas as 4 páginas acima são `'use client'` e buscam
+dados via **Server Action** chamada de dentro de um `useEffect` (depois da
+hidratação), não durante o render de uma Server Component. Nesse contexto
+o `cache()` não tem uma fronteira de request confiável e podia devolver um
+resultado (inclusive `null`) preso de outra invocação — daí o
+`requireTenantId()` lançar `UNAUTHENTICATED: nenhum usuário logado` mesmo
+pro usuário certo. Confirmado nos logs de erro do Vercel (`get_runtime_errors`):
+18 ocorrências exatas nessas 4 rotas.
+
+**Correção:**
+1. Removido `React.cache()` de `getCurrentUser()` — chamada direta, sem
+   memoização. Nenhum outro call site precisou mudar (mesma assinatura).
+2. As 4 páginas ganharam tratamento de erro de verdade (`.catch()` +
+   estado de erro visível) — antes, qualquer falha na Server Action ficava
+   silenciosa e o spinner nunca saía do lugar. Isso vale como rede de
+   segurança independente da causa raiz: qualquer erro futuro aparece na
+   tela em vez de travar para sempre.

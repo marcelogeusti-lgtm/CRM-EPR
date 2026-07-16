@@ -1,4 +1,3 @@
-import { cache } from 'react'
 import { createClient } from '@/utils/supabase/server'
 import { prisma } from '@/lib/prisma'
 
@@ -9,10 +8,14 @@ import { prisma } from '@/lib/prisma'
  * o MESMO id do Supabase Auth (`data.user.id`). Por isso conseguimos casar
  * a sessão -> User -> Tenant sem tabela de mapeamento extra.
  *
- * `cache()` deduplica a chamada dentro de uma mesma request (RSC + actions),
- * evitando N idas ao banco por render.
+ * NÃO envolver com `React.cache()`: essa memoização é pensada pra deduplicar
+ * dentro do render de uma Server Component, mas Server Actions (como as que
+ * as páginas client-side usam via useEffect) não fazem parte dessa árvore de
+ * render — cache() pode devolver um resultado (inclusive `null`) preso de
+ * uma invocação anterior, causando falso "UNAUTHENTICATED" para usuários
+ * realmente logados. Já causou esse bug em produção (2026-07-15).
  */
-export const getCurrentUser = cache(async () => {
+export async function getCurrentUser() {
   const supabase = await createClient()
   const {
     data: { user },
@@ -35,7 +38,7 @@ export const getCurrentUser = cache(async () => {
   }
 
   return dbUser
-})
+}
 
 /**
  * Igual a getCurrentUser, mas lança se não houver sessão válida.

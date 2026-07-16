@@ -137,6 +137,7 @@ export default function SalesbotPage() {
 
   // Persona states
   const [isLoadingAgent, setIsLoadingAgent] = useState(true);
+  const [agentLoadError, setAgentLoadError] = useState('');
   const [isSavingPersona, setIsSavingPersona] = useState(false);
   const [justSaved, setJustSaved] = useState(false);
   const [persona, setPersona] = useState(DEFAULT_PERSONA);
@@ -181,6 +182,10 @@ export default function SalesbotPage() {
         );
         setObjections(agent.objections.map(o => ({ title: o.title, response: o.response })));
       }
+      setIsLoadingAgent(false);
+    }).catch(err => {
+      console.error(err);
+      setAgentLoadError('Não foi possível carregar o agente. Tente recarregar a página.');
       setIsLoadingAgent(false);
     });
   }, []);
@@ -336,6 +341,12 @@ export default function SalesbotPage() {
 
         {/* Dynamic Content Area */}
         <div className="flex-1 overflow-y-auto p-8 custom-scrollbar">
+
+          {agentLoadError && (
+            <div className="mb-6 max-w-3xl bg-red-500/10 border border-red-500/30 rounded-xl p-4 text-sm text-red-400">
+              {agentLoadError}
+            </div>
+          )}
 
           {activeTab === 'persona' && (
             <div className="max-w-3xl space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">

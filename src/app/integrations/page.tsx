@@ -123,9 +123,15 @@ export default function IntegrationsPage() {
 
   // DB State
   const [installedApps, setInstalledApps] = useState<any[]>([]);
+  const [loadError, setLoadError] = useState('');
 
   useEffect(() => {
-    getIntegrations().then(data => setInstalledApps(data));
+    getIntegrations()
+      .then(data => setInstalledApps(data))
+      .catch(err => {
+        console.error(err);
+        setLoadError('Não foi possível carregar suas integrações. Tente recarregar a página.');
+      });
   }, []);
 
   const appsComStatusAtualizado = MOCK_INTEGRATIONS.map(app => {
@@ -199,7 +205,13 @@ export default function IntegrationsPage() {
   return (
     <div className="p-8 h-full bg-[#0a0a0a] overflow-auto relative">
       <div className="max-w-7xl mx-auto">
-        
+
+        {loadError && (
+          <div className="mb-6 bg-red-500/10 border border-red-500/30 rounded-xl p-4 text-sm text-red-400">
+            {loadError}
+          </div>
+        )}
+
         {/* Header & Banner */}
         <div className="mb-10 relative overflow-hidden rounded-2xl bg-gradient-to-r from-blue-900/40 to-indigo-900/40 border border-blue-500/20 p-8 flex items-center justify-between">
           <div className="relative z-10 max-w-xl">

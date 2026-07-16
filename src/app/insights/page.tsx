@@ -37,12 +37,16 @@ function StatCard({ icon: Icon, label, value, sublabel, accent }: { icon: React.
 export default function InsightsPage() {
   const [stats, setStats] = useState<InsightsStats | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState('');
 
   useEffect(() => {
-    getInsightsStats().then(data => {
-      setStats(data as InsightsStats);
-      setIsLoading(false);
-    });
+    getInsightsStats()
+      .then(data => setStats(data as InsightsStats))
+      .catch(err => {
+        console.error(err);
+        setError('Não foi possível carregar o painel. Tente recarregar a página.');
+      })
+      .finally(() => setIsLoading(false));
   }, []);
 
   if (isLoading) {
@@ -53,10 +57,10 @@ export default function InsightsPage() {
     );
   }
 
-  if (!stats) {
+  if (error || !stats) {
     return (
       <div className="flex items-center justify-center h-full bg-[#0a0a0a] text-zinc-500">
-        Não foi possível carregar o painel.
+        {error || 'Não foi possível carregar o painel.'}
       </div>
     );
   }

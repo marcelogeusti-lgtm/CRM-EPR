@@ -16,14 +16,20 @@ export default function AutomationsPage() {
   const [stages, setStages] = useState<StageWithAutomation[]>([]);
   const [hasN8nWebhook, setHasN8nWebhook] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState('');
   const [savingStageId, setSavingStageId] = useState<string | null>(null);
 
   useEffect(() => {
-    getStageAutomations().then(({ stages, hasN8nWebhook }) => {
-      setStages(stages as StageWithAutomation[]);
-      setHasN8nWebhook(hasN8nWebhook);
-      setIsLoading(false);
-    });
+    getStageAutomations()
+      .then(({ stages, hasN8nWebhook }) => {
+        setStages(stages as StageWithAutomation[]);
+        setHasN8nWebhook(hasN8nWebhook);
+      })
+      .catch(err => {
+        console.error(err);
+        setError('Não foi possível carregar as automações. Tente recarregar a página.');
+      })
+      .finally(() => setIsLoading(false));
   }, []);
 
   async function toggle(stageId: string, field: 'activateAgent' | 'fireN8nWebhook', current: boolean) {
@@ -55,6 +61,14 @@ export default function AutomationsPage() {
     return (
       <div className="flex items-center justify-center h-full bg-[#0a0a0a] text-zinc-500">
         <Loader2 className="size-6 animate-spin" />
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="flex items-center justify-center h-full bg-[#0a0a0a] text-zinc-500">
+        {error}
       </div>
     );
   }
