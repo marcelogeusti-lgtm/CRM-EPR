@@ -240,3 +240,61 @@ pro usuário certo. Confirmado nos logs de erro do Vercel (`get_runtime_errors`)
    silenciosa e o spinner nunca saía do lugar. Isso vale como rede de
    segurança independente da causa raiz: qualquer erro futuro aparece na
    tela em vez de travar para sempre.
+
+**Nota (2026-07-16):** a única ocorrência isolada desse mesmo erro em
+`/pipeline` (Server Component, código diferente) foi confirmada como parte
+da janela normal de rollout do deploy acima (1 ocorrência, 88s depois do
+deploy que corrigiu a causa raiz, zero recorrência desde então apesar de
+outros 3 deploys no meio) — não é um bug novo, não precisou de correção
+separada.
+
+## Varredura pré-lançamento com cliente real (2026-07-16)
+Cliente da Marcelo prestes a começar a usar o CRM — varredura completa
+pelas abas do menu procurando qualquer coisa que ainda pudesse enganar
+quem for usar de verdade.
+
+- **`/integrations` (App Store) — achado mais crítico:** a vitrine de apps
+  deixava "instalar" qualquer um dos 15 provedores (Instagram, TikTok,
+  Messenger, Telegram, OpenAI, Zapier, Make, Stripe, Mercado Pago, Asaas,
+  Google Calendar, Mailchimp, RD Station) exatamente como o WhatsApp —
+  mesmo formulário de credenciais, mesmo botão "Salvar Chaves", mesmo selo
+  "Instalado". Mas só **WhatsApp Cloud API** e **n8n** têm lógica real por
+  trás (confirmado lendo `src/actions/inbox.ts`, `src/actions/automations.ts`
+  e `src/app/api/webhooks/meta/route.ts` — o recebimento de Instagram ali é
+  literalmente um `console.log` com comentário "Futuro: implementar"). Um
+  cliente configurando Stripe ou Instagram acharia que está ativo e nada
+  aconteceria. Corrigido:
+  - `MOCK_INTEGRATIONS` ganhou a flag `implemented: true` só em `whatsapp`
+    e `n8n`; os demais mostram um estado honesto "Em breve" no modal (sem
+    formulário, sem botão de salvar) e o card fica com selo "Em breve" em
+    vez de "+ Instalar".
+  - `saveIntegration()` (`src/actions/integrations.ts`) ganhou uma
+    whitelist server-side (`IMPLEMENTED_PROVIDERS`) — defesa em profundidade
+    contra qualquer bypass do lado do cliente.
+- **Sidebar com usuário hardcoded:** o rodapé do menu mostrava sempre
+  "Marcelo Geusti / CEO & Founder", não importa quem estivesse logado —
+  qualquer outro usuário do tenant veria o nome errado. Corrigido: o
+  `RootLayout` (Server Component) agora busca o usuário real via
+  `getCurrentUser()` e repassa pra `Sidebar` via `ClientLayoutWrapper`.
+- **Título "Kommo Clone CRM"** ainda aparecia na aba do navegador
+  (`metadata` do `layout.tsx`) — corrigido para "Nexus CRM".
+- **`/email` e `/team`**: eram páginas com falsa interatividade — botões
+  "Escrever", "Configurações", "Convidar membros" e uma lista de chats
+  fake que não faziam nada, e `/team` ainda dizia "Converse com sua equipe
+  dentro da Kommo". Substituídas por um estado honesto "Em Desenvolvimento"
+  (mesmo padrão já usado nas abas do Salesbot), sem nenhum elemento
+  clicável que finja funcionar. As duas continuam **fora do roadmap
+  atual** (ver decisão de escopo acima).
+- **`/lists`**: já buscava contatos reais do banco, mas os botões
+  "+ Novo Contato", busca e "Filtros" eram decorativos. Agora:
+  `src/actions/contacts.ts` (`createContact`) grava contato de verdade;
+  a página virou `src/app/lists/lists-client.tsx` com busca client-side
+  (nome/telefone/email/empresa) e filtro real (Todos / Com empresa / Sem
+  empresa).
+
+Verificado com `tsc --noEmit`, `eslint` e `next build` (todos limpos) e
+navegador local (título da aba, tela de login, zero erros de console).
+Não foi possível exercitar as telas autenticadas ponta a ponta neste
+ambiente por falta de credenciais de login — combinado com o Marcelo que
+ele testa a Sidebar/`/lists`/`/integrations` com a conta real após o
+deploy.
