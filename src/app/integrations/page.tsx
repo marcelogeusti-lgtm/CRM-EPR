@@ -10,13 +10,16 @@ function cn(...inputs: any[]) {
   return twMerge(clsx(inputs));
 }
 
-// Separado Instagram e WhatsApp para match exato com o Kommo
+// Catálogo de apps do App Store. Só os marcados com `implemented: true` têm
+// lógica real por trás (ver IMPLEMENTED_PROVIDERS em src/actions/integrations.ts);
+// os demais mostram um estado "Em breve" pra não deixar o tenant achar que
+// conectou algo que na verdade não faz nada.
 const MOCK_INTEGRATIONS = [
-  { 
-    id: 'instagram', 
-    name: 'Instagram', 
-    category: 'messages', 
-    icon: 'https://cdn.simpleicons.org/instagram/white', 
+  {
+    id: 'instagram',
+    name: 'Instagram',
+    category: 'messages',
+    icon: 'https://cdn.simpleicons.org/instagram/white',
     bannerBg: 'bg-gradient-to-tr from-yellow-400 via-pink-500 to-purple-600',
     iconColor: 'text-pink-500',
     author: 'Meta Oficial', 
@@ -43,16 +46,17 @@ const MOCK_INTEGRATIONS = [
       }
     ]
   },
-  { 
-    id: 'whatsapp', 
-    name: 'WhatsApp Business', 
-    category: 'messages', 
-    icon: 'https://cdn.simpleicons.org/whatsapp/white', 
+  {
+    id: 'whatsapp',
+    name: 'WhatsApp Business',
+    category: 'messages',
+    icon: 'https://cdn.simpleicons.org/whatsapp/white',
     bannerBg: 'bg-[#25D366]',
     iconColor: 'text-[#25D366]',
-    author: 'Meta Oficial', 
-    desc: 'Conecte a API Oficial do WhatsApp Cloud e converse em tempo real.', 
+    author: 'Meta Oficial',
+    desc: 'Conecte a API Oficial do WhatsApp Cloud e converse em tempo real.',
     status: 'available',
+    implemented: true,
     modalTitle: 'Conecte seu WhatsApp com a Nexus',
     modalDesc: 'Gerencie todas as mensagens do WhatsApp Oficial diretamente no CRM sem perder nenhuma venda.',
     options: [
@@ -78,7 +82,7 @@ const MOCK_INTEGRATIONS = [
   { id: 'messenger', name: 'Facebook Messenger', category: 'messages', icon: 'https://cdn.simpleicons.org/messenger/00B2FF', bannerBg: 'bg-gradient-to-r from-blue-500 to-cyan-500', iconColor: 'text-blue-500', author: 'Meta', desc: 'Centralize as mensagens da sua página.', status: 'available' },
   { id: 'telegram', name: 'Telegram', category: 'messages', icon: 'https://cdn.simpleicons.org/telegram/26A5E4', bannerBg: 'bg-[#26A5E4]', iconColor: 'text-[#26A5E4]', author: 'Telegram', desc: 'Integração direta com bots do Telegram.', status: 'available' },
   
-  { id: 'n8n', name: 'n8n Webhook', category: 'automation', icon: 'https://cdn.simpleicons.org/n8n/FF6D5A', bannerBg: 'bg-[#FF6D5A]', iconColor: 'text-[#FF6D5A]', author: 'Core', desc: 'Envie todos os eventos do CRM para o seu n8n.', status: 'available' },
+  { id: 'n8n', name: 'n8n Webhook', category: 'automation', icon: 'https://cdn.simpleicons.org/n8n/FF6D5A', bannerBg: 'bg-[#FF6D5A]', iconColor: 'text-[#FF6D5A]', author: 'Core', desc: 'Envie todos os eventos do CRM para o seu n8n.', status: 'available', implemented: true },
   { id: 'openai', name: 'OpenAI (Salesbot)', category: 'automation', icon: 'https://upload.wikimedia.org/wikipedia/commons/0/04/ChatGPT_logo.svg', bannerBg: 'bg-[#10A37F]', iconColor: 'text-[#10A37F]', author: 'Pulse AI', desc: 'Cérebro de Inteligência Artificial para qualificação.', status: 'available' },
   { id: 'zapier', name: 'Zapier', category: 'automation', icon: 'https://cdn.simpleicons.org/zapier/FF4F00', bannerBg: 'bg-[#FF4F00]', iconColor: 'text-[#FF4F00]', author: 'Zapier Inc', desc: 'Conecte com mais de 5.000 aplicativos.', status: 'available' },
   { id: 'make', name: 'Make', category: 'automation', icon: 'https://cdn.simpleicons.org/make/white', bannerBg: 'bg-[#7E3AF2]', iconColor: 'text-[#7E3AF2]', author: 'Make', desc: 'Plataforma visual de integração.', status: 'available' },
@@ -299,15 +303,17 @@ export default function IntegrationsPage() {
               </div>
 
               <div className="mt-6 pt-4 border-t border-[#262626]">
-                <button 
+                <button
                   className={cn(
                     "w-full py-2 rounded-lg text-sm font-bold transition-colors",
-                    app.status === 'installed' 
-                      ? "bg-[#262626] text-zinc-300 hover:bg-[#333]" 
-                      : "bg-blue-600/10 text-blue-500 hover:bg-blue-600/20"
+                    app.status === 'installed'
+                      ? "bg-[#262626] text-zinc-300 hover:bg-[#333]"
+                      : app.implemented
+                        ? "bg-blue-600/10 text-blue-500 hover:bg-blue-600/20"
+                        : "bg-zinc-800/60 text-zinc-500"
                   )}
                 >
-                  {app.status === 'installed' ? 'Configurar' : '+ Instalar'}
+                  {app.status === 'installed' ? 'Configurar' : app.implemented ? '+ Instalar' : 'Em breve'}
                 </button>
               </div>
 
@@ -317,7 +323,7 @@ export default function IntegrationsPage() {
 
       </div>
 
-      {/* MODAL KOMMO UI */}
+      {/* Modal de instalação/configuração de app */}
       {selectedApp && (
         <div className="fixed inset-0 bg-black/70 backdrop-blur-md z-50 flex items-center justify-center p-4 lg:p-8">
           
@@ -335,7 +341,7 @@ export default function IntegrationsPage() {
             {/* Left Panel (App Info) - Gray Background */}
             <div className="w-full md:w-[35%] bg-[#F5F6F8] p-8 border-b md:border-b-0 md:border-r border-gray-200 flex flex-col items-center text-center">
               
-              {/* App Banner (Gradient/Solid Color matching Kommo) */}
+              {/* Banner do app */}
               <div className={cn("w-full aspect-[4/3] rounded-xl mb-6 shadow-sm flex items-center justify-center p-8", selectedApp.bannerBg || 'bg-gray-800')}>
                 <img src={selectedApp.icon} alt={selectedApp.name} className="w-24 h-24 object-contain filter brightness-0 invert" />
               </div>
@@ -345,7 +351,7 @@ export default function IntegrationsPage() {
                 {selectedApp.desc}
               </p>
 
-              {/* Status Indicators like Kommo (Instalado / Desinstalar) */}
+              {/* Indicadores de status (Instalado / Desinstalar) */}
               <div className="flex gap-4 w-full border-t border-gray-200 pt-6">
                 {installedApps.some(i => i.provider === selectedApp.id) ? (
                   <>
@@ -366,8 +372,18 @@ export default function IntegrationsPage() {
 
             {/* Right Panel (Actions & Connect) - White Background */}
             <div className="w-full md:w-[65%] bg-white p-8 md:p-12 flex flex-col">
-              
-              {!showDeveloperConfig ? (
+
+              {!selectedApp.implemented ? (
+                <div className="flex flex-col items-center justify-center h-full text-center py-10">
+                  <div className="w-16 h-16 bg-amber-50 text-amber-500 rounded-full flex items-center justify-center mb-4">
+                    <Info className="size-8" />
+                  </div>
+                  <h3 className="text-2xl font-bold text-gray-900 mb-2">Em breve</h3>
+                  <p className="text-gray-500 text-sm max-w-sm leading-relaxed">
+                    A integração com {selectedApp.name} ainda não está disponível. Hoje o WhatsApp Cloud API e o webhook do n8n são os canais totalmente funcionais no CRM.
+                  </p>
+                </div>
+              ) : !showDeveloperConfig ? (
                 <>
                   <h3 className="text-2xl font-bold text-gray-900 mb-3">
                     {selectedApp.modalTitle || `Conecte seu ${selectedApp.name} com a Nexus`}
@@ -376,7 +392,7 @@ export default function IntegrationsPage() {
                     {selectedApp.modalDesc || `Integre a sua plataforma do ${selectedApp.name} para sincronizar os dados automaticamente e escalar sua operação.`}
                   </p>
 
-                  {/* Connect Cards (OAuth Illusion like Kommo) */}
+                  {/* Opções de conexão */}
                   {selectedApp.options ? (
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-5 mb-auto">
                       {selectedApp.options.map((opt: any) => (
