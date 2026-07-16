@@ -5,21 +5,22 @@ import { usePathname } from 'next/navigation'
 import { Sidebar } from './Sidebar'
 import { Menu, Box } from 'lucide-react'
 
-export function ClientLayoutWrapper({ children }: { children: React.ReactNode }) {
+export function ClientLayoutWrapper({ children, user }: { children: React.ReactNode; user: { name: string; role: string } | null }) {
   const pathname = usePathname()
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
-  
+
   const isPublicPage = pathname === '/login' || pathname === '/'
-  
+
   if (isPublicPage) {
     return <main className="min-h-screen w-full flex-1">{children}</main>
   }
 
   return (
     <>
-      <Sidebar 
-        isOpen={isMobileMenuOpen} 
-        onClose={() => setIsMobileMenuOpen(false)} 
+      <Sidebar
+        isOpen={isMobileMenuOpen}
+        onClose={() => setIsMobileMenuOpen(false)}
+        user={user}
       />
       <main className="flex-1 md:ml-[260px] min-h-screen flex flex-col">
         {/* Mobile Topbar */}

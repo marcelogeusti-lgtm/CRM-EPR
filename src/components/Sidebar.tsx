@@ -30,7 +30,19 @@ function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
-export function Sidebar({ isOpen = false, onClose = () => {} }: { isOpen?: boolean, onClose?: () => void } = {}) {
+const ROLE_LABELS: Record<string, string> = {
+  ADMIN: 'Administrador',
+  AGENT: 'Atendente',
+};
+
+function getInitials(name: string) {
+  const parts = name.trim().split(/\s+/);
+  const first = parts[0]?.[0] ?? '';
+  const last = parts.length > 1 ? parts[parts.length - 1][0] : '';
+  return (first + last).toUpperCase();
+}
+
+export function Sidebar({ isOpen = false, onClose = () => {}, user = null }: { isOpen?: boolean, onClose?: () => void, user?: { name: string; role: string } | null } = {}) {
   const pathname = usePathname();
   const [comunicacoesOpen, setComunicacoesOpen] = useState(pathname.includes('/inbox') || pathname.includes('/email') || pathname.includes('/team'));
 
@@ -214,11 +226,11 @@ export function Sidebar({ isOpen = false, onClose = () => {} }: { isOpen?: boole
         <div className="flex items-center justify-between group">
           <div className="flex items-center gap-3 cursor-pointer">
             <div className="w-9 h-9 rounded-full bg-gradient-to-tr from-blue-600 to-purple-600 flex items-center justify-center text-xs font-bold text-white shrink-0 shadow-lg shadow-purple-900/20">
-              MG
+              {user ? getInitials(user.name) : '?'}
             </div>
             <div className="flex flex-col overflow-hidden">
-              <span className="text-zinc-200 text-sm font-semibold truncate group-hover:text-blue-400 transition-colors">Marcelo Geusti</span>
-              <span className="text-zinc-500 text-xs truncate">CEO & Founder</span>
+              <span className="text-zinc-200 text-sm font-semibold truncate group-hover:text-blue-400 transition-colors">{user?.name ?? 'Usuário'}</span>
+              <span className="text-zinc-500 text-xs truncate">{user ? (ROLE_LABELS[user.role] ?? user.role) : ''}</span>
             </div>
           </div>
           <form action={logout}>
