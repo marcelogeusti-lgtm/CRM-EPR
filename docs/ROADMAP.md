@@ -509,3 +509,40 @@ persistir, o próximo passo é uma refatoração maior: uma única função
 atual, reduzindo pra exatamente UMA validação de sessão por navegação
 em vez de 2-3 — adiado por ser uma mudança estrutural maior, não algo
 pra aplicar sob pressão sem testar com calma.
+
+## Continuação (2026-07-17, mais tarde): erro persistiu, mitigação ampliada
+
+`get_runtime_errors` mostrou o erro ainda ocorrendo depois do fix acima
+(24 ocorrências em 1h, 2 usuários, 6 rotas) — a mitigação reduziu mas
+não eliminou. Achados adicionais:
+
+- **`prefetch={false}` faltava em vários `<Link>` fora da Sidebar**:
+  `dashboard/page.tsx` (2 atalhos mostrados pra TODO mundo que loga —
+  provavelmente o maior contribuinte restante, já que Início é a
+  primeira tela depois do login), `automations/page.tsx`,
+  `notifications/page.tsx`, e 5 em `inbox/InboxClientView.tsx`. Todos
+  corrigidos.
+- **Reconsiderei a causa raiz exata**: as duas chamadas `/token` que
+  encontrei antes retornaram `200 OK` nas duas vezes — ou seja, o
+  Supabase pode ter uma janela de tolerância pra reuso do refresh token
+  (proteção conhecida do GoTrue contra exatamente esse tipo de corrida),
+  o que significa que a falha pode não ser um refresh rejeitado, e sim
+  algo mais sutil na propagação do cookie entre a requisição que
+  atualiza a sessão e a que lê. Não cravei 100% o mecanismo exato.
+
+**Alavanca de baixíssimo risco, fora do código:** o Supabase permite
+configurar a duração do access token (JWT) em Authentication → Sessions
+no dashboard do projeto. O padrão costuma ser 1h — quanto mais curto,
+mais renovações acontecem, mais chances de corrida. Aumentar esse valor
+(ex.: pra 8h ou mais) reduz a frequência de renovação por várias ordens
+de grandeza, sem tocar em nenhuma linha de código. Recomendado ao
+Marcelo como próximo passo prático, já que é reversível e não exige
+deploy.
+
+**Se persistir depois disso tudo**, a correção estrutural definitiva
+(não aplicada agora por ser mudança maior na parte mais sensível do
+sistema, requer teste cuidadoso fora de produção): fazer o `proxy.ts`
+propagar o id do usuário já validado via header pro Server
+Component/Action downstream reaproveitar, eliminando a segunda validação
+de rede por requisição — padrão oficial recomendado pra Next.js +
+Supabase em apps de maior tráfego.

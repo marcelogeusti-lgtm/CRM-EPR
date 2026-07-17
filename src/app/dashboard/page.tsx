@@ -49,7 +49,7 @@ function ChecklistItem({ done, title, description, href, ctaLabel, disabled }: {
       ) : disabled ? (
         <span className="text-xs font-bold text-zinc-600 uppercase tracking-wider shrink-0">Em breve</span>
       ) : (
-        <Link href={href || '#'} className="bg-blue-600 hover:bg-blue-500 text-white px-4 py-2 rounded-lg text-sm font-semibold transition-colors shrink-0 text-center">
+        <Link href={href || '#'} prefetch={false} className="bg-blue-600 hover:bg-blue-500 text-white px-4 py-2 rounded-lg text-sm font-semibold transition-colors shrink-0 text-center">
           {ctaLabel}
         </Link>
       )}
@@ -149,7 +149,7 @@ export default function DashboardPage() {
 
         {/* Quick links */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <Link href="/inbox" className="group bg-[#141414] border border-[#262626] hover:border-blue-500/30 rounded-xl p-5 flex items-center justify-between transition-colors">
+          <Link href="/inbox" prefetch={false} className="group bg-[#141414] border border-[#262626] hover:border-blue-500/30 rounded-xl p-5 flex items-center justify-between transition-colors">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-lg bg-blue-500/10 flex items-center justify-center">
                 <MessageCircle className="size-5 text-blue-400" />
@@ -158,7 +158,7 @@ export default function DashboardPage() {
             </div>
             <ArrowRight className="size-4 text-zinc-600 group-hover:text-zinc-400 transition-colors" />
           </Link>
-          <Link href="/salesbot" className="group bg-[#141414] border border-[#262626] hover:border-indigo-500/30 rounded-xl p-5 flex items-center justify-between transition-colors">
+          <Link href="/salesbot" prefetch={false} className="group bg-[#141414] border border-[#262626] hover:border-indigo-500/30 rounded-xl p-5 flex items-center justify-between transition-colors">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-lg bg-indigo-500/10 flex items-center justify-center">
                 <Bot className="size-5 text-indigo-400" />

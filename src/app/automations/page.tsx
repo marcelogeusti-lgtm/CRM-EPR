@@ -89,7 +89,7 @@ export default function AutomationsPage() {
         <div className="mb-6 flex items-center gap-3 bg-[#141414] border border-[#262626] rounded-xl p-4 text-sm text-zinc-400 max-w-2xl">
           <Info className="size-4 text-amber-400 shrink-0" />
           Nenhum webhook do n8n configurado ainda. Configure em{' '}
-          <Link href="/integrations" className="text-indigo-400 hover:text-indigo-300 font-medium">Integrações</Link>
+          <Link href="/integrations" prefetch={false} className="text-indigo-400 hover:text-indigo-300 font-medium">Integrações</Link>
           {' '}para poder ativar o disparo de webhook por etapa.
         </div>
       )}

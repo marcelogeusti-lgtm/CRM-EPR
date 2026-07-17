@@ -60,7 +60,7 @@ export default function NotificationsPage() {
                 </div>
               );
               return item.dealId ? (
-                <Link key={item.id} href="/inbox">{content}</Link>
+                <Link key={item.id} href="/inbox" prefetch={false}>{content}</Link>
               ) : (
                 <div key={item.id}>{content}</div>
               );
