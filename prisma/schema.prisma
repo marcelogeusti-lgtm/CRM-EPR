@@ -18,6 +18,8 @@ model Tenant {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  pixKey String? // Chave Pix da empresa, informada manualmente para cobrança das Ordens de Serviço
+
   users            User[]
   companies        Company[]
   contacts         Contact[]
@@ -29,6 +31,8 @@ model Tenant {
   aiAgent          AiAgent?
   stageAutomations StageAutomation[]
   feedbacks        Feedback[]
+  serviceOrders    ServiceOrder[]
+  employees        Employee[]
 }
 
 model User {
@@ -61,9 +65,10 @@ model Company {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  tenant   Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  contacts Contact[] // A company has many contacts
-  deals    Deal[] // Deals directly tied to the company
+  tenant        Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  contacts      Contact[] // A company has many contacts
+  deals         Deal[] // Deals directly tied to the company
+  serviceOrders ServiceOrder[]
 }
 
 model Contact {
@@ -77,10 +82,11 @@ model Contact {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  tenant  Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  company Company?         @relation(fields: [companyId], references: [id], onDelete: SetNull)
-  deals   Deal[]
-  tags    TagsOnContacts[]
+  tenant        Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  company       Company?         @relation(fields: [companyId], references: [id], onDelete: SetNull)
+  deals         Deal[]
+  tags          TagsOnContacts[]
+  serviceOrders ServiceOrder[]
 }
 
 // ==========================================
@@ -137,6 +143,7 @@ model Deal {
   tags          TagsOnDeals[]
   conversations Conversation[]
   activities    Activity[] // System logs (moved stage, changed value)
+  serviceOrders ServiceOrder[]
 }
 
 // ==========================================
@@ -282,12 +289,39 @@ model AiAgent {
   typicalExpressions String? // JSON stringified array de frases/bordões do atendimento
   negativePrompt     String? // O que o agente NUNCA deve fazer ou dizer
 
+  // MANUAL: agente nunca cria Ordem de Serviço sozinho.
+  // SEMI_AUTO: agente monta um rascunho (status RASCUNHO) que um humano confirma.
+  // AUTO: agente pode abrir a OS diretamente — reservado pra depois que o
+  // fluxo semiautomático tiver rodado bem; a criação automática ainda não
+  // está implementada nesta fase (ver docs/ROADMAP.md).
+  serviceOrderMode String @default("MANUAL")
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  tenant      Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  scriptSteps AgentScriptStep[]
-  objections  AgentObjection[]
+  tenant           Tenant                 @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  scriptSteps      AgentScriptStep[]
+  objections       AgentObjection[]
+  knowledgeSources AgentKnowledgeSource[]
+}
+
+// "Fontes": texto que o dono do negócio cola/escreve (tabela de preços,
+// medidas padrão, especificações) pra IA usar como referência ao responder
+// e montar orçamentos. Injetado direto no system prompt (ver
+// src/lib/agentPrompt.ts) — sem embeddings/busca vetorial nesta fase; para
+// o volume de texto de um catálogo de preços de uma PME isso cabe tranquilo
+// no contexto do modelo. Se algum tenant precisar de uma base muito maior,
+// aí sim vale evoluir pra RAG de verdade.
+model AgentKnowledgeSource {
+  id        String   @id @default(uuid())
+  aiAgentId String
+  title     String
+  content   String
+  order     Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  aiAgent AiAgent @relation(fields: [aiAgentId], references: [id], onDelete: Cascade)
 }
 
 // Etapas nomeadas e ordenáveis do roteiro de conversa — `type` separa o
@@ -352,7 +386,62 @@ model StageAutomation {
 }
 
 // ==========================================
-// 10. FEEDBACK DE PRODUTO
+// 10. ORDENS DE SERVIÇO
+// ==========================================
+
+// Pessoa que executa o serviço em campo. Modelo enxuto e sem login próprio
+// de propósito — não é um usuário do Supabase Auth, só um cadastro pra
+// atribuir responsabilidade por uma Ordem de Serviço. Se no futuro o técnico
+// precisar logar (ex.: pelo app mobile pra ver a própria agenda), aí sim
+// vira um User com role TECHNICIAN — decisão consciente de não construir
+// login/convite agora pra não inflar o escopo antes de precisar.
+model Employee {
+  id        String   @id @default(uuid())
+  tenantId  String
+  name      String
+  phone     String?
+  specialty String? // Ex: "Instalador", "Cortador de vidro"
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  tenant        Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  serviceOrders ServiceOrder[]
+}
+
+// `number` é sequencial por tenant (não globalmente único) — calculado em
+// transação no momento da criação, ver src/actions/serviceOrders.ts.
+model ServiceOrder {
+  id            String    @id @default(uuid())
+  tenantId      String
+  number        Int
+  dealId        String?
+  contactId     String?
+  companyId     String?
+  employeeId    String?
+  title         String
+  description   String?
+  status        String    @default("ABERTA") // RASCUNHO, ABERTA, EM_ANDAMENTO, CONCLUIDA, CANCELADA
+  value         Float     @default(0)
+  paymentStatus String    @default("PENDENTE") // PENDENTE, PAGO, PARCIAL
+  paymentMethod String? // PIX, BOLETO, CARTAO, DINHEIRO
+  source        String    @default("MANUAL") // MANUAL, IA — quem criou a OS
+  scheduledAt   DateTime?
+  completedAt   DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  tenant   Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  deal     Deal?     @relation(fields: [dealId], references: [id], onDelete: SetNull)
+  contact  Contact?  @relation(fields: [contactId], references: [id], onDelete: SetNull)
+  company  Company?  @relation(fields: [companyId], references: [id], onDelete: SetNull)
+  employee Employee? @relation(fields: [employeeId], references: [id], onDelete: SetNull)
+
+  @@unique([tenantId, number])
+}
+
+// ==========================================
+// 11. FEEDBACK DE PRODUTO
 // ==========================================
 
 model Feedback {
