@@ -4,7 +4,7 @@ import React, { useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { logout } from '@/app/login/actions';
-import { 
+import {
   Home,
   MessageCircle,
   KanbanSquare,
@@ -21,7 +21,8 @@ import {
   ChevronRight,
   PanelLeftClose,
   Box,
-  LogOut
+  LogOut,
+  Wrench
 } from 'lucide-react';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
@@ -61,6 +62,7 @@ export function Sidebar({ isOpen = false, onClose = () => {}, user = null }: { i
       ]
     },
     { name: 'Funis de vendas', href: '/pipeline', icon: KanbanSquare },
+    { name: 'Ordens de Serviço', href: '/service-orders', icon: Wrench },
     { name: 'Calendário', href: '/calendar', icon: Calendar },
     { name: 'Listas', href: '/lists', icon: List },
     { name: 'Agente de IA', href: '/salesbot', icon: Bot },

@@ -389,3 +389,72 @@ correlacionar occurrences com `request_id` específico via
 `get_runtime_logs` do Vercel no exato instante de uma falha, pra ver se
 o cookie de sessão realmente chega vazio/inválido na função serverless
 ou se o problema está em outro ponto da cadeia (proxy.ts → RSC render).
+
+---
+
+## Fase 2.1 — Ordens de Serviço (2026-07-17)
+
+Pedido do Marcelo: fechar o ciclo do CRM até a execução do serviço —
+abrir Ordem de Serviço, atribuir técnico, controlar pagamento, e a IA
+saber responder com base em dados reais do negócio (preços, medidas,
+especificações). Primeiro cliente de teste é uma vidraçaria/esquadria de
+vidros — tratado como **um cliente entre outros**, não como o padrão do
+produto: qualquer dado específico de vertical (preços de corte, medidas
+de báscula etc.) mora nas "Fontes" de cada tenant, não no código.
+
+**Decisões de escopo, conscientes:**
+- **Sem gateway de pagamento nesta fase.** O Marcelo decidiu deixar cobrança
+  (boleto, link de cartão) como responsabilidade manual da empresa por
+  enquanto — só uma chave Pix cadastrada (texto simples) que o agente
+  informa quando pedido. Nada de OAuth/API de Asaas/Mercado Pago/Stripe
+  ainda; reavaliar se/quando o volume justificar.
+- **Técnico é um cadastro simples (`Employee`), não um `User` com login.**
+  Evita construir todo um fluxo de convite/autenticação antes de precisar.
+  Se no futuro o técnico precisar logar (ex.: pelo app mobile pra ver a
+  própria agenda), essa é a hora de promover pra um `User` com role
+  `TECHNICIAN` — decisão revisitável, não definitiva.
+- **Sem RAG/embeddings pras "Fontes".** O texto cadastrado (tabela de
+  preços, especificações) é injetado direto no system prompt — cabe
+  tranquilo no contexto do modelo pro volume de uma PME. Só vale evoluir
+  pra busca vetorial se algum tenant tiver uma base grande demais pro
+  contexto.
+- **IA ainda não cria Ordem de Serviço sozinha.** O campo
+  `AiAgent.serviceOrderMode` (Manual/Semiautomático/Automático) já existe
+  e é configurável na UI, mas só o modo Manual está implementado nesta
+  fase — a aba "Ações" do Salesbot (function calling) é o próximo passo
+  pra ligar o modo Semiautomático de verdade.
+
+**O que foi construído:**
+- **Schema** (`prisma/migrations/20260717183847_service_orders/`):
+  - `ServiceOrder`: número sequencial por tenant (calculado em transação,
+    com retry em caso de colisão rara sob concorrência — ver
+    `src/actions/serviceOrders.ts`), status (Aberta/Em Andamento/
+    Concluída/Cancelada — mais `RASCUNHO`, reservado pro modo
+    Semiautomático), valor, status/forma de pagamento, vínculo opcional
+    com Deal/Contact/Company/Employee.
+  - `Employee`: cadastro simples de técnico (nome, telefone, especialidade).
+  - `AgentKnowledgeSource`: as "Fontes" — título + texto livre, ligado ao
+    `AiAgent`.
+  - `Tenant.pixKey` e `AiAgent.serviceOrderMode`.
+  - RLS habilitada nas 3 tabelas novas (mesmo padrão default-deny do
+    resto do banco).
+- **`/service-orders`**: tela nova (kanban por status + aba de Técnicos),
+  linkada no menu. Criar OS, mover status, atribuir técnico e marcar
+  pagamento — tudo manual.
+- **Salesbot → Fontes**: editor real (título + texto livre, várias fontes),
+  substituindo o placeholder "Em Desenvolvimento".
+- **Salesbot → Configurações**: seletor de `serviceOrderMode` e campo de
+  chave Pix.
+- **`agentPrompt.ts`**: o system prompt agora inclui o conteúdo das Fontes
+  e, se pedida, a chave Pix — usado tanto pelo simulador quanto pelo
+  fluxo real de resposta.
+
+**Pendente:** a migration `20260717183847_service_orders` foi escrita mas
+**ainda não aplicada no banco de produção** — o MCP do Supabase está em
+modo `read_only` e este ambiente não tem `DATABASE_URL` local. Precisa
+rodar o SQL da migration direto no SQL Editor do Supabase, ou trocar o
+MCP pra modo de escrita e reaplicar.
+
+Verificado com `tsc --noEmit`, `eslint` e `next build` — todos limpos.
+Não testado no navegador (sem sessão autenticada neste ambiente e sem a
+tabela ainda existir em produção).
