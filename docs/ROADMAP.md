@@ -546,3 +546,43 @@ propagar o id do usuário já validado via header pro Server
 Component/Action downstream reaproveitar, eliminando a segunda validação
 de rede por requisição — padrão oficial recomendado pra Next.js +
 Supabase em apps de maior tráfego.
+
+## Continuação (2026-07-17, mesmo dia): correção estrutural aplicada
+
+O erro persistiu depois de TODAS as mitigações acima (26 ocorrências em
+15min no deploy mais recente, pior que antes) — confirmando que
+`prefetch={false}` sozinho não resolvia. Descoberta importante lendo
+`node_modules/next/dist/docs/01-app/03-api-reference/04-functions/fetch.md`
+(instrução do AGENTS.md — sempre checar os docs locais antes de assumir
+comportamento): o Next.js **memoiza automaticamente `fetch()` GET** com
+mesma URL/opções dentro de uma mesma passada de render. Isso explica por
+que a retentativa de 150ms adicionada antes provavelmente nunca ajudou —
+o Next.js só devolvia o mesmo resultado memoizado, sem bater na rede de
+novo.
+
+Em vez de continuar tentando reduzir a CHANCE da corrida acontecer,
+apliquei a correção estrutural que elimina a REDUNDÂNCIA que a causa:
+
+- **`src/utils/supabase/middleware.ts`**: reescrito. Agora propaga um
+  header (`x-nexus-user-id`) com o id do usuário **já validado pelo
+  middleware** pro downstream (Server Components/Actions) reaproveitar,
+  em vez de cada um validar de novo via rede. O header é sempre
+  normalizado (nunca aceita valor vindo do próprio cliente — se não há
+  usuário validado, o header é apagado, não deixado passar). De quebra,
+  corrigido um bug latente: as respostas de redirect (pra `/login` ou pra
+  fora dele) não aplicavam cookies renovados, descartando qualquer
+  renovação de token que tivesse acabado de acontecer.
+- **`src/lib/auth.ts`**: `getCurrentUser()` agora tenta esse header
+  primeiro (busca direta no Prisma por id, zero chamada de rede). Só cai
+  pro caminho antigo (`supabase.auth.getUser()` + retry + fallback por
+  e-mail) se o header não vier ou não bater com nenhum usuário — nenhuma
+  garantia de segurança foi removida, é estritamente um atalho pro caso
+  comum. Também loga o `error` real do Supabase quando a checagem de
+  rede falha, pra ter dado concreto em vez de suposição se isso persistir.
+
+**Risco assumido conscientemente:** middleware roda em TODA requisição
+do sistema — é a mudança mais sensível desta sessão. Testado localmente
+(fluxos de redirect logado-fora, incluindo `/`, `/dashboard`, `/login`)
+sem erro de console/servidor antes de subir; não foi possível testar o
+caminho autenticado (sem credenciais neste ambiente) — pedido ao Marcelo
+pra validar navegação real assim que o deploy confirmar.

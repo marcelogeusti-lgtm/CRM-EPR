@@ -1,10 +1,14 @@
-import { createServerClient } from '@supabase/ssr'
+import { createServerClient, type CookieOptions } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
 
 export async function updateSession(request: NextRequest) {
-  let supabaseResponse = NextResponse.next({
-    request,
-  })
+  // Cookies que o Supabase quiser regravar (ex.: token renovado) ficam
+  // aqui e só são aplicadas UMA vez, na resposta final — antes, cada
+  // branch de retorno (login redirect, dashboard redirect, resposta
+  // normal) criava sua própria NextResponse, e os dois primeiros
+  // descartavam silenciosamente qualquer renovação de token que tivesse
+  // acabado de acontecer.
+  let cookiesToSet: { name: string; value: string; options: CookieOptions }[] = []
 
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -14,14 +18,9 @@ export async function updateSession(request: NextRequest) {
         getAll() {
           return request.cookies.getAll()
         },
-        setAll(cookiesToSet) {
-          cookiesToSet.forEach(({ name, value, options }) => request.cookies.set(name, value))
-          supabaseResponse = NextResponse.next({
-            request,
-          })
-          cookiesToSet.forEach(({ name, value, options }) =>
-            supabaseResponse.cookies.set(name, value, options)
-          )
+        setAll(newCookies) {
+          newCookies.forEach(({ name, value }) => request.cookies.set(name, value))
+          cookiesToSet = newCookies
         },
       },
     }
@@ -43,8 +42,8 @@ export async function updateSession(request: NextRequest) {
   const isPainel = hostname.startsWith('painel.')
 
   // Proteger rotas (Tudo exceto /, /login, /admin/login e rotas publicas)
-  const isPublicRoute = request.nextUrl.pathname === '/' || 
-                        request.nextUrl.pathname.startsWith('/login') || 
+  const isPublicRoute = request.nextUrl.pathname === '/' ||
+                        request.nextUrl.pathname.startsWith('/login') ||
                         request.nextUrl.pathname.startsWith('/admin/login') ||
                         request.nextUrl.pathname.startsWith('/api/webhooks');
 
@@ -52,15 +51,42 @@ export async function updateSession(request: NextRequest) {
     // Redireciona para o Login se não estiver autenticado
     const url = request.nextUrl.clone()
     url.pathname = '/login'
-    return NextResponse.redirect(url)
+    const redirectResponse = NextResponse.redirect(url)
+    cookiesToSet.forEach(({ name, value, options }) => redirectResponse.cookies.set(name, value, options))
+    return redirectResponse
   }
 
   // Se o usuário já está logado e tenta acessar a página de login OU a raiz (/), redireciona
   if (user && (request.nextUrl.pathname.startsWith('/login') || request.nextUrl.pathname === '/' || request.nextUrl.pathname === '/admin/login')) {
     const url = request.nextUrl.clone()
     url.pathname = isPainel ? '/admin' : '/dashboard'
-    return NextResponse.redirect(url)
+    const redirectResponse = NextResponse.redirect(url)
+    cookiesToSet.forEach(({ name, value, options }) => redirectResponse.cookies.set(name, value, options))
+    return redirectResponse
   }
 
-  return supabaseResponse
+  // Propaga o id do usuário já validado aqui pro downstream (Server
+  // Components/Actions) reaproveitar em vez de chamar supabase.auth.getUser()
+  // de novo — essa segunda validação de rede redundante é a principal
+  // suspeita da corrida de renovação de token intermitente (ver
+  // docs/ROADMAP.md). getCurrentUser() ainda faz a validação de rede
+  // completa como fallback se este header não vier, então nenhuma
+  // garantia de segurança é perdida — só evitamos repetir o trabalho que
+  // o middleware acabou de fazer.
+  //
+  // Sempre normaliza o header (nunca deixa passar um valor vindo do
+  // próprio cliente): se validamos alguém, sobrescreve com o id real;
+  // caso contrário, apaga qualquer x-nexus-user-id que o cliente tenha
+  // tentado injetar na própria requisição — sem isso, alguém sem sessão
+  // válida em uma rota pública poderia forjar esse header e se passar
+  // por outro usuário.
+  if (user) {
+    request.headers.set('x-nexus-user-id', user.id)
+  } else {
+    request.headers.delete('x-nexus-user-id')
+  }
+
+  const response = NextResponse.next({ request })
+  cookiesToSet.forEach(({ name, value, options }) => response.cookies.set(name, value, options))
+  return response
 }

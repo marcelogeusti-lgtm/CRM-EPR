@@ -1,4 +1,5 @@
 import { cache } from 'react'
+import { headers } from 'next/headers'
 import { createClient } from '@/utils/supabase/server'
 import { prisma } from '@/lib/prisma'
 
@@ -20,22 +21,53 @@ import { prisma } from '@/lib/prisma'
  * rede que causa essa classe de falha intermitente.
  */
 export async function getCurrentUser() {
+  // Caminho rápido: o middleware (proxy.ts → updateSession) já validou a
+  // sessão contra o Supabase pra deixar a requisição chegar até aqui, e
+  // propaga o id validado neste header — reaproveitar evita repetir a
+  // MESMA validação de rede (supabase.auth.getUser()) que o middleware
+  // acabou de fazer. Múltiplas chamadas independentes de getUser() por
+  // requisição (middleware + layout + página + eventuais prefetches) era
+  // a principal suspeita da corrida de renovação de refresh token que
+  // causava "UNAUTHENTICATED" intermitente pra usuários genuinamente
+  // logados (ver docs/ROADMAP.md). O header é normalizado no próprio
+  // middleware (nunca vem de um valor injetado pelo cliente).
+  const headerUserId = (await headers()).get('x-nexus-user-id')
+
+  if (headerUserId) {
+    const dbUser = await prisma.user.findUnique({
+      where: { id: headerUserId },
+      include: { tenant: true },
+    })
+    if (dbUser) return dbUser
+    // Sem match por id (ex.: conta antiga não sincronizada) — cai pro
+    // caminho de rede completo abaixo, que tem o e-mail pra tentar o
+    // fallback de novo.
+  }
+
   const supabase = await createClient()
 
   // supabase.auth.getUser() valida a sessão com uma chamada de rede pro
   // Auth do Supabase a cada invocação — um timeout/blip transitório nessa
   // chamada devolve `user: null` mesmo pra quem está logado de verdade,
-  // gerando "UNAUTHENTICATED" falso (visto em produção mesmo depois de
-  // remover o cache() acima). Uma retentativa rápida cobre a maioria
-  // desses casos; pra quem está genuinamente deslogado só custa uma
-  // chamada extra de ~150ms.
-  let { data: { user } } = await supabase.auth.getUser()
+  // gerando "UNAUTHENTICATED" falso. Uma retentativa rápida cobre a
+  // maioria desses casos; pra quem está genuinamente deslogado só custa
+  // uma chamada extra de ~150ms.
+  let { data: { user }, error } = await supabase.auth.getUser()
   if (!user) {
     await new Promise(resolve => setTimeout(resolve, 150))
-    ;({ data: { user } } = await supabase.auth.getUser())
+    ;({ data: { user }, error } = await supabase.auth.getUser())
   }
 
-  if (!user) return null
+  if (!user) {
+    // Log de diagnóstico: se isso ainda aparecer nos logs do Vercel depois
+    // do header acima, o `error` aqui é o dado que falta pra cravar a
+    // causa raiz de vez (ver docs/ROADMAP.md).
+    console.error('❌ [AUTH] getCurrentUser sem header e sem sessão via rede.', {
+      hasHeaderFallback: !!headerUserId,
+      supabaseError: error?.message,
+    })
+    return null
+  }
 
   // Casa por id (caminho normal). Fallback por email cobre contas antigas
   // criadas antes de sincronizarmos o id, e reancora o id quando divergir.
