@@ -349,3 +349,43 @@ persistir: instrumentar quantas vezes a retentativa é de fato acionada
 (telemetria), e considerar `getSession()` (mais barato, sem round-trip)
 combinado com renovação de token mais explícita, se o padrão de falha
 continuar depois desta mitigação.
+
+## Continuação (2026-07-17): nome do usuário sumindo na Sidebar
+Depois do deploy da mitigação acima, o Marcelo reportou o próprio nome
+sumindo do rodapé da Sidebar — sintoma visível do mesmo bug. Investigado
+mais a fundo: consultei os logs do próprio Supabase Auth
+(`get_logs(service: "auth")`) no minuto exato de uma das ocorrências
+(18:14 UTC) — **todas** as chamadas `/user` naquela janela retornaram
+`200 OK`. Ou seja, o Auth do Supabase não está fora do ar nem
+rate-limitando; a falha é mais sutil, na forma como a leitura do cookie
+de sessão se comporta em certas invocações de `supabase.auth.getUser()`
+dentro do Next.js App Router — não foi possível cravar a causa exata
+ainda (segue como investigação aberta).
+
+**Mitigação aplicada pro sintoma visível (`src/lib/auth.ts`):**
+- Nova função `getDisplayUser()`, usada **só** no `RootLayout` pra
+  alimentar o nome/cargo da Sidebar. Usa `supabase.auth.getSession()` em
+  vez de `getUser()`: lê o JWT do cookie **localmente**, sem round-trip
+  de rede pro Auth do Supabase no caso comum (token ainda válido) — só
+  faz rede se o token já tiver expirado e precisar renovar. Isso tira a
+  exibição do nome da mesma classe de falha intermitente que afeta
+  `getUser()`.
+- Importante: `getDisplayUser()` é **só para exibição**. Toda decisão de
+  acesso a dado continua em `getCurrentUser()`/`requireTenantId()`, que
+  seguem validando a sessão de verdade contra o servidor (mais lento,
+  porém a fonte de verdade — não dá pra trocar por `getSession()` aí sem
+  abrir brecha de segurança, conforme o próprio aviso da documentação do
+  Supabase).
+- `getCachedUser()` (da mitigação anterior) foi removida por ter ficado
+  sem uso depois dessa troca.
+
+**Continua em aberto:** a causa raiz de fundo (por que `getUser()`
+ocasionalmente não valida uma sessão genuinamente válida, mesmo com o
+Auth do Supabase respondendo 200 em todas as chamadas na janela
+analisada) ainda não foi isolada. O sintoma mais visível (nome sumindo)
+está mitigado; falhas intermitentes ainda podem aparecer como o banner
+de erro nas páginas afetadas. Próxima linha de investigação se persistir:
+correlacionar occurrences com `request_id` específico via
+`get_runtime_logs` do Vercel no exato instante de uma falha, pra ver se
+o cookie de sessão realmente chega vazio/inválido na função serverless
+ou se o problema está em outro ponto da cadeia (proxy.ts → RSC render).

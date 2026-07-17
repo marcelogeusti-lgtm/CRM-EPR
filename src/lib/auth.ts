@@ -15,9 +15,9 @@ import { prisma } from '@/lib/prisma'
  * não fazem parte dessa árvore de render — cache() pode devolver um
  * resultado (inclusive `null`) preso de uma invocação anterior, causando
  * falso "UNAUTHENTICATED" para usuários realmente logados. Já causou esse
- * bug em produção (2026-07-15). Para o caso legítimo de cache — múltiplas
- * Server Components (ex.: layout + page) chamando isso no MESMO render —
- * use `getCachedUser()` abaixo.
+ * bug em produção (2026-07-15). Para exibição não-crítica (ex.: nome na
+ * Sidebar), prefira `getDisplayUser()` abaixo — evita o round-trip de
+ * rede que causa essa classe de falha intermitente.
  */
 export async function getCurrentUser() {
   const supabase = await createClient()
@@ -55,13 +55,40 @@ export async function getCurrentUser() {
 }
 
 /**
- * Versão cacheada de `getCurrentUser()`, escopada por `React.cache()` —
- * segura APENAS para uso dentro de Server Components (ex.: RootLayout +
- * page.tsx no mesmo render), nunca em Server Actions. Existe pra evitar
- * chamar `supabase.auth.getUser()` mais de uma vez por navegação quando o
- * layout e a página precisam do usuário no mesmo request.
+ * Versão "cosmética" pra exibir nome/cargo na UI (ex.: rodapé da Sidebar).
+ * Usa `getSession()` em vez de `getUser()`: lê o JWT do cookie localmente,
+ * sem round-trip de rede pro Auth do Supabase no caso comum (token ainda
+ * válido) — só faz rede se o token já tiver expirado e precisar renovar.
+ * Isso evita a mesma classe de falha intermitente que derruba
+ * `getCurrentUser()` quando a chamada de rede do `getUser()` falha.
+ *
+ * Só use isto pra EXIBIR informação, nunca pra decidir acesso a dado —
+ * quem decide acesso continua sendo `getCurrentUser`/`requireTenantId`,
+ * que validam a sessão de verdade contra o servidor do Supabase.
  */
-export const getCachedUser = cache(getCurrentUser)
+export const getDisplayUser = cache(async function getDisplayUser() {
+  const supabase = await createClient()
+  const {
+    data: { session },
+  } = await supabase.auth.getSession()
+
+  const authUser = session?.user
+  if (!authUser) return null
+
+  let dbUser = await prisma.user.findUnique({
+    where: { id: authUser.id },
+    include: { tenant: true },
+  })
+
+  if (!dbUser && authUser.email) {
+    dbUser = await prisma.user.findUnique({
+      where: { email: authUser.email },
+      include: { tenant: true },
+    })
+  }
+
+  return dbUser
+})
 
 /**
  * Igual a getCurrentUser, mas lança se não houver sessão válida.

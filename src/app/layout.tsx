@@ -5,7 +5,7 @@ import "./globals.css";
 export const dynamic = 'force-dynamic';
 
 import { ClientLayoutWrapper } from "@/components/ClientLayoutWrapper";
-import { getCachedUser } from "@/lib/auth";
+import { getDisplayUser } from "@/lib/auth";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -27,7 +27,7 @@ export default async function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  const user = await getCachedUser();
+  const user = await getDisplayUser();
 
   return (
     <html lang="en" className="dark">
