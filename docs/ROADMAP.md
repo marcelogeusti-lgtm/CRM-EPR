@@ -449,12 +449,63 @@ de báscula etc.) mora nas "Fontes" de cada tenant, não no código.
   e, se pedida, a chave Pix — usado tanto pelo simulador quanto pelo
   fluxo real de resposta.
 
-**Pendente:** a migration `20260717183847_service_orders` foi escrita mas
-**ainda não aplicada no banco de produção** — o MCP do Supabase está em
-modo `read_only` e este ambiente não tem `DATABASE_URL` local. Precisa
-rodar o SQL da migration direto no SQL Editor do Supabase, ou trocar o
-MCP pra modo de escrita e reaplicar.
+**Atualização:** migration `20260717183847_service_orders` aplicada em
+produção pelo Marcelo via SQL Editor do Supabase (2026-07-17) — as 3
+tabelas novas confirmadas via `list_tables` (RLS habilitada nas três).
 
 Verificado com `tsc --noEmit`, `eslint` e `next build` — todos limpos.
-Não testado no navegador (sem sessão autenticada neste ambiente e sem a
-tabela ainda existir em produção).
+Não testado no navegador (sem sessão autenticada neste ambiente).
+
+## 🐛 UNAUTHENTICATED intermitente — causa raiz encontrada (2026-07-17)
+
+Depois do deploy da fase acima, o Marcelo reportou ver o próprio bug ao
+vivo: nome sumindo da Sidebar de novo e "Não foi possível carregar as
+automações" — confirmando que as mitigações anteriores (retry,
+`getCachedUser`, `getDisplayUser`) reduziram mas **não eliminaram** o
+problema. `/service-orders` inclusive já apareceu na lista de rotas
+afetadas no primeiro dia.
+
+**Causa raiz (evidência definitiva, não mais suspeita):** consultando
+`get_logs(service: "auth")` do Supabase no exato minuto de uma falha,
+encontrei **duas chamadas `/token` com `grant_type=refresh_token` pro
+mesmo usuário (`actor_id` idêntico) com só 1 segundo de diferença**
+(`token_revoked` às 18:53:18, `token_refreshed` às 18:53:19). Isso é a
+assinatura de uma corrida de renovação de token: o Supabase Auth rotaciona
+o refresh token a cada uso (um token só pode ser usado uma vez). Quando
+o access token expira, `supabase.auth.getUser()`/`getSession()`
+disparam uma renovação automaticamente — se **múltiplas requisições
+concorrentes** tentam renovar ao mesmo tempo usando o cookie ainda não
+atualizado, uma delas perde a corrida e a sessão "some" pro usuário
+genuinamente logado.
+
+De onde vêm essas requisições concorrentes:
+1. **Prefetch automático do Next.js** — todo `<Link>` da Sidebar é
+   pré-carregado em segundo plano quando a página renderiza (comportamento
+   padrão do App Router). Com 9 itens no menu principal + 4 no rodapé +
+   4 canais fixados, cada navegação dispara até ~15 requisições de
+   prefetch em paralelo, cada uma passando pela checagem de sessão de
+   novo. Quanto mais itens no menu (como agora, com Ordens de Serviço),
+   pior fica — o que bate exatamente com o bug ter piorado nesta sessão.
+2. **`/service-orders/page.tsx` (código desta mesma sessão) rodava 3
+   chamadas que validam sessão em `Promise.all`** (`getCurrentUser()` +
+   `getServiceOrders()` + `getEmployees()`, cada uma resolvendo o usuário
+   de forma independente) — autoamplificando exatamente essa corrida.
+
+**Correção aplicada:**
+1. `src/components/Sidebar.tsx`: `prefetch={false}` em todos os `<Link>`
+   — elimina a maior fonte de requisições concorrentes desnecessárias
+   (a imensa maioria nunca seria visitada mesmo).
+2. `src/app/service-orders/page.tsx`: as 3 chamadas viram sequenciais
+   (`await` em série, não `Promise.all`) — se a primeira renovar o token,
+   as próximas já usam o cookie atualizado em vez de correrem contra ele.
+
+**Ainda não é garantia de eliminação 100%** — outras páginas
+(`pipeline`, `calendar`) ainda fazem uma chamada de sessão cada durante
+o próprio prefetch/navegação do usuário (não corrigível só desligando
+prefetch da Sidebar, já que a navegação real também dispara isso).
+Monitorar `get_runtime_errors` nas próximas horas de uso real. Se
+persistir, o próximo passo é uma refatoração maior: uma única função
+`cache()`-scoped por request compartilhada entre `layout.tsx` e a página
+atual, reduzindo pra exatamente UMA validação de sessão por navegação
+em vez de 2-3 — adiado por ser uma mudança estrutural maior, não algo
+pra aplicar sob pressão sem testar com calma.

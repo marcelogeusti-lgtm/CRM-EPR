@@ -8,15 +8,19 @@ import { ServiceOrdersClient } from './service-orders-client';
 export const dynamic = 'force-dynamic';
 
 export default async function ServiceOrdersPage() {
+  // Sequencial, não Promise.all: cada chamada abaixo valida a sessão contra
+  // o Supabase (supabase.auth.getUser()). Se o token estiver expirado bem
+  // nesse instante, rodar essas chamadas em paralelo faz duas ou três
+  // tentativas de renovação de token colidirem entre si (visto nos logs do
+  // Supabase — duas renovações pro mesmo usuário com 1s de diferença),
+  // derrubando a sessão de quem está genuinamente logado. Rodando em série,
+  // a primeira chamada já deixa o cookie renovado pronto pras próximas.
   const user = await getCurrentUser();
-
-  const [orders, employees, contacts] = await Promise.all([
-    getServiceOrders(),
-    getEmployees(),
-    user
-      ? prisma.contact.findMany({ where: { tenantId: user.tenantId }, orderBy: { name: 'asc' } })
-      : Promise.resolve([]),
-  ]);
+  const orders = await getServiceOrders();
+  const employees = await getEmployees();
+  const contacts = user
+    ? await prisma.contact.findMany({ where: { tenantId: user.tenantId }, orderBy: { name: 'asc' } })
+    : [];
 
   return (
     <ServiceOrdersClient initialOrders={orders} initialEmployees={employees} contacts={contacts} />

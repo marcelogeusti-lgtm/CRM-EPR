@@ -143,9 +143,10 @@ export function Sidebar({ isOpen = false, onClose = () => {}, user = null }: { i
                     {item.subItems?.map(sub => {
                       const isActive = pathname === sub.href;
                       return (
-                        <Link 
-                          key={sub.name} 
+                        <Link
+                          key={sub.name}
                           href={sub.href}
+                          prefetch={false}
                           className={cn(
                             "py-2 pl-11 pr-3 text-[13px] rounded-lg transition-all",
                             isActive 
@@ -165,9 +166,10 @@ export function Sidebar({ isOpen = false, onClose = () => {}, user = null }: { i
 
           const isActive = pathname === item.href;
           return (
-            <Link 
-              key={item.name} 
+            <Link
+              key={item.name}
               href={item.href || '#'}
+              prefetch={false}
               className={cn(
                 "flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all group relative",
                 isActive ? "bg-blue-500/10 text-blue-400 font-medium" : "text-zinc-400 hover:bg-[#1a1a1a] hover:text-zinc-200 font-medium"
@@ -184,9 +186,10 @@ export function Sidebar({ isOpen = false, onClose = () => {}, user = null }: { i
           <span className="text-[11px] font-bold text-zinc-600 uppercase tracking-wider">Canais Fixados</span>
         </div>
         {pinnedIntegrations.map((integration) => (
-          <Link 
+          <Link
             key={integration.name}
             href="/integrations"
+            prefetch={false}
             className="flex items-center gap-3 px-3 py-2 rounded-lg transition-all group text-zinc-400 hover:bg-[#1a1a1a] hover:text-zinc-200"
           >
             <div className={cn("w-5 h-5 rounded flex items-center justify-center shrink-0 shadow-sm", integration.color)}>
@@ -205,9 +208,10 @@ export function Sidebar({ isOpen = false, onClose = () => {}, user = null }: { i
           const Icon = item.icon;
           const isActive = pathname === item.href;
           return (
-            <Link 
-              key={item.name} 
+            <Link
+              key={item.name}
               href={item.href}
+              prefetch={false}
               className={cn(
                 "flex items-center justify-between px-3 py-2.5 rounded-lg transition-all group",
                 isActive ? "bg-blue-500/10 text-blue-400" : "text-zinc-400 hover:bg-[#1a1a1a] hover:text-zinc-200"
