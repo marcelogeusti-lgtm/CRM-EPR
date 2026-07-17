@@ -11,8 +11,24 @@ export async function getAiAgent() {
     include: {
       scriptSteps: { orderBy: { order: 'asc' } },
       objections: { orderBy: { order: 'asc' } },
+      knowledgeSources: { orderBy: { order: 'asc' } },
     },
   });
+}
+
+export async function getCompanySettings() {
+  const tenantId = await requireTenantId();
+  const tenant = await prisma.tenant.findUnique({ where: { id: tenantId } });
+  return { pixKey: tenant?.pixKey || '' };
+}
+
+export async function saveCompanySettings(data: { pixKey: string }) {
+  const tenantId = await requireTenantId();
+  await prisma.tenant.update({
+    where: { id: tenantId },
+    data: { pixKey: data.pixKey || null },
+  });
+  revalidatePath('/salesbot');
 }
 
 export interface ScriptStepInput {
@@ -23,6 +39,11 @@ export interface ScriptStepInput {
 export interface ObjectionInput {
   title: string;
   response: string;
+}
+
+export interface KnowledgeSourceInput {
+  title: string;
+  content: string;
 }
 
 interface SaveAiAgentInput {
@@ -37,6 +58,8 @@ interface SaveAiAgentInput {
   attendanceSteps: ScriptStepInput[];
   closingSteps: ScriptStepInput[];
   objections: ObjectionInput[];
+  knowledgeSources: KnowledgeSourceInput[];
+  serviceOrderMode: string;
 }
 
 export async function saveAiAgent(data: SaveAiAgentInput) {
@@ -51,6 +74,7 @@ export async function saveAiAgent(data: SaveAiAgentInput) {
     directives: JSON.stringify(data.directives),
     typicalExpressions: JSON.stringify(data.typicalExpressions),
     negativePrompt: data.negativePrompt,
+    serviceOrderMode: data.serviceOrderMode,
   };
 
   const agent = await prisma.aiAgent.upsert({
@@ -66,6 +90,7 @@ export async function saveAiAgent(data: SaveAiAgentInput) {
   await prisma.$transaction([
     prisma.agentScriptStep.deleteMany({ where: { aiAgentId: agent.id } }),
     prisma.agentObjection.deleteMany({ where: { aiAgentId: agent.id } }),
+    prisma.agentKnowledgeSource.deleteMany({ where: { aiAgentId: agent.id } }),
     prisma.agentScriptStep.createMany({
       data: [
         ...data.attendanceSteps.map((step, i) => ({
@@ -90,6 +115,14 @@ export async function saveAiAgent(data: SaveAiAgentInput) {
         order: i,
         title: obj.title,
         response: obj.response,
+      })),
+    }),
+    prisma.agentKnowledgeSource.createMany({
+      data: data.knowledgeSources.map((source, i) => ({
+        aiAgentId: agent.id,
+        order: i,
+        title: source.title,
+        content: source.content,
       })),
     }),
   ]);

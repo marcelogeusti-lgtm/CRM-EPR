@@ -30,13 +30,13 @@ export async function POST(req: Request) {
     const agent = user
       ? await prisma.aiAgent.findUnique({
           where: { tenantId: user.tenantId },
-          include: { scriptSteps: true, objections: true },
+          include: { scriptSteps: true, objections: true, knowledgeSources: true },
         })
       : null;
 
     // Constrói o Prompt de Sistema com base nas configurações
     const systemPrompt = agent
-      ? buildSystemPrompt(agent)
+      ? buildSystemPrompt(agent, user?.tenant?.pixKey)
       : 'Você é um assistente útil e amigável.';
 
     // 3. Inicializar a OpenAI com a chave do banco de dados

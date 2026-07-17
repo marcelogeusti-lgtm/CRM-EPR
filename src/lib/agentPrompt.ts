@@ -1,8 +1,9 @@
-import type { AiAgent, AgentScriptStep, AgentObjection } from '@prisma/client';
+import type { AiAgent, AgentScriptStep, AgentObjection, AgentKnowledgeSource } from '@prisma/client';
 
 export type AiAgentWithScript = AiAgent & {
   scriptSteps: AgentScriptStep[];
   objections: AgentObjection[];
+  knowledgeSources: AgentKnowledgeSource[];
 };
 
 function parseJsonArray(value: string | null): string[] {
@@ -20,8 +21,11 @@ function parseJsonArray(value: string | null): string[] {
  * configuração salva no banco. Usado pelo simulador (/api/chat) e, na
  * Fase 1.3, pelo fluxo real de resposta via WhatsApp — nunca duplicar
  * esta lógica em outro lugar.
+ *
+ * `pixKey` vem do Tenant (não do AiAgent) — passado à parte pra não
+ * acoplar dado de empresa dentro do tipo do agente.
  */
-export function buildSystemPrompt(agent: AiAgentWithScript): string {
+export function buildSystemPrompt(agent: AiAgentWithScript, pixKey?: string | null): string {
   const personalityTags = parseJsonArray(agent.personalityTags);
   const directives = parseJsonArray(agent.directives);
   const expressions = parseJsonArray(agent.typicalExpressions);
@@ -80,6 +84,19 @@ export function buildSystemPrompt(agent: AiAgentWithScript): string {
 
   if (agent.negativePrompt) {
     sections.push(`NUNCA faça ou diga:\n${agent.negativePrompt}`);
+  }
+
+  if (agent.knowledgeSources.length) {
+    const sorted = [...agent.knowledgeSources].sort((a, b) => a.order - b.order);
+    sections.push(
+      `Informações do negócio (use isto como referência pra responder dúvidas, preços, medidas e especificações — não invente valores que não estejam aqui):\n\n${sorted
+        .map(s => `### ${s.title}\n${s.content}`)
+        .join('\n\n')}`
+    );
+  }
+
+  if (pixKey) {
+    sections.push(`Se o cliente pedir a chave Pix para pagamento, informe exatamente: ${pixKey}`);
   }
 
   return sections.join('\n\n');

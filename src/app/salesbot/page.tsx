@@ -1,8 +1,17 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { Bot, Sparkles, Phone, User, Database, Zap, Settings, RefreshCw, Send, ChevronLeft, Volume2, Maximize, Activity, X, Loader2, Check, ChevronUp, ChevronDown, ShieldAlert } from 'lucide-react';
-import { getAiAgent, saveAiAgent, setAiAgentActive, type ScriptStepInput, type ObjectionInput } from '@/actions/salesbot';
+import { Bot, Sparkles, Phone, User, Database, Zap, Settings, RefreshCw, Send, ChevronLeft, Volume2, Maximize, Activity, X, Loader2, Check, ChevronUp, ChevronDown, ShieldAlert, Wrench, KeyRound } from 'lucide-react';
+import {
+  getAiAgent,
+  saveAiAgent,
+  setAiAgentActive,
+  getCompanySettings,
+  saveCompanySettings,
+  type ScriptStepInput,
+  type ObjectionInput,
+  type KnowledgeSourceInput,
+} from '@/actions/salesbot';
 
 type Tab = 'painel' | 'persona' | 'fontes' | 'acoes' | 'integracoes' | 'configs';
 
@@ -130,6 +139,41 @@ function ObjectionsEditor({
   );
 }
 
+function KnowledgeSourceEditor({
+  sources, onChange,
+}: {
+  sources: KnowledgeSourceInput[];
+  onChange: (sources: KnowledgeSourceInput[]) => void;
+}) {
+  return (
+    <div className="space-y-3">
+      {sources.map((source, idx) => (
+        <div key={idx} className="bg-[#161616] border border-[#2a2a2a] rounded-lg p-3 space-y-2">
+          <div className="flex items-center gap-2">
+            <input
+              value={source.title}
+              onChange={(e) => onChange(sources.map((s, i) => i === idx ? { ...s, title: e.target.value } : s))}
+              placeholder='Título (ex: "Tabela de Preços")'
+              className="flex-1 bg-transparent font-semibold text-sm text-zinc-200 focus:outline-none"
+            />
+            <button onClick={() => onChange(sources.filter((_, i) => i !== idx))} className="p-1 text-zinc-500 hover:text-red-400 shrink-0">
+              <X className="size-4" />
+            </button>
+          </div>
+          <textarea
+            value={source.content}
+            onChange={(e) => onChange(sources.map((s, i) => i === idx ? { ...s, content: e.target.value } : s))}
+            placeholder="Cole ou escreva aqui: preços, medidas, especificações — o que a IA deve saber sobre o seu negócio."
+            className="w-full h-32 bg-[#111] border border-[#2a2a2a] rounded-lg p-2 text-xs text-zinc-400 focus:outline-none focus:border-indigo-500/50 resize-none"
+          />
+        </div>
+      ))}
+      {sources.length === 0 && <p className="text-xs text-zinc-600">Nenhuma fonte cadastrada ainda.</p>}
+      <button onClick={() => onChange([...sources, { title: '', content: '' }])} className="text-indigo-400 text-sm hover:text-indigo-300 font-medium">+ Adicionar fonte</button>
+    </div>
+  );
+}
+
 export default function SalesbotPage() {
   const [activeTab, setActiveTab] = useState<Tab>('persona');
   const [isAgentActive, setIsAgentActive] = useState(false);
@@ -151,6 +195,14 @@ export default function SalesbotPage() {
   const [attendanceSteps, setAttendanceSteps] = useState<ScriptStepInput[]>([]);
   const [closingSteps, setClosingSteps] = useState<ScriptStepInput[]>([]);
   const [objections, setObjections] = useState<ObjectionInput[]>([]);
+  const [knowledgeSources, setKnowledgeSources] = useState<KnowledgeSourceInput[]>([]);
+  const [serviceOrderMode, setServiceOrderMode] = useState('MANUAL');
+
+  // Config da empresa (Tenant, não do AiAgent) — chave Pix pra IA informar
+  // quando o cliente pedir pra pagar uma Ordem de Serviço.
+  const [pixKey, setPixKey] = useState('');
+  const [isSavingCompany, setIsSavingCompany] = useState(false);
+  const [companySaved, setCompanySaved] = useState(false);
 
   useEffect(() => {
     getAiAgent().then(agent => {
@@ -161,6 +213,7 @@ export default function SalesbotPage() {
         setResponseLanguage(agent.responseLanguage);
         setPauseSeconds(String(agent.pauseSeconds));
         setNegativePrompt(agent.negativePrompt || '');
+        setServiceOrderMode(agent.serviceOrderMode);
 
         const parseArray = (value: string | null, fallback: string[]) => {
           try {
@@ -181,6 +234,7 @@ export default function SalesbotPage() {
           agent.scriptSteps.filter(s => s.type === 'FECHAMENTO').map(s => ({ title: s.title, content: s.content || '' }))
         );
         setObjections(agent.objections.map(o => ({ title: o.title, response: o.response })));
+        setKnowledgeSources(agent.knowledgeSources.map(s => ({ title: s.title, content: s.content })));
       }
       setIsLoadingAgent(false);
     }).catch(err => {
@@ -188,6 +242,10 @@ export default function SalesbotPage() {
       setAgentLoadError('Não foi possível carregar o agente. Tente recarregar a página.');
       setIsLoadingAgent(false);
     });
+
+    getCompanySettings().then(settings => {
+      setPixKey(settings.pixKey);
+    }).catch(err => console.error(err));
   }, []);
 
   function togglePersonalityTag(tag: string) {
@@ -224,6 +282,8 @@ export default function SalesbotPage() {
         attendanceSteps,
         closingSteps,
         objections,
+        knowledgeSources,
+        serviceOrderMode,
       });
       setJustSaved(true);
       setTimeout(() => setJustSaved(false), 2000);
@@ -232,6 +292,21 @@ export default function SalesbotPage() {
       alert('Falha ao salvar as configurações do agente.');
     } finally {
       setIsSavingPersona(false);
+    }
+  }
+
+  async function handleSaveCompany() {
+    setIsSavingCompany(true);
+    setCompanySaved(false);
+    try {
+      await saveCompanySettings({ pixKey });
+      setCompanySaved(true);
+      setTimeout(() => setCompanySaved(false), 2000);
+    } catch (e) {
+      console.error(e);
+      alert('Falha ao salvar a chave Pix.');
+    } finally {
+      setIsSavingCompany(false);
     }
   }
 
@@ -503,6 +578,76 @@ export default function SalesbotPage() {
                 />
               </div>
 
+              <div className="space-y-3 pt-4 border-t border-[#222]">
+                <label className="text-sm font-bold text-zinc-200 flex items-center gap-2">
+                  <Wrench className="size-4 text-blue-400" />
+                  Ordem de Serviço
+                </label>
+                <p className="text-xs text-zinc-500">Como o agente lida com pedidos de Ordem de Serviço numa conversa.</p>
+                <select
+                  value={serviceOrderMode}
+                  onChange={(e) => setServiceOrderMode(e.target.value)}
+                  className="w-full bg-[#111] border border-[#333] rounded-lg px-4 py-3 text-sm text-zinc-300 focus:outline-none focus:border-indigo-500/50"
+                >
+                  <option value="MANUAL">Manual — o agente nunca cria Ordem de Serviço sozinho</option>
+                  <option value="SEMI_AUTO">Semiautomático — o agente monta um rascunho, um humano confirma</option>
+                  <option value="AUTO">Automático — reservado para depois (ainda não implementado)</option>
+                </select>
+              </div>
+
+              <div className="flex items-center justify-end gap-3 pt-4 border-t border-[#222]">
+                {justSaved && (
+                  <span className="flex items-center gap-1.5 text-emerald-400 text-sm font-medium animate-in fade-in">
+                    <Check className="size-4" /> Salvo
+                  </span>
+                )}
+                <button
+                  onClick={handleSavePersona}
+                  disabled={isSavingPersona || isLoadingAgent}
+                  className="bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white px-5 py-2.5 rounded-lg text-sm font-bold transition-colors flex items-center gap-2"
+                >
+                  {isSavingPersona && <Loader2 className="size-4 animate-spin" />}
+                  Salvar alterações
+                </button>
+              </div>
+
+              <div className="space-y-3 pt-8 border-t border-[#222]">
+                <label className="text-sm font-bold text-zinc-200 flex items-center gap-2">
+                  <KeyRound className="size-4 text-emerald-400" />
+                  Chave Pix da empresa
+                </label>
+                <p className="text-xs text-zinc-500">O agente informa esta chave quando o cliente pedir pra pagar uma Ordem de Serviço. Cobrança e conferência de pagamento continuam manuais.</p>
+                <input
+                  value={pixKey}
+                  onChange={(e) => setPixKey(e.target.value)}
+                  className="w-full bg-[#111] border border-[#333] rounded-lg px-4 py-3 text-sm text-zinc-300 focus:outline-none focus:border-emerald-500/50"
+                  placeholder="Ex: chave@suaempresa.com.br, CNPJ, telefone ou chave aleatória"
+                />
+                <div className="flex items-center justify-end gap-3">
+                  {companySaved && (
+                    <span className="flex items-center gap-1.5 text-emerald-400 text-sm font-medium animate-in fade-in">
+                      <Check className="size-4" /> Salvo
+                    </span>
+                  )}
+                  <button
+                    onClick={handleSaveCompany}
+                    disabled={isSavingCompany}
+                    className="bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white px-5 py-2.5 rounded-lg text-sm font-bold transition-colors flex items-center gap-2"
+                  >
+                    {isSavingCompany && <Loader2 className="size-4 animate-spin" />}
+                    Salvar chave Pix
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {activeTab === 'fontes' && (
+            <div className="max-w-3xl space-y-4 animate-in fade-in slide-in-from-bottom-4 duration-500">
+              <div>
+                <h2 className="text-sm font-medium text-zinc-400 mb-1">Cole ou escreva tabelas de preços, medidas padrão e especificações — a IA usa isso como referência ao responder e montar orçamentos.</h2>
+              </div>
+              <KnowledgeSourceEditor sources={knowledgeSources} onChange={setKnowledgeSources} />
               <div className="flex items-center justify-end gap-3 pt-4 border-t border-[#222]">
                 {justSaved && (
                   <span className="flex items-center gap-1.5 text-emerald-400 text-sm font-medium animate-in fade-in">
@@ -521,13 +666,12 @@ export default function SalesbotPage() {
             </div>
           )}
 
-          {(activeTab === 'painel' || activeTab === 'fontes' || activeTab === 'acoes' || activeTab === 'integracoes') && (
+          {(activeTab === 'painel' || activeTab === 'acoes' || activeTab === 'integracoes') && (
             <div className="h-full flex flex-col items-center justify-center text-zinc-500 animate-in fade-in">
               <Database className="size-12 mb-4 opacity-20" />
               <h3 className="text-lg font-bold text-zinc-400">Em Desenvolvimento</h3>
               <p className="text-sm mt-2 max-w-sm text-center">
-                {activeTab === 'fontes' && 'Base de conhecimento (RAG): documentos que a IA vai poder consultar para responder — ainda não construído.'}
-                {activeTab === 'acoes' && 'Ferramentas que a IA poderá executar (function calling), como consultar dados do negócio no CRM — próximo passo da Fase 1.3 do roadmap.'}
+                {activeTab === 'acoes' && 'Ferramentas que a IA poderá executar (function calling) — como abrir automaticamente uma Ordem de Serviço rascunho no modo Semiautomático. Próximo passo depois da gestão manual de Ordens de Serviço.'}
                 {activeTab === 'integracoes' && 'Vínculo deste agente com canais específicos (WhatsApp/Instagram) — hoje o agente vale para o workspace inteiro.'}
                 {activeTab === 'painel' && 'Métricas do agente (conversas, taxa de conversão) — ainda não construído.'}
               </p>
