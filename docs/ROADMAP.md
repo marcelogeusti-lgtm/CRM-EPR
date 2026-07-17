@@ -298,3 +298,54 @@ Não foi possível exercitar as telas autenticadas ponta a ponta neste
 ambiente por falta de credenciais de login — combinado com o Marcelo que
 ele testa a Sidebar/`/lists`/`/integrations` com a conta real após o
 deploy.
+
+## 🐛 UNAUTHENTICATED intermitente — mitigado, não 100% eliminado (2026-07-16)
+Depois do deploy da varredura acima, `get_runtime_errors` mostrou esse
+mesmo erro (`UNAUTHENTICATED: nenhum usuário logado`) crescendo mais
+rápido que antes — agora com **2 usuários** distintos e uma rota nova
+(`/calendar`) que nunca tinha aparecido. Investigando, ficou claro que
+esse erro **já vinha ocorrendo mesmo depois do fix de `React.cache()`**
+de 2026-07-15 (21 ocorrências em ~36h, 1 usuário só, antes de qualquer
+mudança desta sessão) — ou seja, não é um bug novo desta sessão, é um
+problema intermitente de sessão só parcialmente resolvido antes.
+
+**O que a sessão de hoje piorou (efeito colateral, já corrigido):** o
+`RootLayout` passou a chamar `getCurrentUser()` pra alimentar a Sidebar
+com o usuário real. Como o layout roda em toda navegação (`force-dynamic`,
+sem cache) inclusive para páginas que já faziam sua própria chamada, isso
+adicionou uma chamada de rede a mais pro Auth do Supabase por navegação —
+em cima de um segundo usuário real navegando ao mesmo tempo, aumentou a
+frequência de erros observados.
+
+**Causa provável de fundo (não é só o efeito colateral acima):**
+`supabase.auth.getUser()` valida a sessão com uma chamada de rede pro
+servidor de Auth do Supabase a cada invocação (diferente de `getSession()`,
+que só decodifica local). Um timeout/blip transitório nessa chamada
+específica devolve `user: null` mesmo pra quem está logado de verdade —
+mesmo que o middleware (`proxy.ts` → `updateSession`) tenha validado a
+sessão com sucesso instantes antes pra essa mesma requisição. É uma
+armadilha conhecida da integração `@supabase/ssr` + Next.js App Router.
+
+**Mitigação aplicada (`src/lib/auth.ts`):**
+1. `getCachedUser()` — versão de `getCurrentUser()` envolvida em
+   `React.cache()`, usada **só** no `RootLayout`. Diferente do bug de
+   2026-07-15 (que era `cache()` numa Server Action chamada de dentro de
+   um `useEffect` client-side — fora da árvore de render), aqui é
+   `layout.tsx` + `page.tsx` chamando a mesma função no MESMO render de
+   Server Component — o caso de uso correto e seguro de `cache()`. Reduz
+   uma chamada de rede duplicada por navegação em páginas que são Server
+   Component.
+2. `getCurrentUser()` ganhou uma retentativa única (~150ms de espera) se
+   a primeira chamada a `supabase.auth.getUser()` vier vazia — cobre a
+   maioria dos blips transitórios de rede; pra quem está genuinamente
+   deslogado só custa uma chamada extra rápida.
+
+**Isso reduz a taxa de falso-positivo, mas não é garantia de eliminação
+total** — continua sendo uma chamada de rede externa que pode falhar. As
+páginas afetadas já têm tratamento de erro visível (banner "não foi
+possível carregar, recarregue a página") em vez de travar, então o pior
+caso hoje é recuperável com um F5, não um travamento. Próximo passo se
+persistir: instrumentar quantas vezes a retentativa é de fato acionada
+(telemetria), e considerar `getSession()` (mais barato, sem round-trip)
+combinado com renovação de token mais explícita, se o padrão de falha
+continuar depois desta mitigação.
