@@ -80,13 +80,23 @@ export async function updateSession(request: NextRequest) {
   // tentado injetar na própria requisição — sem isso, alguém sem sessão
   // válida em uma rota pública poderia forjar esse header e se passar
   // por outro usuário.
+  //
+  // IMPORTANTE: `request.headers` não é mutável diretamente — precisa
+  // clonar num `Headers` novo e passar via `NextResponse.next({request:
+  // {headers}})`, exatamente como a documentação do Next.js manda (ver
+  // node_modules/next/dist/docs/.../proxy.md, seção "Setting Headers).
+  // Mutar `request.headers.set()/.delete()` direto (como a primeira
+  // versão desta correção fazia) lança exceção em produção — foi a causa
+  // de uma leva de erro 500 nova, pior que o bug que estava tentando
+  // resolver.
+  const requestHeaders = new Headers(request.headers)
   if (user) {
-    request.headers.set('x-nexus-user-id', user.id)
+    requestHeaders.set('x-nexus-user-id', user.id)
   } else {
-    request.headers.delete('x-nexus-user-id')
+    requestHeaders.delete('x-nexus-user-id')
   }
 
-  const response = NextResponse.next({ request })
+  const response = NextResponse.next({ request: { headers: requestHeaders } })
   cookiesToSet.forEach(({ name, value, options }) => response.cookies.set(name, value, options))
   return response
 }

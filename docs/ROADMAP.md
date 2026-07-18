@@ -642,3 +642,34 @@ do Next.js 16.2, confirmado lendo
 `node_modules/next/dist/docs/.../error.md`). Cobre `/service-orders` e
 qualquer outra página que algum dia tiver o mesmo tipo de buraco, sem
 precisar de try/catch individual em cada uma.
+
+## Regressão real encontrada e corrigida (2026-07-18)
+
+Depois do deploy do `error.tsx`, o Marcelo colou logs de console mostrando
+`Failed to load resource: 500` + "An error occurred in the Server
+Components render" em várias abas — o `error.tsx` estava capturando
+certo (apareceu "[ERROR BOUNDARY]" nos logs, funcionando como desenhado),
+mas a taxa de erro 500 em si parecia alta demais pra ser só o
+UNAUTHENTICATED intermitente de sempre.
+
+Investigando contra `node_modules/next/dist/docs/.../proxy.md` (seção
+"Setting Headers"), achei uma **regressão real que eu introduzi** no
+commit do header do middleware (`13888ae`): o código mutava
+`request.headers.set()/.delete()` **diretamente** no objeto original.
+A documentação oficial deixa claro que isso está errado — é preciso
+clonar num `Headers` novo (`new Headers(request.headers)`) e passar via
+`NextResponse.next({request: {headers: novoHeaders}})`. Mutar o objeto
+original lança exceção em produção — **essa regressão, não o bug de
+sessão original, era a causa dos 500 que o Marcelo via.**
+
+**Correção:** `src/utils/supabase/middleware.ts` agora clona os headers
+antes de qualquer `.set()`/`.delete()`, seguindo exatamente o padrão
+documentado. Testado desta vez contra o **build de produção local**
+(`npm run start`, não o servidor de dev, que não reproduzia esse erro
+específico) — múltiplas rotas, zero erro de servidor, zero erro de
+console, antes de subir.
+
+**Lição pra próxima vez que eu tocar em `proxy.ts`/middleware:** sempre
+testar contra `next build && next start` localmente antes de confiar só
+no dev server — o dev server do Next.js é mais tolerante com esse tipo
+de erro de runtime do que o build de produção.
