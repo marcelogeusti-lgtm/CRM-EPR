@@ -1,11 +1,8 @@
 import { NextResponse } from 'next/server';
 import crypto from 'node:crypto';
-import { createOpenAI } from '@ai-sdk/openai';
-import { generateText, tool, stepCountIs } from 'ai';
-import { z } from 'zod';
 import { prisma } from '@/lib/prisma';
-import { sendText, sendMedia, type SendableMediaType } from '@/lib/whatsapp';
-import { buildSystemPrompt } from '@/lib/agentPrompt';
+import { sendAiAgentReply } from '@/lib/aiReply';
+import { matchTrigger, runFlow } from '@/lib/flowEngine';
 
 // A resposta automática da IA (chamada à OpenAI + envio via Meta) pode
 // passar do timeout padrão da Vercel antes de terminar.
@@ -165,7 +162,15 @@ async function processWhatsAppMessage(fromPhone: string, textBody: string, phone
     console.log(`💬 Nova Conversa iniciada!`);
   }
 
-  // 6. Inserir Message (Nova Arquitetura)
+  // 6. Contar mensagens anteriores do contato NESTA conversa, antes de
+  // gravar a atual — usado logo abaixo pra saber se é a "primeira
+  // mensagem" (gatilho WELCOME de um AutomationFlow).
+  const priorContactMessages = await prisma.message.count({
+    where: { conversationId: conversation.id, authorType: 'CONTACT' },
+  });
+  const isFirstMessage = priorContactMessages === 0;
+
+  // 7. Inserir Message (Nova Arquitetura)
   const newMessage = await prisma.message.create({
     data: {
       conversationId: conversation.id,
@@ -174,7 +179,7 @@ async function processWhatsAppMessage(fromPhone: string, textBody: string, phone
     }
   });
 
-  // 7. Inserir Activity (Para compatibilidade com o Frontend Atual da Timeline)
+  // 8. Inserir Activity (Para compatibilidade com o Frontend Atual da Timeline)
   await prisma.activity.create({
     data: {
       tenantId,
@@ -187,127 +192,35 @@ async function processWhatsAppMessage(fromPhone: string, textBody: string, phone
 
   console.log(`💾 Mensagem gravada no DB com sucesso! ID: ${newMessage.id}`);
 
-  // 8. Se o Agente de IA estiver ativo pra este tenant, gera e envia a
-  // resposta automática. Isolado num try/catch próprio pra uma falha aqui
-  // (chave da OpenAI ausente, erro da Meta etc.) nunca derrubar o
-  // processamento do webhook — a mensagem do contato já foi salva acima
-  // de qualquer forma.
+  // 9. Motor de fluxo (src/lib/flowEngine.ts) tem precedência sobre a
+  // resposta padrão da IA: se algum AutomationFlow ativo casar com esta
+  // mensagem (palavra-chave ou primeira mensagem), roda o fluxo — que pode
+  // terminar num nó AI_HANDOFF se quiser a IA livre depois. Sem fluxo
+  // correspondente, cai no comportamento de sempre (sendAiAgentReply).
+  // Isolado num try/catch próprio: falha aqui (chave da OpenAI ausente,
+  // erro da Meta etc.) nunca derruba o processamento do webhook — a
+  // mensagem do contato já foi salva acima de qualquer forma.
   try {
-    await maybeSendAiReply({
+    const replyContext = {
       tenantId,
       dealId: deal.id,
       conversationId: conversation.id,
+      contactId: contact.id,
       toPhone: fromPhone,
       phoneNumberId,
       accessToken: integration.apiKey || '',
-    });
+      messageText: textBody,
+    };
+
+    const matchedFlow = await matchTrigger(tenantId, textBody, isFirstMessage);
+    if (matchedFlow) {
+      await runFlow(matchedFlow, replyContext);
+    } else {
+      await sendAiAgentReply(replyContext);
+    }
   } catch (error) {
-    console.error('❌ [WEBHOOK] Falha ao gerar/enviar resposta automática da IA:', error);
+    console.error('❌ [WEBHOOK] Falha ao gerar/enviar resposta automática (fluxo ou IA):', error);
   }
-}
-
-async function maybeSendAiReply(params: {
-  tenantId: string;
-  dealId: string;
-  conversationId: string;
-  toPhone: string;
-  phoneNumberId: string;
-  accessToken: string;
-}) {
-  if (!params.accessToken) return;
-
-  const agent = await prisma.aiAgent.findUnique({
-    where: { tenantId: params.tenantId },
-    include: { scriptSteps: true, objections: true, knowledgeSources: true },
-  });
-  if (!agent || !agent.isActive) return;
-
-  const openaiConfig = await prisma.systemConfig.findUnique({ where: { key: 'OPENAI_MASTER_KEY' } });
-  if (!openaiConfig?.value) {
-    console.warn('⚠️ [WEBHOOK] Agente de IA ativo, mas a chave mestre da OpenAI não está configurada em /admin.');
-    return;
-  }
-
-  const tenant = await prisma.tenant.findUnique({ where: { id: params.tenantId } });
-  const systemPrompt = buildSystemPrompt(agent, tenant?.pixKey);
-
-  // Últimas mensagens da conversa como histórico — dá contexto pra IA sem
-  // reprocessar a conversa inteira a cada troca.
-  const recentMessages = await prisma.message.findMany({
-    where: { conversationId: params.conversationId },
-    orderBy: { createdAt: 'desc' },
-    take: 20,
-  });
-  const history = recentMessages
-    .reverse()
-    .map(m => ({
-      role: (m.authorType === 'CONTACT' ? 'user' : 'assistant') as 'user' | 'assistant',
-      content: m.content,
-    }));
-
-  const openai = createOpenAI({ apiKey: openaiConfig.value });
-
-  // Etapas do script com arquivo anexado (áudio/imagem/vídeo) — viram uma
-  // ferramenta que a IA pode chamar no momento certo da conversa. Sem
-  // etapa com mídia, não passa `tools` — nem precisa da chamada extra.
-  const mediaSteps = agent.scriptSteps.filter(s => s.mediaType !== 'TEXT' && s.mediaUrl);
-  const tools = mediaSteps.length
-    ? {
-        enviarMidiaDaEtapa: tool({
-          description:
-            'Envia pro WhatsApp do lead o arquivo (áudio, imagem ou vídeo) anexado a uma etapa específica do script.',
-          inputSchema: z.object({
-            stepId: z.string().describe('id da etapa cujo arquivo de mídia deve ser enviado'),
-          }),
-          execute: async ({ stepId }: { stepId: string }) => {
-            const step = mediaSteps.find(s => s.id === stepId);
-            if (!step?.mediaUrl) return { success: false, error: 'Etapa não encontrada ou sem mídia.' };
-            const result = await sendMedia(
-              params.phoneNumberId,
-              params.accessToken,
-              params.toPhone,
-              step.mediaType as SendableMediaType,
-              step.mediaUrl
-            );
-            if (result.success) {
-              await prisma.message.create({
-                data: { conversationId: params.conversationId, authorType: 'AI', content: `[${step.mediaType.toLowerCase()}] ${step.title}` },
-              });
-              await prisma.activity.create({
-                data: { tenantId: params.tenantId, dealId: params.dealId, type: 'MESSAGE', content: `[${step.mediaType.toLowerCase()}] ${step.title}`, author: 'Agent' },
-              });
-            }
-            return result;
-          },
-        }),
-      }
-    : undefined;
-
-  const { text: replyText } = await generateText({
-    model: openai('gpt-4o-mini'),
-    system: systemPrompt,
-    messages: history,
-    tools,
-    stopWhen: tools ? stepCountIs(3) : undefined,
-  });
-
-  if (!replyText?.trim()) return;
-
-  const sendResult = await sendText(params.phoneNumberId, params.accessToken, params.toPhone, replyText);
-  if (!sendResult.success) {
-    console.error('❌ [WEBHOOK] Falha ao enviar resposta da IA via WhatsApp:', sendResult.error);
-    return;
-  }
-
-  await prisma.message.create({
-    data: { conversationId: params.conversationId, authorType: 'AI', content: replyText },
-  });
-  // author: 'Agent' (não 'AI') de propósito — é o valor que a timeline do
-  // Inbox (LeadInboxPanel) reconhece como mensagem enviada por nós, pra
-  // renderizar do lado certo da conversa.
-  await prisma.activity.create({
-    data: { tenantId: params.tenantId, dealId: params.dealId, type: 'MESSAGE', content: replyText, author: 'Agent' },
-  });
 }
 
 // 2. ROTA POST - Recepção de Mensagens (Onde a Mágica Acontece)

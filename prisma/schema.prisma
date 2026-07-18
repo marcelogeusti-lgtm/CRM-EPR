@@ -33,6 +33,7 @@ model Tenant {
   feedbacks        Feedback[]
   serviceOrders    ServiceOrder[]
   employees        Employee[]
+  automationFlows  AutomationFlow[]
 }
 
 model User {
@@ -222,6 +223,8 @@ model Tag {
   tenant   Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   deals    TagsOnDeals[]
   contacts TagsOnContacts[]
+
+  @@unique([tenantId, name])
 }
 
 model TagsOnDeals {
@@ -385,6 +388,49 @@ model StageAutomation {
 
   tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   stage  Stage  @relation(fields: [stageId], references: [id], onDelete: Cascade)
+}
+
+// Motor de fluxo visual (canvas estilo ManyChat) — Fase B. Sem nó de
+// espera/delay nesta fase, então um fluxo roda do TRIGGER até o fim numa
+// passada só, dentro da mesma invocação do webhook — não precisa de
+// estado de execução persistente por contato.
+model AutomationFlow {
+  id            String   @id @default(uuid())
+  tenantId      String
+  name          String
+  triggerType   String // "KEYWORD" | "WELCOME"
+  triggerConfig String? // JSON: {"keywords": ["oi","ola"]} para KEYWORD
+  isActive      Boolean  @default(false)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  tenant Tenant               @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  nodes  AutomationFlowNode[]
+  edges  AutomationFlowEdge[]
+}
+
+model AutomationFlowNode {
+  id        String   @id @default(uuid())
+  flowId    String
+  type      String // "TRIGGER" | "SEND_MESSAGE" | "SEND_MEDIA" | "CONDITION" | "ADD_TAG" | "AI_HANDOFF"
+  positionX Float
+  positionY Float
+  data      String // JSON, formato depende do type
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  flow AutomationFlow @relation(fields: [flowId], references: [id], onDelete: Cascade)
+}
+
+model AutomationFlowEdge {
+  id           String   @id @default(uuid())
+  flowId       String
+  sourceNodeId String
+  targetNodeId String
+  sourceHandle String? // "true" | "false" — só em saída de nó CONDITION
+  createdAt    DateTime @default(now())
+
+  flow AutomationFlow @relation(fields: [flowId], references: [id], onDelete: Cascade)
 }
 
 // ==========================================

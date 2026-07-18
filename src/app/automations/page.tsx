@@ -1,10 +1,11 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
-import { Bot, Zap, Loader2, Info, MessageCircle, Workflow, Megaphone, CheckCircle2, ArrowRight } from 'lucide-react';
+import { Bot, Zap, Loader2, Info, MessageCircle, Workflow, Megaphone, CheckCircle2, ArrowRight, Plus, Play, MessageSquare } from 'lucide-react';
 import Link from 'next/link';
 import { getStageAutomations, setStageAutomation } from '@/actions/automations';
 import { getIntegrations } from '@/actions/integrations';
+import { getFlows, createFlow } from '@/actions/automationFlows';
 import { CHANNEL_INTEGRATIONS } from '@/lib/integrationCatalog';
 import { withRetry } from '@/lib/withRetry';
 
@@ -15,6 +16,13 @@ interface StageWithAutomation {
   name: string;
   color: string | null;
   automation: { activateAgent: boolean; fireN8nWebhook: boolean } | null;
+}
+
+interface FlowSummary {
+  id: string;
+  name: string;
+  triggerType: string;
+  isActive: boolean;
 }
 
 const TABS = [
@@ -31,7 +39,12 @@ export default function AutomationsPage() {
   const [isLoadingChannels, setIsLoadingChannels] = useState(true);
   const [channelsError, setChannelsError] = useState('');
 
-  // Aba Fluxos (regras por etapa — mesma lógica de antes, só realocada)
+  // Aba Fluxos — motor de fluxo visual (novo) + regras por etapa (legado, mesma lógica de antes)
+  const [flows, setFlows] = useState<FlowSummary[]>([]);
+  const [isLoadingFlowList, setIsLoadingFlowList] = useState(true);
+  const [flowListError, setFlowListError] = useState('');
+  const [isCreatingFlow, setIsCreatingFlow] = useState(false);
+
   const [stages, setStages] = useState<StageWithAutomation[]>([]);
   const [hasN8nWebhook, setHasN8nWebhook] = useState(false);
   const [isLoadingFlows, setIsLoadingFlows] = useState(true);
@@ -47,6 +60,14 @@ export default function AutomationsPage() {
       })
       .finally(() => setIsLoadingChannels(false));
 
+    withRetry(() => getFlows())
+      .then(data => setFlows(data as FlowSummary[]))
+      .catch(err => {
+        console.error(err);
+        setFlowListError('Não foi possível carregar os fluxos. Tente recarregar a página.');
+      })
+      .finally(() => setIsLoadingFlowList(false));
+
     withRetry(() => getStageAutomations())
       .then(({ stages, hasN8nWebhook }) => {
         setStages(stages as StageWithAutomation[]);
@@ -58,6 +79,15 @@ export default function AutomationsPage() {
       })
       .finally(() => setIsLoadingFlows(false));
   }, []);
+
+  async function handleCreateFlow() {
+    // createFlow() termina com redirect() — não pode ficar dentro de
+    // try/catch (o redirect lança um erro especial NEXT_REDIRECT que
+    // precisa se propagar, não ser engolido). Ver node_modules/next/dist/docs/
+    // .../redirect.md, "should be called outside the try block".
+    setIsCreatingFlow(true);
+    await createFlow();
+  }
 
   async function toggle(stageId: string, field: 'activateAgent' | 'fireN8nWebhook', current: boolean) {
     setSavingStageId(stageId);
@@ -165,10 +195,63 @@ export default function AutomationsPage() {
 
         {activeTab === 'fluxos' && (
           <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-sm font-bold text-zinc-200 uppercase tracking-wider">Fluxos</h2>
+              <button
+                onClick={handleCreateFlow}
+                disabled={isCreatingFlow}
+                className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white px-3 py-1.5 rounded-lg text-xs font-bold transition-colors"
+              >
+                {isCreatingFlow ? <Loader2 className="size-3.5 animate-spin" /> : <Plus className="size-3.5" />}
+                Novo Fluxo
+              </button>
+            </div>
+
+            {flowListError && (
+              <div className="mb-4 bg-red-500/10 border border-red-500/30 rounded-xl p-4 text-sm text-red-400 max-w-2xl">
+                {flowListError}
+              </div>
+            )}
+
+            {isLoadingFlowList ? (
+              <div className="flex items-center justify-center py-12 text-zinc-500">
+                <Loader2 className="size-5 animate-spin" />
+              </div>
+            ) : flows.length === 0 ? (
+              <div className="mb-8 border border-dashed border-[#333] rounded-xl p-6 text-sm text-zinc-500 max-w-2xl">
+                Nenhum fluxo criado ainda. Um fluxo dispara automaticamente por palavra-chave ou na
+                primeira mensagem de um contato, e pode enviar texto, mídia, checar condições,
+                marcar tags e passar a conversa pra IA.
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 mb-8">
+                {flows.map((flow) => (
+                  <Link
+                    key={flow.id}
+                    href={`/automations/flows/${flow.id}`}
+                    prefetch={false}
+                    className="bg-[#141414] border border-[#262626] rounded-2xl p-5 hover:border-indigo-500/30 hover:bg-[#1a1a1a] transition-all flex items-center gap-4"
+                  >
+                    <div className="w-12 h-12 shrink-0 rounded-xl bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center">
+                      {flow.triggerType === 'WELCOME' ? <MessageSquare className="size-5 text-indigo-400" /> : <Play className="size-5 text-indigo-400" />}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <h3 className="font-bold text-zinc-200 truncate">{flow.name}</h3>
+                      <p className="text-xs text-zinc-500">{flow.triggerType === 'WELCOME' ? 'Primeira mensagem' : 'Palavra-chave'}</p>
+                    </div>
+                    {flow.isActive ? (
+                      <span className="shrink-0 bg-emerald-500/10 text-emerald-400 text-[10px] font-bold px-2 py-1 rounded-md border border-emerald-500/20">ATIVO</span>
+                    ) : (
+                      <span className="shrink-0 text-zinc-600 text-[10px] font-bold px-2 py-1">INATIVO</span>
+                    )}
+                  </Link>
+                ))}
+              </div>
+            )}
+
             <div className="mb-6 flex items-start gap-3 bg-indigo-500/5 border border-indigo-500/20 rounded-xl p-4 text-sm text-zinc-400 max-w-2xl">
               <Info className="size-4 text-indigo-400 shrink-0 mt-0.5" />
-              Hoje são regras simples por etapa do funil. Um construtor de fluxo completo
-              (condicional, IA assume, pausar atendimento, notificar) é o próximo passo.
+              Abaixo continuam as regras rápidas por etapa do funil (mais simples, sem canvas).
             </div>
 
             {flowsError && (
