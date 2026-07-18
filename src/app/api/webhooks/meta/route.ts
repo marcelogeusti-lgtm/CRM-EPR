@@ -1,6 +1,14 @@
 import { NextResponse } from 'next/server';
 import crypto from 'node:crypto';
+import { createOpenAI } from '@ai-sdk/openai';
+import { generateText } from 'ai';
 import { prisma } from '@/lib/prisma';
+import { sendText } from '@/lib/whatsapp';
+import { buildSystemPrompt } from '@/lib/agentPrompt';
+
+// A resposta automática da IA (chamada à OpenAI + envio via Meta) pode
+// passar do timeout padrão da Vercel antes de terminar.
+export const maxDuration = 30;
 
 /**
  * Valida a assinatura HMAC-SHA256 que a Meta envia no header
@@ -177,6 +185,90 @@ async function processWhatsAppMessage(fromPhone: string, textBody: string, phone
   });
 
   console.log(`💾 Mensagem gravada no DB com sucesso! ID: ${newMessage.id}`);
+
+  // 8. Se o Agente de IA estiver ativo pra este tenant, gera e envia a
+  // resposta automática. Isolado num try/catch próprio pra uma falha aqui
+  // (chave da OpenAI ausente, erro da Meta etc.) nunca derrubar o
+  // processamento do webhook — a mensagem do contato já foi salva acima
+  // de qualquer forma.
+  try {
+    await maybeSendAiReply({
+      tenantId,
+      dealId: deal.id,
+      conversationId: conversation.id,
+      toPhone: fromPhone,
+      phoneNumberId,
+      accessToken: integration.apiKey || '',
+    });
+  } catch (error) {
+    console.error('❌ [WEBHOOK] Falha ao gerar/enviar resposta automática da IA:', error);
+  }
+}
+
+async function maybeSendAiReply(params: {
+  tenantId: string;
+  dealId: string;
+  conversationId: string;
+  toPhone: string;
+  phoneNumberId: string;
+  accessToken: string;
+}) {
+  if (!params.accessToken) return;
+
+  const agent = await prisma.aiAgent.findUnique({
+    where: { tenantId: params.tenantId },
+    include: { scriptSteps: true, objections: true, knowledgeSources: true },
+  });
+  if (!agent || !agent.isActive) return;
+
+  const openaiConfig = await prisma.systemConfig.findUnique({ where: { key: 'OPENAI_MASTER_KEY' } });
+  if (!openaiConfig?.value) {
+    console.warn('⚠️ [WEBHOOK] Agente de IA ativo, mas a chave mestre da OpenAI não está configurada em /admin.');
+    return;
+  }
+
+  const tenant = await prisma.tenant.findUnique({ where: { id: params.tenantId } });
+  const systemPrompt = buildSystemPrompt(agent, tenant?.pixKey);
+
+  // Últimas mensagens da conversa como histórico — dá contexto pra IA sem
+  // reprocessar a conversa inteira a cada troca.
+  const recentMessages = await prisma.message.findMany({
+    where: { conversationId: params.conversationId },
+    orderBy: { createdAt: 'desc' },
+    take: 20,
+  });
+  const history = recentMessages
+    .reverse()
+    .map(m => ({
+      role: (m.authorType === 'CONTACT' ? 'user' : 'assistant') as 'user' | 'assistant',
+      content: m.content,
+    }));
+
+  const openai = createOpenAI({ apiKey: openaiConfig.value });
+
+  const { text: replyText } = await generateText({
+    model: openai('gpt-4o-mini'),
+    system: systemPrompt,
+    messages: history,
+  });
+
+  if (!replyText?.trim()) return;
+
+  const sendResult = await sendText(params.phoneNumberId, params.accessToken, params.toPhone, replyText);
+  if (!sendResult.success) {
+    console.error('❌ [WEBHOOK] Falha ao enviar resposta da IA via WhatsApp:', sendResult.error);
+    return;
+  }
+
+  await prisma.message.create({
+    data: { conversationId: params.conversationId, authorType: 'AI', content: replyText },
+  });
+  // author: 'Agent' (não 'AI') de propósito — é o valor que a timeline do
+  // Inbox (LeadInboxPanel) reconhece como mensagem enviada por nós, pra
+  // renderizar do lado certo da conversa.
+  await prisma.activity.create({
+    data: { tenantId: params.tenantId, dealId: params.dealId, type: 'MESSAGE', content: replyText, author: 'Agent' },
+  });
 }
 
 // 2. ROTA POST - Recepção de Mensagens (Onde a Mágica Acontece)
