@@ -131,6 +131,37 @@ export async function saveAiAgent(data: SaveAiAgentInput) {
   return agent;
 }
 
+const STATS_PERIOD_DAYS = 30;
+
+// Só as métricas que dá pra calcular com dado real hoje. "Taxa de
+// conversão" fica de fora de propósito: o funil do tenant não tem uma
+// etapa marcada como "ganho"/"fechado" (ver Stage no schema — só tem
+// nome livre, sem flag), então qualquer cálculo de conversão seria
+// inventado. Volta quando existir uma etapa final definida.
+export async function getAiAgentStats() {
+  const tenantId = await requireTenantId();
+  const since = new Date(Date.now() - STATS_PERIOD_DAYS * 24 * 60 * 60 * 1000);
+
+  const [aiMessages, newLeads] = await Promise.all([
+    prisma.message.findMany({
+      where: {
+        authorType: 'AI',
+        createdAt: { gte: since },
+        conversation: { deal: { tenantId } },
+      },
+      select: { conversationId: true },
+    }),
+    prisma.deal.count({ where: { tenantId, createdAt: { gte: since } } }),
+  ]);
+
+  return {
+    periodDays: STATS_PERIOD_DAYS,
+    conversationsTouched: new Set(aiMessages.map(m => m.conversationId)).size,
+    aiMessagesSent: aiMessages.length,
+    newLeads,
+  };
+}
+
 export async function setAiAgentActive(isActive: boolean) {
   const tenantId = await requireTenantId();
 

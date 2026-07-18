@@ -1,13 +1,14 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { Bot, Sparkles, Phone, User, Database, Zap, Settings, RefreshCw, Send, ChevronLeft, Volume2, Maximize, Activity, X, Loader2, Check, ChevronUp, ChevronDown, ShieldAlert, Wrench, KeyRound } from 'lucide-react';
+import { Bot, Sparkles, Phone, User, Database, Zap, Settings, RefreshCw, Send, ChevronLeft, Volume2, Maximize, Activity, X, Loader2, Check, ChevronUp, ChevronDown, ShieldAlert, Wrench, KeyRound, MessageSquare, TrendingUp, Info } from 'lucide-react';
 import {
   getAiAgent,
   saveAiAgent,
   setAiAgentActive,
   getCompanySettings,
   saveCompanySettings,
+  getAiAgentStats,
   type ScriptStepInput,
   type ObjectionInput,
   type KnowledgeSourceInput,
@@ -205,6 +206,10 @@ export default function SalesbotPage() {
   const [isSavingCompany, setIsSavingCompany] = useState(false);
   const [companySaved, setCompanySaved] = useState(false);
 
+  // Painel — métricas reais do agente
+  const [stats, setStats] = useState<{ periodDays: number; conversationsTouched: number; aiMessagesSent: number; newLeads: number } | null>(null);
+  const [statsError, setStatsError] = useState('');
+
   useEffect(() => {
     withRetry(() => getAiAgent()).then(agent => {
       if (agent) {
@@ -247,6 +252,11 @@ export default function SalesbotPage() {
     withRetry(() => getCompanySettings()).then(settings => {
       setPixKey(settings.pixKey);
     }).catch(err => console.error(err));
+
+    withRetry(() => getAiAgentStats()).then(setStats).catch(err => {
+      console.error(err);
+      setStatsError('Não foi possível carregar as métricas.');
+    });
   }, []);
 
   function togglePersonalityTag(tag: string) {
@@ -667,14 +677,70 @@ export default function SalesbotPage() {
             </div>
           )}
 
-          {(activeTab === 'painel' || activeTab === 'acoes' || activeTab === 'integracoes') && (
+          {activeTab === 'painel' && (
+            <div className="max-w-3xl space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+              <div>
+                <h2 className="text-sm font-medium text-zinc-400 mb-1">
+                  {stats ? `Últimos ${stats.periodDays} dias.` : 'Carregando métricas...'}
+                </h2>
+              </div>
+
+              {statsError && (
+                <div className="bg-red-500/10 border border-red-500/30 rounded-xl p-4 text-sm text-red-400">
+                  {statsError}
+                </div>
+              )}
+
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div className="bg-[#111] border border-[#222] p-5 rounded-2xl flex items-center gap-4">
+                  <div className="w-12 h-12 rounded-full bg-indigo-500/10 flex items-center justify-center shrink-0">
+                    <MessageSquare className="size-6 text-indigo-400" />
+                  </div>
+                  <div>
+                    <p className="text-xs text-zinc-400 font-medium">Conversas com a IA</p>
+                    <p className="text-xl font-bold text-white">{stats ? stats.conversationsTouched : '—'}</p>
+                  </div>
+                </div>
+
+                <div className="bg-[#111] border border-[#222] p-5 rounded-2xl flex items-center gap-4">
+                  <div className="w-12 h-12 rounded-full bg-emerald-500/10 flex items-center justify-center shrink-0">
+                    <Bot className="size-6 text-emerald-400" />
+                  </div>
+                  <div>
+                    <p className="text-xs text-zinc-400 font-medium">Mensagens enviadas pela IA</p>
+                    <p className="text-xl font-bold text-white">{stats ? stats.aiMessagesSent : '—'}</p>
+                  </div>
+                </div>
+
+                <div className="bg-[#111] border border-[#222] p-5 rounded-2xl flex items-center gap-4">
+                  <div className="w-12 h-12 rounded-full bg-purple-500/10 flex items-center justify-center shrink-0">
+                    <TrendingUp className="size-6 text-purple-400" />
+                  </div>
+                  <div>
+                    <p className="text-xs text-zinc-400 font-medium">Novos leads no período</p>
+                    <p className="text-xl font-bold text-white">{stats ? stats.newLeads : '—'}</p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex items-start gap-3 bg-[#111] border border-[#222] rounded-xl p-4 text-sm text-zinc-400">
+                <Info className="size-4 text-zinc-500 shrink-0 mt-0.5" />
+                <p>
+                  Taxa de conversão ainda não aparece aqui porque o seu funil não tem uma etapa marcada
+                  como &quot;ganho/fechado&quot; — sem isso o cálculo seria um chute. Se você criar essa etapa
+                  no Pipeline, a gente liga a métrica.
+                </p>
+              </div>
+            </div>
+          )}
+
+          {(activeTab === 'acoes' || activeTab === 'integracoes') && (
             <div className="h-full flex flex-col items-center justify-center text-zinc-500 animate-in fade-in">
               <Database className="size-12 mb-4 opacity-20" />
               <h3 className="text-lg font-bold text-zinc-400">Em Desenvolvimento</h3>
               <p className="text-sm mt-2 max-w-sm text-center">
                 {activeTab === 'acoes' && 'Ferramentas que a IA poderá executar (function calling) — como abrir automaticamente uma Ordem de Serviço rascunho no modo Semiautomático. Próximo passo depois da gestão manual de Ordens de Serviço.'}
                 {activeTab === 'integracoes' && 'Vínculo deste agente com canais específicos (WhatsApp/Instagram) — hoje o agente vale para o workspace inteiro.'}
-                {activeTab === 'painel' && 'Métricas do agente (conversas, taxa de conversão) — ainda não construído.'}
               </p>
             </div>
           )}
