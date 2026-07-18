@@ -333,6 +333,8 @@ model AgentScriptStep {
   order     Int
   title     String
   content   String? // instrução/roteiro que a IA deve seguir nesta etapa
+  mediaType String   @default("TEXT") // "TEXT" | "AUDIO" | "IMAGE" | "VIDEO"
+  mediaUrl  String? // URL pública (bucket agent-media) — obrigatório se mediaType != TEXT
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 

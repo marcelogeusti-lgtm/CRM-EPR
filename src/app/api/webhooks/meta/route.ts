@@ -1,9 +1,10 @@
 import { NextResponse } from 'next/server';
 import crypto from 'node:crypto';
 import { createOpenAI } from '@ai-sdk/openai';
-import { generateText } from 'ai';
+import { generateText, tool, stepCountIs } from 'ai';
+import { z } from 'zod';
 import { prisma } from '@/lib/prisma';
-import { sendText } from '@/lib/whatsapp';
+import { sendText, sendMedia, type SendableMediaType } from '@/lib/whatsapp';
 import { buildSystemPrompt } from '@/lib/agentPrompt';
 
 // A resposta automática da IA (chamada à OpenAI + envio via Meta) pode
@@ -246,10 +247,48 @@ async function maybeSendAiReply(params: {
 
   const openai = createOpenAI({ apiKey: openaiConfig.value });
 
+  // Etapas do script com arquivo anexado (áudio/imagem/vídeo) — viram uma
+  // ferramenta que a IA pode chamar no momento certo da conversa. Sem
+  // etapa com mídia, não passa `tools` — nem precisa da chamada extra.
+  const mediaSteps = agent.scriptSteps.filter(s => s.mediaType !== 'TEXT' && s.mediaUrl);
+  const tools = mediaSteps.length
+    ? {
+        enviarMidiaDaEtapa: tool({
+          description:
+            'Envia pro WhatsApp do lead o arquivo (áudio, imagem ou vídeo) anexado a uma etapa específica do script.',
+          inputSchema: z.object({
+            stepId: z.string().describe('id da etapa cujo arquivo de mídia deve ser enviado'),
+          }),
+          execute: async ({ stepId }: { stepId: string }) => {
+            const step = mediaSteps.find(s => s.id === stepId);
+            if (!step?.mediaUrl) return { success: false, error: 'Etapa não encontrada ou sem mídia.' };
+            const result = await sendMedia(
+              params.phoneNumberId,
+              params.accessToken,
+              params.toPhone,
+              step.mediaType as SendableMediaType,
+              step.mediaUrl
+            );
+            if (result.success) {
+              await prisma.message.create({
+                data: { conversationId: params.conversationId, authorType: 'AI', content: `[${step.mediaType.toLowerCase()}] ${step.title}` },
+              });
+              await prisma.activity.create({
+                data: { tenantId: params.tenantId, dealId: params.dealId, type: 'MESSAGE', content: `[${step.mediaType.toLowerCase()}] ${step.title}`, author: 'Agent' },
+              });
+            }
+            return result;
+          },
+        }),
+      }
+    : undefined;
+
   const { text: replyText } = await generateText({
     model: openai('gpt-4o-mini'),
     system: systemPrompt,
     messages: history,
+    tools,
+    stopWhen: tools ? stepCountIs(3) : undefined,
   });
 
   if (!replyText?.trim()) return;

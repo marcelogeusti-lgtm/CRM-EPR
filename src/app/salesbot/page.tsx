@@ -13,6 +13,7 @@ import {
   type ObjectionInput,
   type KnowledgeSourceInput,
 } from '@/actions/salesbot';
+import { uploadScriptStepMedia } from '@/actions/mediaUpload';
 import { withRetry } from '@/lib/withRetry';
 
 type Tab = 'painel' | 'persona' | 'fontes' | 'acoes' | 'integracoes' | 'configs';
@@ -65,6 +66,18 @@ function StringListEditor({
   );
 }
 
+const MEDIA_ACCEPT: Record<'AUDIO' | 'IMAGE' | 'VIDEO', string> = {
+  AUDIO: 'audio/mpeg,audio/ogg,audio/mp4,audio/wav,audio/webm,audio/aac',
+  IMAGE: 'image/jpeg,image/png,image/webp,image/gif',
+  VIDEO: 'video/mp4,video/quicktime,video/webm',
+};
+
+const MEDIA_LABEL: Record<'AUDIO' | 'IMAGE' | 'VIDEO', string> = {
+  AUDIO: 'Áudio',
+  IMAGE: 'Imagem',
+  VIDEO: 'Vídeo',
+};
+
 function ScriptStepsEditor({
   steps, onChange, addLabel,
 }: {
@@ -72,8 +85,30 @@ function ScriptStepsEditor({
   onChange: (steps: ScriptStepInput[]) => void;
   addLabel: string;
 }) {
+  const [uploadingIdx, setUploadingIdx] = useState<number | null>(null);
+  const [uploadError, setUploadError] = useState<string | null>(null);
+  const fileInputRefs = React.useRef<Record<string, HTMLInputElement | null>>({});
+
+  async function handleFileSelected(idx: number, mediaType: 'AUDIO' | 'IMAGE' | 'VIDEO', file: File) {
+    setUploadError(null);
+    setUploadingIdx(idx);
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      const { url } = await uploadScriptStepMedia(mediaType, formData);
+      onChange(steps.map((s, i) => i === idx ? { ...s, mediaType, mediaUrl: url } : s));
+    } catch (e) {
+      setUploadError(e instanceof Error ? e.message : 'Falha ao enviar o arquivo.');
+    } finally {
+      setUploadingIdx(null);
+    }
+  }
+
   return (
     <div className="space-y-3">
+      {uploadError && (
+        <div className="bg-red-500/10 border border-red-500/30 rounded-lg p-2.5 text-xs text-red-400">{uploadError}</div>
+      )}
       {steps.map((step, idx) => (
         <div key={idx} className="bg-[#161616] border border-[#2a2a2a] rounded-lg p-3 space-y-2">
           <div className="flex items-center gap-2">
@@ -100,9 +135,48 @@ function ScriptStepsEditor({
             placeholder="O que a IA deve fazer/perguntar nesta etapa..."
             className="w-full h-16 bg-[#111] border border-[#2a2a2a] rounded-lg p-2 text-xs text-zinc-400 focus:outline-none focus:border-indigo-500/50 resize-none"
           />
+
+          {step.mediaType !== 'TEXT' && step.mediaUrl ? (
+            <div className="flex items-center gap-2 bg-[#111] border border-[#2a2a2a] rounded-lg p-2 text-xs">
+              <span className="text-emerald-400 font-medium shrink-0">{MEDIA_LABEL[step.mediaType as 'AUDIO' | 'IMAGE' | 'VIDEO']} anexado</span>
+              <a href={step.mediaUrl} target="_blank" rel="noopener noreferrer" className="text-zinc-500 hover:text-zinc-300 truncate flex-1">{step.mediaUrl}</a>
+              <button
+                onClick={() => onChange(steps.map((s, i) => i === idx ? { ...s, mediaType: 'TEXT', mediaUrl: null } : s))}
+                className="text-zinc-500 hover:text-red-400 shrink-0"
+              >
+                <X className="size-3.5" />
+              </button>
+            </div>
+          ) : (
+            <div className="flex items-center gap-2">
+              {(['AUDIO', 'IMAGE', 'VIDEO'] as const).map(mediaType => (
+                <React.Fragment key={mediaType}>
+                  <input
+                    ref={(el) => { fileInputRefs.current[`${idx}-${mediaType}`] = el; }}
+                    type="file"
+                    accept={MEDIA_ACCEPT[mediaType]}
+                    className="hidden"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (file) handleFileSelected(idx, mediaType, file);
+                      e.target.value = '';
+                    }}
+                  />
+                  <button
+                    type="button"
+                    disabled={uploadingIdx === idx}
+                    onClick={() => fileInputRefs.current[`${idx}-${mediaType}`]?.click()}
+                    className="text-[11px] text-zinc-500 hover:text-indigo-400 disabled:opacity-40 font-medium"
+                  >
+                    {uploadingIdx === idx ? 'Enviando...' : `+ ${MEDIA_LABEL[mediaType]}`}
+                  </button>
+                </React.Fragment>
+              ))}
+            </div>
+          )}
         </div>
       ))}
-      <button onClick={() => onChange([...steps, { title: '', content: '' }])} className="text-indigo-400 text-sm hover:text-indigo-300 font-medium">{addLabel}</button>
+      <button onClick={() => onChange([...steps, { title: '', content: '', mediaType: 'TEXT', mediaUrl: null }])} className="text-indigo-400 text-sm hover:text-indigo-300 font-medium">{addLabel}</button>
     </div>
   );
 }
@@ -234,10 +308,10 @@ export default function SalesbotPage() {
         setTypicalExpressions(parseArray(agent.typicalExpressions, []));
 
         setAttendanceSteps(
-          agent.scriptSteps.filter(s => s.type === 'ATENDIMENTO').map(s => ({ title: s.title, content: s.content || '' }))
+          agent.scriptSteps.filter(s => s.type === 'ATENDIMENTO').map(s => ({ title: s.title, content: s.content || '', mediaType: s.mediaType, mediaUrl: s.mediaUrl }))
         );
         setClosingSteps(
-          agent.scriptSteps.filter(s => s.type === 'FECHAMENTO').map(s => ({ title: s.title, content: s.content || '' }))
+          agent.scriptSteps.filter(s => s.type === 'FECHAMENTO').map(s => ({ title: s.title, content: s.content || '', mediaType: s.mediaType, mediaUrl: s.mediaUrl }))
         );
         setObjections(agent.objections.map(o => ({ title: o.title, response: o.response })));
         setKnowledgeSources(agent.knowledgeSources.map(s => ({ title: s.title, content: s.content })));

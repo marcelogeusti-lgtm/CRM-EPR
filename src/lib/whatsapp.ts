@@ -63,3 +63,72 @@ export async function sendText(
     return { success: false, error: 'Falha de rede ao conectar com o WhatsApp.' };
   }
 }
+
+export type SendableMediaType = 'IMAGE' | 'AUDIO' | 'VIDEO';
+
+const MEDIA_TYPE_TO_META_TYPE: Record<SendableMediaType, string> = {
+  IMAGE: 'image',
+  AUDIO: 'audio',
+  VIDEO: 'video',
+};
+
+/**
+ * Envia um arquivo (imagem/áudio/vídeo) via WhatsApp Cloud API, referenciado
+ * por URL pública (bucket agent-media) — mais simples do que fazer upload
+ * prévio pra Meta e usar um media id. Mesma janela de 24h do sendText.
+ * Áudio não aceita "caption" na API da Meta, por isso o campo é opcional.
+ */
+export async function sendMedia(
+  phoneNumberId: string,
+  accessToken: string,
+  to: string,
+  mediaType: SendableMediaType,
+  mediaUrl: string,
+  caption?: string
+): Promise<SendTextResult> {
+  const cleanPhone = to.replace(/\D/g, '');
+  const metaType = MEDIA_TYPE_TO_META_TYPE[mediaType];
+
+  try {
+    const response = await fetch(
+      `https://graph.facebook.com/${META_API_VERSION}/${phoneNumberId}/messages`,
+      {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          messaging_product: 'whatsapp',
+          to: cleanPhone,
+          type: metaType,
+          [metaType]: {
+            link: mediaUrl,
+            ...(metaType !== 'audio' && caption ? { caption } : {}),
+          },
+        }),
+      }
+    );
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      const errorCode = data?.error?.code;
+      if (errorCode === 131047 || errorCode === 470) {
+        return {
+          success: false,
+          error: 'Janela de 24h expirada: envie um template aprovado (HSM) para retomar a conversa.',
+        };
+      }
+      return {
+        success: false,
+        error: data?.error?.message || 'Falha ao enviar mídia via WhatsApp.',
+      };
+    }
+
+    return { success: true, messageId: data?.messages?.[0]?.id };
+  } catch (error) {
+    console.error('❌ [WHATSAPP] Falha de rede ao enviar mídia:', error);
+    return { success: false, error: 'Falha de rede ao conectar com o WhatsApp.' };
+  }
+}

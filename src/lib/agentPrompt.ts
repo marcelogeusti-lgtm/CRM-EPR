@@ -49,13 +49,20 @@ export function buildSystemPrompt(agent: AiAgentWithScript, pixKey?: string | nu
     sections.push(`Regras de ouro:\n${directives.map(d => `- ${d}`).join('\n')}`);
   }
 
+  const describeStep = (s: AgentScriptStep, i: number) => {
+    const mediaNote = s.mediaType !== 'TEXT' && s.mediaUrl
+      ? ` [tem um arquivo de ${s.mediaType.toLowerCase()} anexado — use a ferramenta enviarMidiaDaEtapa com stepId "${s.id}" pra mandar esse arquivo no momento certo desta etapa]`
+      : '';
+    return `${i + 1}. ${s.title}${s.content ? `: ${s.content}` : ''}${mediaNote}`;
+  };
+
   const attendanceSteps = agent.scriptSteps
     .filter(s => s.type === 'ATENDIMENTO')
     .sort((a, b) => a.order - b.order);
   if (attendanceSteps.length) {
     sections.push(
       `Script de atendimento — siga estas etapas, nesta ordem, conforme a conversa evoluir:\n${attendanceSteps
-        .map((s, i) => `${i + 1}. ${s.title}${s.content ? `: ${s.content}` : ''}`)
+        .map(describeStep)
         .join('\n')}`
     );
   }
@@ -66,7 +73,7 @@ export function buildSystemPrompt(agent: AiAgentWithScript, pixKey?: string | nu
   if (closingSteps.length) {
     sections.push(
       `Script de fechamento — quando o lead estiver pronto para comprar, siga:\n${closingSteps
-        .map((s, i) => `${i + 1}. ${s.title}${s.content ? `: ${s.content}` : ''}`)
+        .map(describeStep)
         .join('\n')}`
     );
   }

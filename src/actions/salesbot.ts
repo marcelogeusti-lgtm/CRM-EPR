@@ -34,6 +34,8 @@ export async function saveCompanySettings(data: { pixKey: string }) {
 export interface ScriptStepInput {
   title: string;
   content: string;
+  mediaType: string; // 'TEXT' | 'AUDIO' | 'IMAGE' | 'VIDEO'
+  mediaUrl: string | null;
 }
 
 export interface ObjectionInput {
@@ -99,6 +101,8 @@ export async function saveAiAgent(data: SaveAiAgentInput) {
           order: i,
           title: step.title,
           content: step.content,
+          mediaType: step.mediaType,
+          mediaUrl: step.mediaUrl,
         })),
         ...data.closingSteps.map((step, i) => ({
           aiAgentId: agent.id,
@@ -106,6 +110,8 @@ export async function saveAiAgent(data: SaveAiAgentInput) {
           order: i,
           title: step.title,
           content: step.content,
+          mediaType: step.mediaType,
+          mediaUrl: step.mediaUrl,
         })),
       ],
     }),
