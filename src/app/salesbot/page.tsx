@@ -683,11 +683,11 @@ export default function SalesbotPage() {
       </div>
 
       {/* Right Area (Simulator) */}
-      <div className="w-[400px] bg-[#111] border-l border-[#222] p-6 flex flex-col shrink-0 relative overflow-hidden">
+      <div className="w-[400px] bg-[#111] border-l border-[#222] p-6 flex flex-col shrink-0 relative overflow-hidden overflow-y-auto custom-scrollbar">
         {/* Background glow */}
         <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-indigo-600/5 blur-[120px] pointer-events-none rounded-full" />
 
-        <div className="flex items-center justify-between mb-6 relative z-10">
+        <div className="flex items-center justify-between mb-6 relative z-10 shrink-0">
           <div className="flex items-center gap-2">
             <Sparkles className="size-5 text-indigo-400" />
             <h2 className="font-bold text-zinc-100">Simulador</h2>
@@ -701,8 +701,8 @@ export default function SalesbotPage() {
           </button>
         </div>
 
-        {/* iPhone Frame */}
-        <div className="relative flex-1 bg-white rounded-[40px] shadow-2xl overflow-hidden border-[8px] border-[#222] flex flex-col z-10 mx-2">
+        {/* iPhone Frame — tamanho fixo de celular real, não esticado pra altura da tela */}
+        <div className="relative w-[300px] h-[640px] max-h-full mx-auto my-auto shrink-0 bg-white rounded-[40px] shadow-2xl overflow-hidden border-[8px] border-[#222] flex flex-col z-10">
 
           {/* Notch */}
           <div className="absolute top-0 inset-x-0 h-6 flex justify-center z-50">
