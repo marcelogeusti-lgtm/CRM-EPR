@@ -89,11 +89,10 @@ export default async function AdminDashboardPage() {
               <label className="text-sm font-bold text-zinc-300 block">OpenAI API Key (ChatGPT Motor)</label>
               <div className="flex flex-col sm:flex-row gap-3 md:gap-4">
                 <div className="relative flex-1">
-                  <input 
+                  <input
                     type="password"
                     name="openai_key"
-                    defaultValue={openAiKeyConfig?.value || ''}
-                    placeholder="sk-proj-..."
+                    placeholder={openAiKeyConfig ? 'Preenchido — digite uma nova chave pra trocar' : 'sk-proj-...'}
                     className="w-full bg-[#161616] border border-[#333] rounded-lg px-4 py-3 text-sm text-zinc-300 focus:outline-none focus:border-orange-500/50 font-mono tracking-widest"
                   />
                   {openAiKeyConfig && (

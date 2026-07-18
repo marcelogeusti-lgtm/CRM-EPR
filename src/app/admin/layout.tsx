@@ -1,11 +1,23 @@
 import React from 'react';
+import { redirect } from 'next/navigation';
 import { Database, ShieldAlert, KeyRound, Users, LayoutDashboard, Settings, Menu } from 'lucide-react';
+import { requireAdmin } from '@/lib/auth';
 
-export default function AdminLayout({
+export default async function AdminLayout({
   children,
 }: {
   children: React.ReactNode
 }) {
+  // Painel de controle da plataforma inteira (chave mestre da OpenAI,
+  // contagem de todos os tenants). Sem essa checagem, qualquer usuário
+  // logado — de qualquer tenant, com papel AGENT — conseguia abrir /admin
+  // e ler/trocar a chave mestre de todo mundo.
+  try {
+    await requireAdmin();
+  } catch {
+    redirect('/dashboard');
+  }
+
   return (
     <div className="flex flex-col md:flex-row h-screen bg-[#000000] text-zinc-300 font-sans">
       
