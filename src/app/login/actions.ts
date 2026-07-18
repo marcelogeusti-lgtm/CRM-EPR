@@ -43,6 +43,15 @@ export async function signup(formData: FormData) {
     return { error: error.message }
   }
 
+  // Quando o e-mail já tem conta confirmada, o Supabase NÃO retorna erro —
+  // por design, pra não revelar quais e-mails já estão cadastrados, ele
+  // devolve um `data.user` "fake" com `identities: []` (nenhuma identidade
+  // de fato vinculada). Sem checar isso, criávamos um Tenant+User órfão pra
+  // esse id fake, que nunca bate com nenhuma sessão real de login.
+  if (data.user && data.user.identities?.length === 0) {
+    return { error: 'Este e-mail já está cadastrado. Faça login em vez de criar uma conta nova.' }
+  }
+
   // Cada cadastro cria seu PRÓPRIO workspace (tenant) e entra como ADMIN dele.
   // É isso que garante o isolamento multi-tenant: nada de colar todo mundo
   // no "primeiro tenant". Convites de funcionários para um workspace
