@@ -3,6 +3,7 @@
 import React, { useEffect, useState } from 'react';
 import { Bot, Zap, Loader2, Info } from 'lucide-react';
 import { getStageAutomations, setStageAutomation } from '@/actions/automations';
+import { withRetry } from '@/lib/withRetry';
 import Link from 'next/link';
 
 interface StageWithAutomation {
@@ -20,7 +21,7 @@ export default function AutomationsPage() {
   const [savingStageId, setSavingStageId] = useState<string | null>(null);
 
   useEffect(() => {
-    getStageAutomations()
+    withRetry(() => getStageAutomations())
       .then(({ stages, hasN8nWebhook }) => {
         setStages(stages as StageWithAutomation[]);
         setHasN8nWebhook(hasN8nWebhook);

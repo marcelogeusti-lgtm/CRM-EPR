@@ -12,6 +12,7 @@ import {
   type ObjectionInput,
   type KnowledgeSourceInput,
 } from '@/actions/salesbot';
+import { withRetry } from '@/lib/withRetry';
 
 type Tab = 'painel' | 'persona' | 'fontes' | 'acoes' | 'integracoes' | 'configs';
 
@@ -205,7 +206,7 @@ export default function SalesbotPage() {
   const [companySaved, setCompanySaved] = useState(false);
 
   useEffect(() => {
-    getAiAgent().then(agent => {
+    withRetry(() => getAiAgent()).then(agent => {
       if (agent) {
         setIsAgentActive(agent.isActive);
         setPersona(agent.systemPrompt || DEFAULT_PERSONA);
@@ -243,7 +244,7 @@ export default function SalesbotPage() {
       setIsLoadingAgent(false);
     });
 
-    getCompanySettings().then(settings => {
+    withRetry(() => getCompanySettings()).then(settings => {
       setPixKey(settings.pixKey);
     }).catch(err => console.error(err));
   }, []);

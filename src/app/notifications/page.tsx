@@ -3,6 +3,7 @@
 import React, { useEffect, useState } from 'react';
 import { Bell, UserPlus, MessageCircle, AlarmClock, Loader2 } from 'lucide-react';
 import { getNotifications, type NotificationItem } from '@/actions/notifications';
+import { withRetry } from '@/lib/withRetry';
 import { formatDistanceToNow } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import Link from 'next/link';
@@ -16,12 +17,16 @@ const ICONS = {
 export default function NotificationsPage() {
   const [items, setItems] = useState<NotificationItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState('');
 
   useEffect(() => {
-    getNotifications().then(data => {
-      setItems(data);
-      setIsLoading(false);
-    });
+    withRetry(() => getNotifications())
+      .then(data => setItems(data))
+      .catch(err => {
+        console.error(err);
+        setError('Não foi possível carregar as notificações. Tente recarregar a página.');
+      })
+      .finally(() => setIsLoading(false));
   }, []);
 
   return (
@@ -35,11 +40,17 @@ export default function NotificationsPage() {
           </div>
         </div>
 
+        {error && (
+          <div className="bg-red-500/10 border border-red-500/30 rounded-xl p-4 text-sm text-red-400">
+            {error}
+          </div>
+        )}
+
         {isLoading ? (
           <div className="flex justify-center py-12">
             <Loader2 className="size-6 animate-spin text-zinc-600" />
           </div>
-        ) : items.length === 0 ? (
+        ) : error ? null : items.length === 0 ? (
           <p className="text-sm text-zinc-600 text-center py-12">Nenhuma novidade por aqui.</p>
         ) : (
           <div className="space-y-2">

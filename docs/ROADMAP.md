@@ -586,3 +586,41 @@ do sistema — é a mudança mais sensível desta sessão. Testado localmente
 sem erro de console/servidor antes de subir; não foi possível testar o
 caminho autenticado (sem credenciais neste ambiente) — pedido ao Marcelo
 pra validar navegação real assim que o deploy confirmar.
+
+## Rede de segurança no navegador (2026-07-17, mesmo dia)
+
+Depois de várias rodadas de "consertei" que não se sustentaram, o
+Marcelo pediu explicitamente pra eu parar de aplicar patch reativo e
+montar um plano — combinado: (1) rede de segurança na tela agora, (2)
+diagnóstico com dado real em paralelo (log já em produção, ver acima),
+(3) nada de "declarar resolvido" sem horas de dado limpo.
+
+Implementada a parte 1: `src/lib/withRetry.ts` — helper que, se uma
+chamada assíncrona rejeitar, espera ~800ms e tenta de novo UMA vez antes
+de propagar o erro. Roda no **navegador** (client component), então é
+uma requisição HTTP nova de verdade — ao contrário da retentativa que eu
+tinha colocado antes dentro do `getCurrentUser()` (server), que a
+descoberta da memoização de `fetch()` do Next.js explica por que
+provavelmente nunca funcionou.
+
+Aplicado nas 7 telas que buscam dado ao montar via `useEffect`:
+Início, Automações, Painel (`/insights`), Configurações
+(`/integrations`), Notificações, Feedback, Agente de IA (`/salesbot`,
+2 chamadas). De quebra, **Notificações e Feedback não tinham tratamento
+de erro nenhum** — se a chamada falhasse, ficavam com o spinner girando
+pra sempre (o mesmo bug original de 2026-07-15, nunca corrigido nessas
+duas). Agora seguem o mesmo padrão das outras: banner de erro visível
+em vez de travar.
+
+Efeito esperado na prática: mesmo que a corrida de sessão ainda não
+esteja 100% eliminada, o usuário não deve mais VER o erro — na pior das
+hipóteses, a tela demora ~800ms a mais pra carregar. Isso não substitui
+a correção de causa raiz (item anterior), é uma camada adicional de
+defesa que não depende de eu ter acertado o diagnóstico exato.
+
+`/pipeline`, `/calendar`, `/lists`, `/inbox`, `/service-orders` (Server
+Components) não receberam esse tratamento — já falham de forma mais
+branda (lista vazia silenciosa, não banner de erro) porque `getLeads()`/
+`getTasks()` etc. já engolem o erro internamente; e um retry ali cairia
+na mesma memoização de `fetch()` do server, sendo inútil pelo mesmo
+motivo. Cobertos pela correção estrutural do header, não por retry.

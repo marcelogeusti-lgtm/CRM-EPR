@@ -3,6 +3,7 @@
 import React, { useEffect, useState } from 'react';
 import { MessageCircle, Bot, CheckCircle2, UserPlus, Loader2, Radio } from 'lucide-react';
 import { getInsightsStats } from '@/actions/insights';
+import { withRetry } from '@/lib/withRetry';
 
 interface InsightsStats {
   periodDays: number;
@@ -40,7 +41,7 @@ export default function InsightsPage() {
   const [error, setError] = useState('');
 
   useEffect(() => {
-    getInsightsStats()
+    withRetry(() => getInsightsStats())
       .then(data => setStats(data as InsightsStats))
       .catch(err => {
         console.error(err);

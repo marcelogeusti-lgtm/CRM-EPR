@@ -4,6 +4,7 @@ import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { Bot, MessageCircle, TrendingUp, Users, ArrowRight, CheckCircle2, Circle, Loader2 } from 'lucide-react';
 import { getDashboardStats } from '@/actions/dashboard';
+import { withRetry } from '@/lib/withRetry';
 
 interface DashboardStats {
   userName: string;
@@ -63,7 +64,7 @@ export default function DashboardPage() {
   const [error, setError] = useState('');
 
   useEffect(() => {
-    getDashboardStats()
+    withRetry(() => getDashboardStats())
       .then(data => setStats(data as DashboardStats))
       .catch(err => {
         console.error(err);

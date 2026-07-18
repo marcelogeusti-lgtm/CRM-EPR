@@ -5,6 +5,7 @@ import { Search, Puzzle, Star, Zap, MessageCircle, Phone, CreditCard, Box, Setti
 import { clsx } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 import { saveIntegration, getIntegrations } from '@/actions/integrations';
+import { withRetry } from '@/lib/withRetry';
 
 function cn(...inputs: any[]) {
   return twMerge(clsx(inputs));
@@ -130,7 +131,7 @@ export default function IntegrationsPage() {
   const [loadError, setLoadError] = useState('');
 
   useEffect(() => {
-    getIntegrations()
+    withRetry(() => getIntegrations())
       .then(data => setInstalledApps(data))
       .catch(err => {
         console.error(err);

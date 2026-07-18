@@ -3,6 +3,7 @@
 import React, { useEffect, useState } from 'react';
 import { MessageSquarePlus, Bug, Lightbulb, Loader2, Send } from 'lucide-react';
 import { getFeedbacks, createFeedback } from '@/actions/feedback';
+import { withRetry } from '@/lib/withRetry';
 import { formatDistanceToNow } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
@@ -28,14 +29,16 @@ export default function FeedbackPage() {
   const [isSending, setIsSending] = useState(false);
   const [feedbacks, setFeedbacks] = useState<FeedbackItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState('');
 
   useEffect(() => {
-    async function loadFeedbacks() {
-      const data = await getFeedbacks();
-      setFeedbacks(data as unknown as FeedbackItem[]);
-      setIsLoading(false);
-    }
-    loadFeedbacks();
+    withRetry(() => getFeedbacks())
+      .then(data => setFeedbacks(data as unknown as FeedbackItem[]))
+      .catch(err => {
+        console.error(err);
+        setLoadError('Não foi possível carregar os feedbacks. Tente recarregar a página.');
+      })
+      .finally(() => setIsLoading(false));
   }, []);
 
   async function handleSubmit(e: React.FormEvent) {
@@ -62,6 +65,12 @@ export default function FeedbackPage() {
           <h1 className="text-2xl font-bold tracking-tight">Feedback</h1>
           <p className="text-zinc-500 text-sm mt-1">Mande sugestões ou reporte problemas do Nexus CRM.</p>
         </div>
+
+        {loadError && (
+          <div className="bg-red-500/10 border border-red-500/30 rounded-xl p-4 text-sm text-red-400">
+            {loadError}
+          </div>
+        )}
 
         <form onSubmit={handleSubmit} className="bg-[#141414] border border-[#262626] rounded-xl p-5 space-y-4">
           <div className="flex gap-2">
