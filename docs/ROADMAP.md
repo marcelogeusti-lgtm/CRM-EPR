@@ -618,9 +618,27 @@ hipóteses, a tela demora ~800ms a mais pra carregar. Isso não substitui
 a correção de causa raiz (item anterior), é uma camada adicional de
 defesa que não depende de eu ter acertado o diagnóstico exato.
 
-`/pipeline`, `/calendar`, `/lists`, `/inbox`, `/service-orders` (Server
-Components) não receberam esse tratamento — já falham de forma mais
-branda (lista vazia silenciosa, não banner de erro) porque `getLeads()`/
-`getTasks()` etc. já engolem o erro internamente; e um retry ali cairia
-na mesma memoização de `fetch()` do server, sendo inútil pelo mesmo
-motivo. Cobertos pela correção estrutural do header, não por retry.
+`/pipeline`, `/calendar`, `/lists`, `/inbox` (Server Components) não
+receberam esse tratamento — já falham de forma mais branda (lista vazia
+silenciosa, não crash) porque `getLeads()`/`getTasks()` etc. já engolem
+o erro internamente; um retry ali cairia na mesma memoização de
+`fetch()` do server, sendo inútil pelo mesmo motivo.
+
+**Correção**: essa suposição estava **errada pra `/service-orders`**. O
+Marcelo reportou a tela genérica e feia do Next.js ("This page couldn't
+load") em todas as abas — o dígito do erro (`2376517380`) batia exatamente
+com o mesmo `UNAUTHENTICATED` de sempre. Diferença: `getServiceOrders()`
+e `getEmployees()` (escritos nesta mesma sessão) **não engolem o erro
+internamente** como `getLeads()`/`getTasks()` fazem — deixam
+`requireTenantId()` estourar, e `service-orders/page.tsx` não tinha
+try/catch nenhum. Sem um `error.tsx`, qualquer estouro não tratado numa
+Server Component vira a tela genérica do próprio Next.js, não a nossa.
+
+**Correção aplicada — sistêmica, não só pra essa página:** criado
+`src/app/error.tsx` (convenção do App Router: captura qualquer erro não
+tratado na renderização de qualquer página do app, mostra fallback
+próprio com botão "Tentar novamente" via `unstable_retry()` — prop nova
+do Next.js 16.2, confirmado lendo
+`node_modules/next/dist/docs/.../error.md`). Cobre `/service-orders` e
+qualquer outra página que algum dia tiver o mesmo tipo de buraco, sem
+precisar de try/catch individual em cada uma.
