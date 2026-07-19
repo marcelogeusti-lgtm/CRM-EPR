@@ -2,6 +2,7 @@ import { prisma } from '@/lib/prisma';
 import type { AutomationFlow, AutomationFlowNode, AutomationFlowEdge } from '@prisma/client';
 import { sendText, sendMedia, type SendableMediaType } from '@/lib/whatsapp';
 import { sendAiAgentReply, type AiReplyContext } from '@/lib/aiReply';
+import { addTagToContact } from '@/lib/tags';
 
 type FlowWithGraph = AutomationFlow & { nodes: AutomationFlowNode[]; edges: AutomationFlowEdge[] };
 
@@ -125,19 +126,6 @@ async function recordOutbound(context: RunFlowContext, content: string) {
   });
   await prisma.activity.create({
     data: { tenantId: context.tenantId, dealId: context.dealId, type: 'MESSAGE', content, author: 'Agent' },
-  });
-}
-
-async function addTagToContact(tenantId: string, contactId: string, tagName: string) {
-  const tag = await prisma.tag.upsert({
-    where: { tenantId_name: { tenantId, name: tagName } },
-    update: {},
-    create: { tenantId, name: tagName },
-  });
-  await prisma.tagsOnContacts.upsert({
-    where: { contactId_tagId: { contactId, tagId: tag.id } },
-    update: {},
-    create: { contactId, tagId: tag.id },
   });
 }
 

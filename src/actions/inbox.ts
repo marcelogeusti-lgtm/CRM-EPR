@@ -3,6 +3,7 @@
 import { prisma } from '@/lib/prisma';
 import { getCurrentUser } from '@/lib/auth';
 import { sendText } from '@/lib/whatsapp';
+import { addTagToContact, removeTagFromContact } from '@/lib/tags';
 import { revalidatePath } from 'next/cache';
 
 
@@ -150,4 +151,43 @@ export async function addInternalNote(dealId: string, content: string, type: 'NO
 
   revalidatePath('/inbox');
   revalidatePath('/pipeline');
+}
+
+export async function getContactTags(contactId: string) {
+  const tenantId = await getDefaultTenant();
+  if (!tenantId) throw new Error('Tenant não encontrado');
+
+  const rows = await prisma.tagsOnContacts.findMany({
+    where: { contactId, tag: { tenantId } },
+    include: { tag: true },
+  });
+  return rows.map(r => ({ id: r.tag.id, name: r.tag.name, color: r.tag.color }));
+}
+
+export async function addContactTag(contactId: string, tagName: string) {
+  const tenantId = await getDefaultTenant();
+  if (!tenantId) throw new Error('Tenant não encontrado');
+
+  const trimmed = tagName.trim();
+  if (!trimmed) throw new Error('Nome da tag não pode ser vazio.');
+
+  // Confere que o contato é deste tenant antes de marcar — sem isso,
+  // alguém poderia passar um contactId de outro tenant.
+  const contact = await prisma.contact.findFirst({ where: { id: contactId, tenantId } });
+  if (!contact) throw new Error('Contato não encontrado.');
+
+  await addTagToContact(tenantId, contactId, trimmed);
+  revalidatePath('/inbox');
+  return getContactTags(contactId);
+}
+
+export async function removeContactTag(contactId: string, tagId: string) {
+  const tenantId = await getDefaultTenant();
+  if (!tenantId) throw new Error('Tenant não encontrado');
+
+  const contact = await prisma.contact.findFirst({ where: { id: contactId, tenantId } });
+  if (!contact) throw new Error('Contato não encontrado.');
+
+  await removeTagFromContact(contactId, tagId);
+  revalidatePath('/inbox');
 }

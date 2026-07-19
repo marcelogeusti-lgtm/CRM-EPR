@@ -1,10 +1,10 @@
 'use client';
 
 import React, { useState, useEffect, useRef } from 'react';
-import { X, Send, Bot, Check, MoreVertical, Phone, Paperclip, Mic } from 'lucide-react';
+import { X, Send, Bot, Check, MoreVertical, Phone, Paperclip, Mic, Tag as TagIcon, Plus } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { getDealActivities, sendMessage, addInternalNote } from '@/actions/inbox';
+import { getDealActivities, sendMessage, addInternalNote, getContactTags, addContactTag, removeContactTag } from '@/actions/inbox';
 
 interface LeadInboxPanelProps {
   deal: any;
@@ -20,6 +20,11 @@ export function LeadInboxPanel({ deal, onClose }: LeadInboxPanelProps) {
   const [inputMode, setInputMode] = useState<InputMode>('MESSAGE');
   const [aiEnabled, setAiEnabled] = useState(false); // IA Toggle State
   const scrollRef = useRef<HTMLDivElement>(null);
+
+  const [tags, setTags] = useState<{ id: string; name: string; color: string | null }[]>([]);
+  const [isAddingTag, setIsAddingTag] = useState(false);
+  const [newTagInput, setNewTagInput] = useState('');
+  const [tagError, setTagError] = useState('');
 
   useEffect(() => {
     async function fetchActivities() {
@@ -42,6 +47,40 @@ export function LeadInboxPanel({ deal, onClose }: LeadInboxPanelProps) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
   }, [activities]);
+
+  useEffect(() => {
+    if (!deal?.contact?.id) {
+      setTags([]);
+      return;
+    }
+    getContactTags(deal.contact.id).then(setTags).catch(err => console.error(err));
+  }, [deal?.contact?.id]);
+
+  async function handleAddTag() {
+    const name = newTagInput.trim();
+    if (!name || !deal?.contact?.id) return;
+    setIsAddingTag(true);
+    setTagError('');
+    try {
+      const updated = await addContactTag(deal.contact.id, name);
+      setTags(updated);
+      setNewTagInput('');
+    } catch (e) {
+      setTagError(e instanceof Error ? e.message : 'Falha ao adicionar tag.');
+    } finally {
+      setIsAddingTag(false);
+    }
+  }
+
+  async function handleRemoveTag(tagId: string) {
+    if (!deal?.contact?.id) return;
+    setTags(prev => prev.filter(t => t.id !== tagId));
+    try {
+      await removeContactTag(deal.contact.id, tagId);
+    } catch (e) {
+      console.error(e);
+    }
+  }
 
   async function handleSend() {
     if (!message.trim()) return;
@@ -128,6 +167,34 @@ export function LeadInboxPanel({ deal, onClose }: LeadInboxPanelProps) {
           <span className="text-[10px] uppercase tracking-widest text-zinc-500 font-bold block mb-1">Valor</span>
           <span className="text-sm font-bold text-emerald-400">R$ {deal.value?.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
         </div>
+      </div>
+
+      <div className="px-4 py-3 border-b border-[#262626] bg-[#0a0a0a]">
+        <div className="flex items-center gap-2 flex-wrap">
+          <TagIcon className="size-3.5 text-zinc-500 shrink-0" />
+          {tags.map(tag => (
+            <span key={tag.id} className="flex items-center gap-1 bg-indigo-500/10 border border-indigo-500/30 text-indigo-300 text-[11px] font-medium px-2 py-1 rounded-full">
+              {tag.name}
+              <button onClick={() => handleRemoveTag(tag.id)} className="text-indigo-400/70 hover:text-red-400">
+                <X className="size-3" />
+              </button>
+            </span>
+          ))}
+          <input
+            value={newTagInput}
+            onChange={(e) => setNewTagInput(e.target.value)}
+            onKeyDown={(e) => e.key === 'Enter' && handleAddTag()}
+            placeholder="+ tag"
+            disabled={isAddingTag}
+            className="bg-transparent text-[11px] text-zinc-300 placeholder:text-zinc-600 focus:outline-none w-16 focus:w-24 transition-all"
+          />
+          {newTagInput.trim() && (
+            <button onClick={handleAddTag} disabled={isAddingTag} className="text-indigo-400 hover:text-indigo-300 disabled:opacity-50">
+              <Plus className="size-3.5" />
+            </button>
+          )}
+        </div>
+        {tagError && <p className="text-[10px] text-red-400 mt-1">{tagError}</p>}
       </div>
 
       <div ref={scrollRef} className="flex-1 overflow-y-auto p-4 flex flex-col gap-4 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] bg-repeat opacity-[0.03]" style={{ backgroundColor: '#0a0a0a' }}>
