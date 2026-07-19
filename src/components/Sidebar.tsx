@@ -71,7 +71,7 @@ export function Sidebar({ isOpen = false, onClose = () => {}, user = null }: { i
   ];
 
   const bottomItems = [
-    { name: 'Configurações', href: '/integrations', icon: Settings },
+    { name: 'Integrações', href: '/integrations', icon: Settings },
     { name: 'Ajuda', href: '/help', icon: HelpCircle, hasArrow: true },
     { name: 'Enviar feedback', href: '/feedback', icon: Heart },
     { name: 'Notificações', href: '/notifications', icon: Bell },

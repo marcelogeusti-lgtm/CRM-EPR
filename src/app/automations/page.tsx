@@ -251,7 +251,10 @@ export default function AutomationsPage() {
 
             <div className="mb-6 flex items-start gap-3 bg-indigo-500/5 border border-indigo-500/20 rounded-xl p-4 text-sm text-zinc-400 max-w-2xl">
               <Info className="size-4 text-indigo-400 shrink-0 mt-0.5" />
-              Abaixo continuam as regras rápidas por etapa do funil (mais simples, sem canvas).
+              Abaixo continuam as regras rápidas por etapa do funil — mais simples que um Fluxo
+              (sem canvas, só liga/desliga). "Ativar Agente de IA" aqui é o mesmo interruptor global
+              do botão em Agente de IA → Persona; esta regra só liga ele automaticamente quando um
+              negócio entra na etapa.
             </div>
 
             {flowsError && (
@@ -304,7 +307,7 @@ export default function AutomationsPage() {
                             </div>
                             <div>
                               <p className="text-sm font-semibold text-zinc-300">Ativar Agente de IA</p>
-                              <span className="text-[10px] text-zinc-500 uppercase font-bold tracking-widest mt-1 block">Ao entrar na etapa</span>
+                              <span className="text-[10px] text-zinc-500 uppercase font-bold tracking-widest mt-1 block">Mesmo interruptor global · liga ao entrar na etapa</span>
                             </div>
                           </label>
 

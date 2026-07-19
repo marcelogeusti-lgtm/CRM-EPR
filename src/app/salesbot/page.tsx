@@ -480,6 +480,11 @@ export default function SalesbotPage() {
             </button>
           </div>
 
+          <p className="text-[11px] text-zinc-600 -mt-4 mb-4">
+            Este é o interruptor global — também pode ser ligado automaticamente por uma regra de
+            etapa (Automações → Fluxos → Regras rápidas) ou por um Fluxo que termine em &quot;IA Assume&quot;.
+          </p>
+
           {/* Sub Navigation */}
           <div className="flex gap-6 overflow-x-auto custom-scrollbar">
             {tabs.map(tab => (
