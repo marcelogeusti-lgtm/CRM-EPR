@@ -873,3 +873,21 @@ passou limpa, mas o teste ponta a ponta no WhatsApp real depende dele.
   só reforçado na diretiva) — não é "livre" de verdade, é grounded.
   Migration `20260720190000_sent_script_blocks`. Verificado com
   `tsc`+`build`; teste ponta a ponta real via WhatsApp ainda pendente.
+- **Inbox não enviava foto/áudio/vídeo**: o Marcelo notou que os botões
+  de anexo e microfone no `LeadInboxPanel` só existiam visualmente —
+  `onClick` era `alert('em breve!')`. Implementado de verdade:
+  `sendMediaMessage()` novo em `src/actions/inbox.ts` (espelha
+  `sendMessage()`, mesma checagem de janela de 24h), reaproveita
+  `uploadScriptStepMedia` pro upload. Mensagens de mídia passaram a usar
+  o formato `[MEDIA:TIPO]url` no `content` (em vez de só `[audio]` sem
+  URL) pra o Inbox conseguir renderizar inline (img/audio/video) — o
+  histórico que volta pro prompt da IA (`aiReply.ts`) filtra esse
+  prefixo de volta pra `[tipo]`, sem poluir o contexto com URL longa.
+  **Achado, não corrigido**: o webhook (`src/app/api/webhooks/meta`) só
+  processa `msg.type === 'text'` — se o lead manda foto/áudio pro
+  WhatsApp da empresa, a mensagem é descartada silenciosamente, nunca
+  aparece no Inbox. Precisa resolver `media_id` da Meta (chamada extra
+  na Graph API pra virar URL temporária) e baixar/re-hospedar antes de
+  expirar. Não corrigido nesta sessão — fora do escopo do que foi
+  pedido (enviar, não receber); avisado ao Marcelo, decisão de priorizar
+  fica com ele.
