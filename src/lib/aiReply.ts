@@ -41,7 +41,15 @@ export async function sendAiAgentReply(params: AiReplyContext) {
   }
 
   const tenant = await prisma.tenant.findUnique({ where: { id: params.tenantId } });
-  const systemPrompt = buildSystemPrompt(agent, tenant?.pixKey);
+  const sentBlockIds = new Set(
+    (
+      await prisma.sentScriptBlock.findMany({
+        where: { conversationId: params.conversationId },
+        select: { blockId: true },
+      })
+    ).map(r => r.blockId)
+  );
+  const systemPrompt = buildSystemPrompt(agent, tenant?.pixKey, sentBlockIds);
 
   // Últimas mensagens da conversa como histórico — dá contexto pra IA sem
   // reprocessar a conversa inteira a cada troca.
@@ -96,6 +104,11 @@ export async function sendAiAgentReply(params: AiReplyContext) {
               });
               await prisma.activity.create({
                 data: { tenantId: params.tenantId, dealId: params.dealId, type: 'MESSAGE', content: logContent, author: 'Agent' },
+              });
+              await prisma.sentScriptBlock.upsert({
+                where: { conversationId_blockId: { conversationId: params.conversationId, blockId: block.id } },
+                update: {},
+                create: { conversationId: params.conversationId, blockId: block.id },
               });
             }
             return result;

@@ -195,6 +195,7 @@ model Conversation {
   deal     Deal      @relation(fields: [dealId], references: [id], onDelete: Cascade)
   channel  Channel   @relation(fields: [channelId], references: [id], onDelete: Restrict)
   messages Message[]
+  sentScriptBlocks SentScriptBlock[]
 }
 
 model Message {
@@ -359,6 +360,23 @@ model AgentScriptStepBlock {
   createdAt DateTime @default(now())
 
   step AgentScriptStep @relation(fields: [stepId], references: [id], onDelete: Cascade)
+  sentRecords SentScriptBlock[]
+}
+
+// Marca quais blocos já foram enviados em qual conversa — a IA usa isso
+// pra saber o que já mandou e o que ainda falta avançar no funil, em vez
+// de só inferir pelo histórico de mensagens (que fica pouco confiável
+// quando o prompt já tem os dois scripts inteiros + objeções).
+model SentScriptBlock {
+  id             String   @id @default(uuid())
+  conversationId String
+  blockId        String
+  sentAt         DateTime @default(now())
+
+  conversation Conversation         @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  block        AgentScriptStepBlock @relation(fields: [blockId], references: [id], onDelete: Cascade)
+
+  @@unique([conversationId, blockId])
 }
 
 // Biblioteca de objeções conhecidas ("Tá caro", "Vou pensar"...) e como o

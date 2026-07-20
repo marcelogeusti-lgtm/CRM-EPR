@@ -821,3 +821,55 @@ visível depois do anterior estar corrigido:
 vivo, que uma mensagem de teste chega no Inbox com IA respondendo com
 múltiplos blocos em sequência — a verificação de código (`tsc`+`build`)
 passou limpa, mas o teste ponta a ponta no WhatsApp real depende dele.
+
+## Migração de conteúdo real (ZapSuite → Nexus) + funil "esquecendo" de avançar (2026-07-20, continuação)
+
+- **Persona/script/objeções reais migrados pro AiAgent do Marcelo** via
+  SQL direto no Supabase (leitura do ZapSuite real, sessão logada dele) —
+  5 etapas de Atendimento + 5 de Fechamento + 10 objeções + 7 expressões
+  típicas. Dois erros autocorrigidos no processo: 3 blocos mal
+  classificados como TEXT que na verdade eram AUDIO, e um incidente de
+  perda de dados (uma aba antiga com estado stale chamou `saveAiAgent()`
+  e sobrescreveu tudo — corrigido reinserindo, e virou lição: **nunca
+  editar `/salesbot` por SQL com outra aba da mesma tela aberta**, já que
+  `saveAiAgent()` faz delete+recreate completo a partir do estado local
+  do cliente).
+- **Dívida técnica nova, ainda aberta**: os 6 blocos de áudio migrados
+  apontam pra URL pública do bucket do *ZapSuite* (não pra
+  `agent-media` do Nexus) — atalho tomado por não haver ferramenta de
+  upload direto disponível na sessão. O Marcelo corrigiu a decisão:
+  produto multi-tenant não pode depender de infra de terceiro, então os
+  arquivos precisam ficar hospedados no storage do próprio Nexus.
+  Arquivos já baixados e organizados em
+  `~/Desktop/Nexus-Midias-Agente-IA/` (áudios + os 2 vídeos de
+  depoimento, grandes demais pro limite de 16MB do WhatsApp/Nexus,
+  precisam de compressão antes de anexar). Falta: o Marcelo subir os 6
+  áudios manualmente pela tela `/salesbot` → Persona (removendo o bloco
+  antigo e recriando com "+ Áudio", mapeamento exato já passado a ele) —
+  não deu pra automatizar via browser porque a ferramenta de upload só
+  aceita arquivo já compartilhado com a sessão, e a extensão do Chrome
+  dele só compartilha foto, não áudio/vídeo.
+- **Gravação de áudio direto no navegador**: `ScriptStepsEditor`
+  (`src/app/salesbot/page.tsx`) ganhou botão "🎙 Gravar áudio" ao lado de
+  "+ Áudio" em cada etapa — grava via `MediaRecorder`, mostra preview
+  antes de confirmar, sobe pelo mesmo `uploadScriptStepMedia` de sempre.
+- **Funil "morto"**: o Marcelo reportou que a IA respondia a pergunta do
+  lead e parava, sem mandar o próximo bloco nem avançar o script —
+  problema real de conversão. Causa: nada rastreava quais blocos já
+  tinham sido enviados numa conversa, então a IA decidia por conta
+  própria (via `gpt-4o-mini` + histórico de 20 mensagens) se avançava ou
+  não, e com o prompt já carregando os dois scripts inteiros + 10
+  objeções, tendia a esquecer. Corrigido com estado explícito: novo
+  modelo `SentScriptBlock` (`conversationId` + `blockId`, populado no
+  `execute` de `enviarBlocoDaEtapa` em `src/lib/aiReply.ts`) — o prompt
+  agora marca cada bloco como `[JÁ ENVIADO]` ou `[PENDENTE]`
+  (`src/lib/agentPrompt.ts`), com diretiva explícita mandando a IA
+  sempre avançar pro próximo pendente depois de responder, nunca
+  reenviar um já enviado, e — pedido separado do Marcelo — nunca deixar
+  o texto livre "responder por cima" de um bloco de mídia que acabou de
+  disparar na mesma resposta (o áudio/vídeo é a resposta principal, o
+  texto é só complemento curto). Resposta a perguntas fora do funil
+  continua usando as Fontes de Conhecimento como referência (já existia,
+  só reforçado na diretiva) — não é "livre" de verdade, é grounded.
+  Migration `20260720190000_sent_script_blocks`. Verificado com
+  `tsc`+`build`; teste ponta a ponta real via WhatsApp ainda pendente.

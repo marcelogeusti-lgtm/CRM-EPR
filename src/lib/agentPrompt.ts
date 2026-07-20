@@ -24,8 +24,18 @@ function parseJsonArray(value: string | null): string[] {
  *
  * `pixKey` vem do Tenant (não do AiAgent) — passado à parte pra não
  * acoplar dado de empresa dentro do tipo do agente.
+ *
+ * `sentBlockIds` marca quais blocos já foram enviados NESTA conversa
+ * (ver SentScriptBlock/src/lib/aiReply.ts) — sem isso a IA só tem o
+ * histórico de mensagens pra inferir onde parou no funil, e com os dois
+ * scripts inteiros no prompt ela tende a "esquecer" de avançar. Omitido
+ * no simulador (/api/chat), que não tem conversa persistida.
  */
-export function buildSystemPrompt(agent: AiAgentWithScript, pixKey?: string | null): string {
+export function buildSystemPrompt(
+  agent: AiAgentWithScript,
+  pixKey?: string | null,
+  sentBlockIds?: Set<string>
+): string {
   const personalityTags = parseJsonArray(agent.personalityTags);
   const directives = parseJsonArray(agent.directives);
   const expressions = parseJsonArray(agent.typicalExpressions);
@@ -49,10 +59,24 @@ export function buildSystemPrompt(agent: AiAgentWithScript, pixKey?: string | nu
     sections.push(`Regras de ouro:\n${directives.map(d => `- ${d}`).join('\n')}`);
   }
 
+  sections.push(
+    [
+      'Regras sobre como avançar o funil de vendas (IMPORTANTE):',
+      '- Você NUNCA deve simplesmente responder a pergunta do lead e parar por aí. Depois de responder, se ainda houver bloco marcado como [PENDENTE] na etapa atual do script (abaixo), você DEVE chamar enviarBlocoDaEtapa para ele — a menos que a condição de "quando usar" da etapa ainda não tenha sido satisfeita pela conversa até agora.',
+      '- Nunca chame enviarBlocoDaEtapa para um bloco marcado como [JÁ ENVIADO] — isso duplicaria a mensagem pro lead.',
+      '- Se você chamar enviarBlocoDaEtapa para um bloco de ÁUDIO, IMAGEM ou VÍDEO nesta resposta, seu texto final (se houver) deve ser curto e NUNCA repetir, resumir ou antecipar o que esse arquivo já diz — o arquivo enviado é a resposta principal; o texto é só um complemento opcional (ex.: uma pergunta curta de transição).',
+      '- Quando a pergunta do lead não fizer parte do funil, responda com naturalidade dentro da persona usando as fontes de conhecimento abaixo como referência — nunca invente fatos, preços ou promessas que não estejam no prompt — e depois volte a avançar o funil normalmente.',
+    ].join('\n')
+  );
+
   const describeStep = (s: AgentScriptStep & { blocks: AgentScriptStepBlock[] }, i: number) => {
     const blocksNote = s.blocks.length
-      ? ` [tem ${s.blocks.length} bloco(s) de conteúdo pra mandar nesta etapa, nesta ordem — use a ferramenta enviarBlocoDaEtapa uma vez pra cada blockId, na sequência: ${s.blocks
-          .map(b => `"${b.id}" (${b.type === 'TEXT' ? `texto: "${b.content}"` : `arquivo de ${b.type.toLowerCase()}`})`)
+      ? ` [${s.blocks.length} bloco(s) de conteúdo desta etapa, nesta ordem: ${s.blocks
+          .map(b => {
+            const desc = b.type === 'TEXT' ? `texto: "${b.content}"` : `arquivo de ${b.type.toLowerCase()}`;
+            const status = sentBlockIds?.has(b.id) ? '[JÁ ENVIADO]' : '[PENDENTE]';
+            return `"${b.id}" (${desc}) ${status}`;
+          })
           .join(', ')}]`
       : '';
     return `${i + 1}. ${s.title}${s.content ? `: ${s.content}` : ''}${blocksNote}`;
