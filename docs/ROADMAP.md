@@ -129,6 +129,16 @@ isolado por tenant.
   `Category`, relatório de caixa/DRE simples.
 - **RBAC de funcionários**: convite por e-mail, `TenantMembership`, permissões
   ADMIN/AGENT já no `User.role`.
+- **Onboarding self-service do WhatsApp (Embedded Signup da Meta)**: hoje
+  (2026-07-19) cada tenant precisa criar a própria Conta Business, número,
+  App Meta e colar token/IDs manualmente na tela de Integrações — inviável
+  pra "assinar e usar". A forma correta de um SaaS fazer isso (como o
+  próprio Kommo faz) é o Nexus virar **Tech Provider/Solution Partner** da
+  Meta e oferecer um botão "Conectar com Facebook" (Embedded Signup) que
+  resolve tudo por trás dos panos, sem o cliente tocar no Meta for
+  Developers. Exige verificação de negócio própria com a Meta — processo à
+  parte, não é só código. Decisão combinada com o Marcelo: fazer onboarding
+  manual pros primeiros clientes antes de investir nisso.
 
 ---
 
@@ -141,10 +151,16 @@ isolado por tenant.
   não da conversa específica — não existe (ainda) um toggle de IA por
   conversa/deal no schema. O botão "IA" no `LeadInboxPanel` também é só estado
   local (não persiste). Resolver isso é pré-requisito real da Fase 1.3
-  (hand-off por conversa).
-- `/automations` só oferece dois toggles fixos por etapa (ativar IA / disparar
-  webhook n8n) — um motor de automação de verdade (builder de regras/ações)
-  continua sendo escopo da Fase 2.
+  (hand-off por conversa). **Atualização (2026-07-19)**: continua sendo o
+  mesmo interruptor global de propósito — ver decisão em "Consolidação dos
+  controles de ativação da IA" abaixo. Não é mais uma dívida "escondida":
+  a UI agora deixa a relação explícita.
+- ~~`/automations` só oferece dois toggles fixos por etapa~~ — **resolvido
+  (2026-07-19)**: motor de fluxo visual de verdade (canvas estilo ManyChat,
+  `AutomationFlow`/`AutomationFlowNode`/`AutomationFlowEdge`) implementado em
+  `/automations/flows/[id]`, ligado de ponta a ponta no webhook do WhatsApp.
+  Os 2 toggles fixos continuam existindo em paralelo (ver decisão abaixo),
+  não foram substituídos.
 - `/notifications` é um feed **derivado e somente leitura** (sem tabela própria,
   sem marcar como lida) — juntando Deals/Activities/Tasks recentes.
 
@@ -673,3 +689,85 @@ console, antes de subir.
 testar contra `next build && next start` localmente antes de confiar só
 no dev server — o dev server do Next.js é mais tolerante com esse tipo
 de erro de runtime do que o build de produção.
+
+## Achado crítico e correção: identidade User ↔ auth.users ↔ Tenant (2026-07-18)
+
+Investigando por que logins reais "sumiam", achei a causa raiz de fundo:
+`public.User` estava desconectado de `auth.users` (Supabase Auth) e do
+`Tenant` real — sessão do Supabase válida, mas sem linha de `User`
+correspondente (ou com `id`/`tenantId` errados). Corrigido diretamente no
+banco (via MCP): `admin@demo.com` e `marcelogeusti@gmail.com` recriados
+com o `id` exato do Supabase Auth, ligados ao tenant real "Nexus
+Workspace" (`bcca28b1-...`).
+
+**Causa raiz do problema em si**: `signup()` (`src/app/login/actions.ts`)
+não checava `data.user.identities.length === 0` — o Supabase retorna um
+usuário "fake" (sem erro, por design, pra não revelar quais e-mails já
+têm conta) quando alguém tenta se cadastrar com e-mail já existente.
+Sem essa checagem, criávamos um Tenant+User órfão pra esse id fake toda
+vez que alguém confundia a tela de cadastro com a de login. **Corrigido**:
+agora retorna "Este e-mail já está cadastrado. Faça login."
+
+Também corrigido nesta rodada: `/admin` (painel global, chave mestre da
+OpenAI) não tinha **nenhuma** checagem de permissão — qualquer usuário
+logado, de qualquer tenant, conseguia abrir e trocar a chave mestre de
+todo mundo; e a chave já salva vazava em texto puro no HTML do
+`defaultValue` do input. Ambos corrigidos: `requireAdmin()` no layout,
+campo nunca mais recebe o valor real de volta.
+
+## Agente de IA ligado ao WhatsApp real + mídia + hub de Automações (2026-07-18/19)
+
+Sessão longa, várias entregas reais em sequência — resumo:
+
+- **IA responde mensagens reais do WhatsApp**: até aqui só funcionava no
+  simulador interno de `/salesbot`. `src/app/api/webhooks/meta/route.ts`
+  agora chama `sendAiAgentReply()` (`src/lib/aiReply.ts`, extraída pra
+  reaproveitar em outros lugares) depois de gravar cada mensagem recebida,
+  reaproveitando `buildSystemPrompt`. Confirmado em produção: pré-requisitos
+  (chave OpenAI, integração WhatsApp) já configurados; `AiAgent.isActive`
+  fica desligado até o usuário ativar manualmente.
+- **Achado importante, ainda pendente**: o WhatsApp conectado é o número
+  de **teste/sandbox** que a própria Meta dá por padrão (confirmado via
+  API: `verified_name: "Test Number"`, DDI +1) — não o número comercial
+  real. Números de teste só trocam mensagem com destinatários cadastrados
+  numa lista de permissão no painel da Meta; **nenhuma automação construída
+  funciona com cliente real até isso ser resolvido**. Ver seção "Fase 2" —
+  Embedded Signup — pra o caminho de produto de longo prazo; no curto
+  prazo é só o Marcelo cadastrar um número real (passo a passo dado, fora
+  do código).
+- **Mídia no script do Agente de IA**: `AgentScriptStep` ganhou
+  `mediaType`/`mediaUrl`; bucket `agent-media` no Supabase Storage (leitura
+  pública — exigência da própria API do WhatsApp, que busca por URL);
+  upload real em `src/actions/mediaUpload.ts`; a IA ganha uma `tool`
+  (function calling) pra decidir sozinha quando mandar o arquivo.
+- **Hub de Automações**: `/automations` virou 3 abas (Canais, Fluxos,
+  Campanhas) em vez de itens soltos na Sidebar sem relação visual entre si.
+- **Motor de fluxo visual** (canvas estilo ManyChat/n8n): schema novo
+  (`AutomationFlow`/`Node`/`Edge`), editor com `@xyflow/react` em
+  `/automations/flows/[id]`, 5 tipos de bloco (texto, mídia, condição,
+  tag, IA assume), 2 gatilhos (palavra-chave, primeira mensagem), ligado
+  de ponta a ponta no webhook — sem nó de espera/delay nesta fase (exigiria
+  estado de execução persistente por contato, que não existe ainda).
+- **Tags no Inbox**: `Tag`/`TagsOnContacts` existiam no schema desde
+  sempre mas nunca tinham sido usados em nenhum lugar do código — agora
+  usados de verdade tanto no Fluxo (nó Adicionar Tag) quanto manualmente
+  no `LeadInboxPanel` (`src/lib/tags.ts`, ponto único reaproveitado pelos
+  dois).
+- **Consolidação dos controles de ativação da IA**: existem 3 lugares que
+  mexem no mesmo `AiAgent.isActive` (botão em `/salesbot`, checkbox por
+  etapa em Automações → Fluxos → Regras rápidas, nó "IA Assume" de um
+  Fluxo). Considerei migrar as regras por etapa pro motor de Fluxos, mas
+  são naturezas diferentes (regra por etapa é passiva — só liga o
+  interruptor; um Fluxo ativamente manda mensagem) — forçar as duas no
+  mesmo modelo criaria problema novo pra resolver um antigo. **Decisão
+  combinada com o Marcelo**: manter os 2 sistemas como estão por baixo
+  (ele já tem 2 etapas reais configuradas, sem risco de quebrar), só
+  deixar a relação explícita na UI (feito). Sidebar: "Configurações"
+  renomeado pra "Integrações" (rótulo não batia com o destino `/integrations`).
+
+**Pendências reais que saem desta sessão**: (1) número real do WhatsApp
+— bloqueia tudo virar valor pro cliente; (2) Embedded Signup — necessário
+antes de qualquer cliente futuro se auto-cadastrar; (3) itens já
+existentes na Fase 2 (RBAC, campanhas de disparo em massa) continuam
+pendentes, agora com o motor de Fluxos como peça reaproveitável pra
+campanhas quando chegar a hora.
