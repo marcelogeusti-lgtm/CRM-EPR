@@ -109,26 +109,26 @@ export default function PipelineClient({ initialLeads }: { initialLeads: Lead[] 
     <div className="h-screen flex flex-col bg-[#0a0a0a] text-zinc-200 overflow-hidden relative">
       
       {/* Header (Same as before) */}
-      <div className="h-[60px] border-b border-[#222] bg-[#111] flex items-center justify-between px-6 shrink-0 z-20">
-        <div className="flex items-center gap-6">
-          <h1 className="text-[13px] font-bold text-zinc-100 uppercase tracking-wider">LEADS</h1>
-          <div className="flex items-center gap-1 bg-[#1a1a1a] p-1 rounded-lg border border-[#333]">
+      <div className="h-[60px] border-b border-[#222] bg-[#111] flex items-center justify-between px-3 md:px-6 gap-3 shrink-0 z-20 overflow-x-auto custom-scrollbar">
+        <div className="flex items-center gap-3 md:gap-6 shrink-0">
+          <h1 className="text-[13px] font-bold text-zinc-100 uppercase tracking-wider hidden sm:block">LEADS</h1>
+          <div className="flex items-center gap-1 bg-[#1a1a1a] p-1 rounded-lg border border-[#333] shrink-0">
             <button onClick={() => setViewMode('kanban')} className={`p-1.5 rounded transition-colors ${viewMode === 'kanban' ? 'bg-[#333] text-white shadow-sm' : 'text-zinc-500 hover:text-zinc-300'}`}><Columns className="size-[15px]" /></button>
             <button onClick={() => setViewMode('list')} className={`p-1.5 rounded transition-colors ${viewMode === 'list' ? 'bg-[#333] text-white shadow-sm' : 'text-zinc-500 hover:text-zinc-300'}`}><ListIcon className="size-[15px]" /></button>
           </div>
-          
-          <div className="relative">
-             <div onClick={() => setIsFilterOpen(true)} className={`flex items-center h-9 px-3 rounded-lg border transition-all cursor-text w-[300px] ${isFilterOpen ? 'bg-[#1a1a1a] border-blue-500/50 shadow-[0_0_10px_rgba(59,130,246,0.1)]' : 'bg-transparent border-transparent hover:border-[#333]'}`}>
+
+          <div className="relative shrink-0">
+             <div onClick={() => setIsFilterOpen(true)} className={`flex items-center h-9 px-3 rounded-lg border transition-all cursor-text w-[160px] sm:w-[300px] ${isFilterOpen ? 'bg-[#1a1a1a] border-blue-500/50 shadow-[0_0_10px_rgba(59,130,246,0.1)]' : 'bg-transparent border-transparent hover:border-[#333]'}`}>
                <div className="flex items-center gap-2 overflow-hidden">
                  <span className="bg-green-500/10 text-green-400 border border-green-500/20 text-[11px] font-bold px-2 py-0.5 rounded whitespace-nowrap">Leads ativos</span>
-                 <span className="text-[13px] text-zinc-500 truncate">Busca e filtro</span>
+                 <span className="text-[13px] text-zinc-500 truncate hidden sm:inline">Busca e filtro</span>
                </div>
              </div>
              {/* Filter Popover logic here (omitted mostly for brevity, assuming it's the same as previous) */}
              {isFilterOpen && (
                <>
                  <div className="fixed inset-0 z-30" onClick={() => setIsFilterOpen(false)} />
-                 <div className="absolute top-[calc(100%+8px)] left-0 w-[400px] bg-[#111] border border-[#333] rounded-xl shadow-2xl shadow-black/50 z-40 p-6 animate-in fade-in zoom-in-95 duration-200">
+                 <div className="absolute top-[calc(100%+8px)] left-0 w-[90vw] max-w-[400px] bg-[#111] border border-[#333] rounded-xl shadow-2xl shadow-black/50 z-40 p-6 animate-in fade-in zoom-in-95 duration-200">
                     <p className="text-zinc-500 text-sm">Filtro avançado (Ocultado para brevidade visual, focado na criação de Lead)</p>
                  </div>
                </>
@@ -136,18 +136,18 @@ export default function PipelineClient({ initialLeads }: { initialLeads: Lead[] 
           </div>
         </div>
 
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-2 md:gap-4 shrink-0">
           <div className="text-[13px] text-zinc-500 font-medium hidden md:block">
             {initialLeads.length} leads: <span className="text-zinc-300">{formatCurrency(initialLeads.reduce((acc, curr) => acc + curr.value, 0))}</span>
           </div>
           <button className="text-zinc-400 hover:text-white p-2"><MoreHorizontal className="size-5" /></button>
-          <button className="h-8 px-4 flex items-center gap-2 rounded bg-[#1a1a1a] border border-[#333] hover:border-yellow-500/50 hover:bg-[#222] text-zinc-300 text-[12px] font-bold transition-all group">
+          <button className="hidden sm:flex h-8 px-4 items-center gap-2 rounded bg-[#1a1a1a] border border-[#333] hover:border-yellow-500/50 hover:bg-[#222] text-zinc-300 text-[12px] font-bold transition-all group">
             <Zap className="size-3.5 text-yellow-500 group-hover:animate-pulse fill-yellow-500/20" />
             AUTOMATIZE
           </button>
-          <button onClick={() => setIsNewLeadModalOpen(true)} className="h-8 px-4 flex items-center gap-1.5 rounded bg-blue-600 hover:bg-blue-500 text-white text-[12px] font-bold shadow-lg shadow-blue-600/20 transition-all">
+          <button onClick={() => setIsNewLeadModalOpen(true)} className="h-8 px-3 md:px-4 flex items-center gap-1.5 rounded bg-blue-600 hover:bg-blue-500 text-white text-[12px] font-bold shadow-lg shadow-blue-600/20 transition-all">
             <Plus className="size-4" />
-            NOVO LEAD
+            <span className="hidden sm:inline">NOVO LEAD</span>
           </button>
         </div>
       </div>
