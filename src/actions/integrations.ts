@@ -3,7 +3,7 @@
 import { prisma } from '@/lib/prisma';
 import { requireTenantId } from '@/lib/auth';
 import { revalidatePath } from 'next/cache';
-import { subscribeAppToWaba } from '@/lib/whatsapp';
+import { subscribeAppToWaba, getWhatsappProfile } from '@/lib/whatsapp';
 
 // Únicos provedores com lógica real por trás (envio/recebimento de mensagem,
 // disparo de webhook). Os demais aparecem no catálogo de apps só como vitrine —
@@ -71,4 +71,39 @@ export async function subscribeWhatsappWebhook() {
   }
 
   return subscribeAppToWaba(config.metaWabaId, integration.apiKey);
+}
+
+// Puxa da Meta o estado atual do número (foto, nome verificado, se está
+// ativo/verificado, qualidade) e guarda no config da integração — pra
+// exibir sem o dono do CRM precisar abrir o painel da Meta.
+export async function syncWhatsappProfile() {
+  const tenantId = await requireTenantId();
+
+  const integration = await prisma.integration.findUnique({
+    where: { tenantId_provider: { tenantId, provider: 'whatsapp' } },
+  });
+
+  if (!integration?.apiKey) {
+    return { success: false, error: 'Salve o Token de Acesso antes de sincronizar.' };
+  }
+
+  const config = integration.config ? JSON.parse(integration.config) : {};
+  if (!config.metaPhoneId) {
+    return { success: false, error: 'Informe o ID do Número de Telefone antes de sincronizar.' };
+  }
+
+  const result = await getWhatsappProfile(config.metaPhoneId, integration.apiKey);
+  if (!result.success) {
+    return { success: false, error: result.error };
+  }
+
+  config.profile = { ...result.profile, syncedAt: new Date().toISOString() };
+
+  await prisma.integration.update({
+    where: { tenantId_provider: { tenantId, provider: 'whatsapp' } },
+    data: { config: JSON.stringify(config) },
+  });
+
+  revalidatePath('/integrations');
+  return { success: true, profile: config.profile };
 }

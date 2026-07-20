@@ -99,6 +99,67 @@ export async function subscribeAppToWaba(wabaId: string, accessToken: string): P
   }
 }
 
+export interface WhatsappProfile {
+  verifiedName?: string;
+  displayPhoneNumber?: string;
+  qualityRating?: string;
+  codeVerificationStatus?: string;
+  profilePictureUrl?: string;
+  about?: string;
+}
+
+export interface WhatsappProfileResult {
+  success: boolean;
+  error?: string;
+  profile?: WhatsappProfile;
+}
+
+/**
+ * Puxa da Meta o estado atual do número (nome verificado, se está
+ * verificado/ativo, qualidade) + o perfil comercial (foto, "sobre") — os
+ * dois vêm de endpoints separados na Graph API. Usado pelo botão
+ * "Sincronizar" em /integrations, pra mostrar o que a Meta realmente vê
+ * sem o dono do CRM precisar abrir o painel da Meta pra conferir.
+ */
+export async function getWhatsappProfile(phoneNumberId: string, accessToken: string): Promise<WhatsappProfileResult> {
+  try {
+    const [numberRes, businessRes] = await Promise.all([
+      fetch(
+        `https://graph.facebook.com/${META_API_VERSION}/${phoneNumberId}?fields=verified_name,display_phone_number,quality_rating,code_verification_status`,
+        { headers: { Authorization: `Bearer ${accessToken}` } }
+      ),
+      fetch(
+        `https://graph.facebook.com/${META_API_VERSION}/${phoneNumberId}/whatsapp_business_profile?fields=profile_picture_url,about`,
+        { headers: { Authorization: `Bearer ${accessToken}` } }
+      ),
+    ]);
+
+    const numberData = await numberRes.json();
+
+    if (!numberRes.ok) {
+      return { success: false, error: numberData?.error?.message || 'Falha ao buscar dados do número.' };
+    }
+
+    const businessData = businessRes.ok ? await businessRes.json() : null;
+    const businessProfile = businessData?.data?.[0];
+
+    return {
+      success: true,
+      profile: {
+        verifiedName: numberData?.verified_name,
+        displayPhoneNumber: numberData?.display_phone_number,
+        qualityRating: numberData?.quality_rating,
+        codeVerificationStatus: numberData?.code_verification_status,
+        profilePictureUrl: businessProfile?.profile_picture_url,
+        about: businessProfile?.about,
+      },
+    };
+  } catch (error) {
+    console.error('❌ [WHATSAPP] Falha de rede ao sincronizar perfil:', error);
+    return { success: false, error: 'Falha de rede ao conectar com o WhatsApp.' };
+  }
+}
+
 export type SendableMediaType = 'IMAGE' | 'AUDIO' | 'VIDEO';
 
 const MEDIA_TYPE_TO_META_TYPE: Record<SendableMediaType, string> = {

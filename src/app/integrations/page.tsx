@@ -4,7 +4,8 @@ import React, { useState, useEffect } from 'react';
 import { Search, Puzzle, Star, Zap, MessageCircle, Phone, CreditCard, Box, Settings, CheckCircle2, X, Info } from 'lucide-react';
 import { clsx } from 'clsx';
 import { twMerge } from 'tailwind-merge';
-import { saveIntegration, getIntegrations, subscribeWhatsappWebhook } from '@/actions/integrations';
+import { saveIntegration, getIntegrations, subscribeWhatsappWebhook, syncWhatsappProfile } from '@/actions/integrations';
+import type { WhatsappProfile } from '@/lib/whatsapp';
 import { withRetry } from '@/lib/withRetry';
 import { MOCK_INTEGRATIONS } from '@/lib/integrationCatalog';
 
@@ -43,6 +44,9 @@ export default function IntegrationsPage() {
   const [isSaving, setIsSaving] = useState(false);
   const [isSubscribing, setIsSubscribing] = useState(false);
   const [subscribeMessage, setSubscribeMessage] = useState<{ ok: boolean; text: string } | null>(null);
+  const [whatsappProfile, setWhatsappProfile] = useState<(WhatsappProfile & { syncedAt?: string }) | null>(null);
+  const [isSyncing, setIsSyncing] = useState(false);
+  const [syncError, setSyncError] = useState('');
 
   // DB State
   const [installedApps, setInstalledApps] = useState<any[]>([]);
@@ -114,6 +118,7 @@ export default function IntegrationsPage() {
         setMetaPhoneId(parsedConfig.metaPhoneId || '');
         setMetaWabaId(parsedConfig.metaWabaId || '');
         setMetaVerifyToken(parsedConfig.verifyToken || '');
+        setWhatsappProfile(parsedConfig.profile || null);
       } else if (app.id === 'tiktok') {
         setTiktokAppId(parsedConfig.appId || '');
         setTiktokAppSecret(parsedConfig.appSecret || '');
@@ -126,8 +131,10 @@ export default function IntegrationsPage() {
       setMetaVerifyToken('');
       setTiktokAppId('');
       setTiktokAppSecret('');
+      setWhatsappProfile(null);
     }
     setSubscribeMessage(null);
+    setSyncError('');
     setSelectedApp(app);
   };
 
@@ -141,6 +148,18 @@ export default function IntegrationsPage() {
         : { ok: false, text: result.error || 'Falha ao inscrever o app na WABA.' }
     );
     setIsSubscribing(false);
+  };
+
+  const handleSyncProfile = async () => {
+    setIsSyncing(true);
+    setSyncError('');
+    const result = await syncWhatsappProfile();
+    if (result.success) {
+      setWhatsappProfile(result.profile || null);
+    } else {
+      setSyncError(result.error || 'Falha ao sincronizar com a Meta.');
+    }
+    setIsSyncing(false);
   };
 
   return (
@@ -391,6 +410,55 @@ export default function IntegrationsPage() {
                             <strong className="text-blue-900 break-all select-all block mt-1">https://crm-erp-nextgen.vercel.app/api/webhooks/meta</strong>
                           </p>
                         </div>
+
+                        {selectedApp.id === 'whatsapp' && installedApps.some(i => i.provider === 'whatsapp') && (
+                          <div className="p-4 bg-gray-50 border border-gray-200 rounded-xl">
+                            <div className="flex items-center gap-3 mb-3">
+                              {whatsappProfile?.profilePictureUrl ? (
+                                <img src={whatsappProfile.profilePictureUrl} alt="Foto do perfil" className="w-12 h-12 rounded-full object-cover border border-gray-200" />
+                              ) : (
+                                <div className="w-12 h-12 rounded-full bg-gray-200 flex items-center justify-center text-gray-400">
+                                  <Phone className="size-5" />
+                                </div>
+                              )}
+                              <div className="flex-1 min-w-0">
+                                <p className="text-sm font-bold text-gray-900 truncate">
+                                  {whatsappProfile?.verifiedName || 'Ainda não sincronizado'}
+                                </p>
+                                {whatsappProfile?.displayPhoneNumber && (
+                                  <p className="text-xs text-gray-500">{whatsappProfile.displayPhoneNumber}</p>
+                                )}
+                              </div>
+                              {whatsappProfile?.codeVerificationStatus && (
+                                <span className={cn(
+                                  "text-[10px] font-bold px-2 py-1 rounded-md shrink-0",
+                                  whatsappProfile.codeVerificationStatus === 'VERIFIED'
+                                    ? "bg-emerald-100 text-emerald-700"
+                                    : "bg-amber-100 text-amber-700"
+                                )}>
+                                  {whatsappProfile.codeVerificationStatus === 'VERIFIED' ? 'ATIVO' : whatsappProfile.codeVerificationStatus}
+                                </span>
+                              )}
+                            </div>
+                            <div className="flex items-center justify-between">
+                              <button
+                                type="button"
+                                onClick={handleSyncProfile}
+                                disabled={isSyncing}
+                                className="bg-white border border-gray-300 hover:border-gray-400 disabled:opacity-50 text-gray-700 px-4 py-2 rounded-lg text-xs font-bold transition-colors"
+                              >
+                                {isSyncing ? 'Sincronizando...' : 'Sincronizar com a Meta'}
+                              </button>
+                              {whatsappProfile?.syncedAt && (
+                                <span className="text-[11px] text-gray-400">
+                                  Última sync: {new Date(whatsappProfile.syncedAt).toLocaleString('pt-BR')}
+                                </span>
+                              )}
+                            </div>
+                            {syncError && <p className="text-xs font-medium text-red-600 mt-2">{syncError}</p>}
+                          </div>
+                        )}
+
                         <div>
                           <label className="text-xs font-bold text-gray-700 mb-2 block">System User Access Token Permanente (Meta)</label>
                           <input type="password" value={apiKey} onChange={(e) => setApiKey(e.target.value)} placeholder="EAAG..." className="w-full bg-gray-50 border border-gray-200 rounded-lg p-3 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all" />
