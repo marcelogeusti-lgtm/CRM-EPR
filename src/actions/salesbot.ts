@@ -9,7 +9,10 @@ export async function getAiAgent() {
   return prisma.aiAgent.findUnique({
     where: { tenantId },
     include: {
-      scriptSteps: { orderBy: { order: 'asc' } },
+      scriptSteps: {
+        orderBy: { order: 'asc' },
+        include: { blocks: { orderBy: { order: 'asc' } } },
+      },
       objections: { orderBy: { order: 'asc' } },
       knowledgeSources: { orderBy: { order: 'asc' } },
     },
@@ -31,11 +34,16 @@ export async function saveCompanySettings(data: { pixKey: string }) {
   revalidatePath('/salesbot');
 }
 
+export interface ScriptStepBlockInput {
+  type: string; // 'TEXT' | 'AUDIO' | 'IMAGE' | 'VIDEO'
+  content: string | null; // texto literal — obrigatório se type = TEXT
+  mediaUrl: string | null; // obrigatório se AUDIO/IMAGE/VIDEO
+}
+
 export interface ScriptStepInput {
   title: string;
   content: string;
-  mediaType: string; // 'TEXT' | 'AUDIO' | 'IMAGE' | 'VIDEO'
-  mediaUrl: string | null;
+  blocks: ScriptStepBlockInput[];
 }
 
 export interface ObjectionInput {
@@ -89,49 +97,60 @@ export async function saveAiAgent(data: SaveAiAgentInput) {
   // edita tudo localmente (adicionar/remover/reordenar) e manda o estado
   // final de uma vez, então é mais simples e seguro do que tentar diffar
   // criar/atualizar/apagar item a item.
-  await prisma.$transaction([
-    prisma.agentScriptStep.deleteMany({ where: { aiAgentId: agent.id } }),
-    prisma.agentObjection.deleteMany({ where: { aiAgentId: agent.id } }),
-    prisma.agentKnowledgeSource.deleteMany({ where: { aiAgentId: agent.id } }),
-    prisma.agentScriptStep.createMany({
-      data: [
-        ...data.attendanceSteps.map((step, i) => ({
+  //
+  // Formato callback (não array) porque inserir os blocos de uma etapa
+  // depende do id gerado ao criar a etapa.
+  await prisma.$transaction(async (tx) => {
+    await tx.agentScriptStep.deleteMany({ where: { aiAgentId: agent.id } });
+    await tx.agentObjection.deleteMany({ where: { aiAgentId: agent.id } });
+    await tx.agentKnowledgeSource.deleteMany({ where: { aiAgentId: agent.id } });
+
+    const allSteps = [
+      ...data.attendanceSteps.map((step, i) => ({ type: 'ATENDIMENTO', order: i, step })),
+      ...data.closingSteps.map((step, i) => ({ type: 'FECHAMENTO', order: i, step })),
+    ];
+
+    for (const { type, order, step } of allSteps) {
+      const createdStep = await tx.agentScriptStep.create({
+        data: {
           aiAgentId: agent.id,
-          type: 'ATENDIMENTO',
-          order: i,
+          type,
+          order,
           title: step.title,
           content: step.content,
-          mediaType: step.mediaType,
-          mediaUrl: step.mediaUrl,
-        })),
-        ...data.closingSteps.map((step, i) => ({
-          aiAgentId: agent.id,
-          type: 'FECHAMENTO',
-          order: i,
-          title: step.title,
-          content: step.content,
-          mediaType: step.mediaType,
-          mediaUrl: step.mediaUrl,
-        })),
-      ],
-    }),
-    prisma.agentObjection.createMany({
+        },
+      });
+
+      if (step.blocks.length) {
+        await tx.agentScriptStepBlock.createMany({
+          data: step.blocks.map((block, i) => ({
+            stepId: createdStep.id,
+            order: i,
+            type: block.type,
+            content: block.content,
+            mediaUrl: block.mediaUrl,
+          })),
+        });
+      }
+    }
+
+    await tx.agentObjection.createMany({
       data: data.objections.map((obj, i) => ({
         aiAgentId: agent.id,
         order: i,
         title: obj.title,
         response: obj.response,
       })),
-    }),
-    prisma.agentKnowledgeSource.createMany({
+    });
+    await tx.agentKnowledgeSource.createMany({
       data: data.knowledgeSources.map((source, i) => ({
         aiAgentId: agent.id,
         order: i,
         title: source.title,
         content: source.content,
       })),
-    }),
-  ]);
+    });
+  });
 
   revalidatePath('/salesbot');
   return agent;

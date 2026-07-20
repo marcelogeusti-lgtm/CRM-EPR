@@ -1,7 +1,7 @@
-import type { AiAgent, AgentScriptStep, AgentObjection, AgentKnowledgeSource } from '@prisma/client';
+import type { AiAgent, AgentScriptStep, AgentScriptStepBlock, AgentObjection, AgentKnowledgeSource } from '@prisma/client';
 
 export type AiAgentWithScript = AiAgent & {
-  scriptSteps: AgentScriptStep[];
+  scriptSteps: (AgentScriptStep & { blocks: AgentScriptStepBlock[] })[];
   objections: AgentObjection[];
   knowledgeSources: AgentKnowledgeSource[];
 };
@@ -49,11 +49,13 @@ export function buildSystemPrompt(agent: AiAgentWithScript, pixKey?: string | nu
     sections.push(`Regras de ouro:\n${directives.map(d => `- ${d}`).join('\n')}`);
   }
 
-  const describeStep = (s: AgentScriptStep, i: number) => {
-    const mediaNote = s.mediaType !== 'TEXT' && s.mediaUrl
-      ? ` [tem um arquivo de ${s.mediaType.toLowerCase()} anexado — use a ferramenta enviarMidiaDaEtapa com stepId "${s.id}" pra mandar esse arquivo no momento certo desta etapa]`
+  const describeStep = (s: AgentScriptStep & { blocks: AgentScriptStepBlock[] }, i: number) => {
+    const blocksNote = s.blocks.length
+      ? ` [tem ${s.blocks.length} bloco(s) de conteúdo pra mandar nesta etapa, nesta ordem — use a ferramenta enviarBlocoDaEtapa uma vez pra cada blockId, na sequência: ${s.blocks
+          .map(b => `"${b.id}" (${b.type === 'TEXT' ? `texto: "${b.content}"` : `arquivo de ${b.type.toLowerCase()}`})`)
+          .join(', ')}]`
       : '';
-    return `${i + 1}. ${s.title}${s.content ? `: ${s.content}` : ''}${mediaNote}`;
+    return `${i + 1}. ${s.title}${s.content ? `: ${s.content}` : ''}${blocksNote}`;
   };
 
   const attendanceSteps = agent.scriptSteps

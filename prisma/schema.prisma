@@ -336,12 +336,29 @@ model AgentScriptStep {
   order     Int
   title     String
   content   String? // instrução/roteiro que a IA deve seguir nesta etapa
-  mediaType String   @default("TEXT") // "TEXT" | "AUDIO" | "IMAGE" | "VIDEO"
-  mediaUrl  String? // URL pública (bucket agent-media) — obrigatório se mediaType != TEXT
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  aiAgent AiAgent @relation(fields: [aiAgentId], references: [id], onDelete: Cascade)
+  aiAgent AiAgent                @relation(fields: [aiAgentId], references: [id], onDelete: Cascade)
+  blocks  AgentScriptStepBlock[]
+}
+
+// Conteúdo concreto e ordenável de uma etapa — texto literal ou mídia —
+// enviado via tool-calling (enviarBlocoDaEtapa, ver src/lib/aiReply.ts)
+// no momento em que a IA decide disparar a etapa. Substitui o antigo par
+// mediaType/mediaUrl (um único anexo por etapa) por uma lista, pra dar
+// pra empilhar várias mensagens (texto, depois imagem, depois texto...)
+// numa etapa só.
+model AgentScriptStepBlock {
+  id        String   @id @default(uuid())
+  stepId    String
+  order     Int
+  type      String // "TEXT" | "AUDIO" | "IMAGE" | "VIDEO"
+  content   String? // texto literal — obrigatório se type = TEXT
+  mediaUrl  String? // URL pública (bucket agent-media) — obrigatório se AUDIO/IMAGE/VIDEO
+  createdAt DateTime @default(now())
+
+  step AgentScriptStep @relation(fields: [stepId], references: [id], onDelete: Cascade)
 }
 
 // Biblioteca de objeções conhecidas ("Tá caro", "Vou pensar"...) e como o

@@ -30,7 +30,11 @@ export async function POST(req: Request) {
     const agent = user
       ? await prisma.aiAgent.findUnique({
           where: { tenantId: user.tenantId },
-          include: { scriptSteps: true, objections: true, knowledgeSources: true },
+          include: {
+            scriptSteps: { include: { blocks: { orderBy: { order: 'asc' } } } },
+            objections: true,
+            knowledgeSources: true,
+          },
         })
       : null;
 

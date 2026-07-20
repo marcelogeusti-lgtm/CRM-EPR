@@ -26,7 +26,11 @@ export async function sendAiAgentReply(params: AiReplyContext) {
 
   const agent = await prisma.aiAgent.findUnique({
     where: { tenantId: params.tenantId },
-    include: { scriptSteps: true, objections: true, knowledgeSources: true },
+    include: {
+      scriptSteps: { include: { blocks: { orderBy: { order: 'asc' } } } },
+      objections: true,
+      knowledgeSources: true,
+    },
   });
   if (!agent || !agent.isActive) return;
 
@@ -55,34 +59,43 @@ export async function sendAiAgentReply(params: AiReplyContext) {
 
   const openai = createOpenAI({ apiKey: openaiConfig.value });
 
-  // Etapas do script com arquivo anexado (áudio/imagem/vídeo) — viram uma
-  // ferramenta que a IA pode chamar no momento certo da conversa. Sem
-  // etapa com mídia, não passa `tools` — nem precisa da chamada extra.
-  const mediaSteps = agent.scriptSteps.filter(s => s.mediaType !== 'TEXT' && s.mediaUrl);
-  const tools = mediaSteps.length
+  // Blocos de conteúdo (texto literal ou mídia) de todas as etapas do
+  // script — viram uma ferramenta que a IA pode chamar, um bloco de cada
+  // vez, na ordem que o Marcelo montou, no momento certo da conversa. Sem
+  // etapa com bloco, não passa `tools` — nem precisa da chamada extra.
+  const allBlocks = agent.scriptSteps.flatMap(s => s.blocks);
+  const tools = allBlocks.length
     ? {
-        enviarMidiaDaEtapa: tool({
+        enviarBlocoDaEtapa: tool({
           description:
-            'Envia pro WhatsApp do lead o arquivo (áudio, imagem ou vídeo) anexado a uma etapa específica do script.',
+            'Envia pro WhatsApp do lead um bloco de conteúdo (texto literal, áudio, imagem ou vídeo) de uma etapa do script.',
           inputSchema: z.object({
-            stepId: z.string().describe('id da etapa cujo arquivo de mídia deve ser enviado'),
+            blockId: z.string().describe('id do bloco de conteúdo que deve ser enviado'),
           }),
-          execute: async ({ stepId }: { stepId: string }) => {
-            const step = mediaSteps.find(s => s.id === stepId);
-            if (!step?.mediaUrl) return { success: false, error: 'Etapa não encontrada ou sem mídia.' };
-            const result = await sendMedia(
-              params.phoneNumberId,
-              params.accessToken,
-              params.toPhone,
-              step.mediaType as SendableMediaType,
-              step.mediaUrl
-            );
+          execute: async ({ blockId }: { blockId: string }) => {
+            const block = allBlocks.find(b => b.id === blockId);
+            if (!block) return { success: false, error: 'Bloco não encontrado.' };
+
+            const result =
+              block.type === 'TEXT'
+                ? await sendText(params.phoneNumberId, params.accessToken, params.toPhone, block.content || '')
+                : block.mediaUrl
+                  ? await sendMedia(
+                      params.phoneNumberId,
+                      params.accessToken,
+                      params.toPhone,
+                      block.type as SendableMediaType,
+                      block.mediaUrl
+                    )
+                  : { success: false, error: 'Bloco sem conteúdo.' };
+
             if (result.success) {
+              const logContent = block.type === 'TEXT' ? block.content || '' : `[${block.type.toLowerCase()}]`;
               await prisma.message.create({
-                data: { conversationId: params.conversationId, authorType: 'AI', content: `[${step.mediaType.toLowerCase()}] ${step.title}` },
+                data: { conversationId: params.conversationId, authorType: 'AI', content: logContent },
               });
               await prisma.activity.create({
-                data: { tenantId: params.tenantId, dealId: params.dealId, type: 'MESSAGE', content: `[${step.mediaType.toLowerCase()}] ${step.title}`, author: 'Agent' },
+                data: { tenantId: params.tenantId, dealId: params.dealId, type: 'MESSAGE', content: logContent, author: 'Agent' },
               });
             }
             return result;

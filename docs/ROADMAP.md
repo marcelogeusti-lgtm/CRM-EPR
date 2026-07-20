@@ -771,3 +771,53 @@ antes de qualquer cliente futuro se auto-cadastrar; (3) itens já
 existentes na Fase 2 (RBAC, campanhas de disparo em massa) continuam
 pendentes, agora com o motor de Fluxos como peça reaproveitável pra
 campanhas quando chegar a hora.
+
+## Número real do WhatsApp conectado de ponta a ponta + blocos por etapa do script (2026-07-20)
+
+Sessão de continuação — o Marcelo saiu do número de teste/sandbox
+(pendência da sessão anterior) e conectou um número real. Apareceram
+vários elos faltando na cadeia Cloud API, um de cada vez, cada um só
+visível depois do anterior estar corrigido:
+
+- **WABA ID**: faltava campo pra guardar o ID da conta do WhatsApp
+  Business — sem ele não dá pra chamar `/{WABA_ID}/subscribed_apps`
+  (necessário pra número de produção, sandbox já vem inscrito
+  automaticamente). Campo novo em `/integrations` + botão "Ativar
+  recebimento de mensagens" (`src/lib/whatsapp.ts:subscribeAppToWaba`).
+- **Sincronização do perfil**: botão novo puxa foto, nome verificado e
+  status direto da Graph API (`getWhatsappProfile`) — pra não precisar
+  abrir o painel da Meta só pra conferir se o número está ativo.
+- **Registro do número**: `POST /{phone-number-id}/register` com PIN de
+  2 etapas — outro passo obrigatório da Meta pra número real, sem UI
+  nenhuma antes disso (`registerPhoneNumber`).
+- **Causa raiz de "mensagem não chega"**: o Marcelo criou um segundo App
+  no Meta for Developers por engano e misturou credenciais dos dois.
+  Usando a sessão do Chrome dele (nunca inseri senha — reautenticação
+  ficou por conta dele), achei e liguei o toggle "Assinar webhooks" que
+  estava desligado pra aquela WABA (diferente da inscrição de campos, que
+  já estava certa) — e depois, com webhook chegando mas rejeitado (401),
+  achei que `META_APP_SECRET` nunca tinha sido configurado no Vercel.
+- **Bug separado, achado no meio da investigação**: as mensagens
+  chegavam certas no banco (webhook 100% funcional) mas não apareciam no
+  chat do Inbox — a textura de ruído decorativa de fundo
+  (`LeadInboxPanel.tsx`) dividia a mesma `<div>` das mensagens reais,
+  herdando `opacity-[0.03]`. Separado em duas camadas.
+- **Blocos múltiplos por etapa do Agente de IA**: o Marcelo pediu pra eu
+  navegar pelo ZapSuite IA Studio (referência/concorrente, usando a
+  sessão logada dele) pra ver o que dava pra clonar. Boa parte já tinha
+  sido clonada numa sessão anterior (tags de personalidade, scripts
+  Atendimento/Fechamento, Objeções, 1 mídia por etapa). O que faltava:
+  empilhar vários blocos (texto, imagem, texto...) numa etapa só, em vez
+  de só 1 mídia. Novo modelo `AgentScriptStepBlock` (child de
+  `AgentScriptStep`); a ferramenta de tool-calling da IA generaliza de
+  `enviarMidiaDaEtapa(stepId)` pra `enviarBlocoDaEtapa(blockId)` — a IA
+  continua decidindo QUANDO disparar a etapa, mas os blocos saem na
+  ordem literal montada no editor. Ficaram de fora por decisão do
+  Marcelo: bloco de tipo "Link" dedicado, blocos "Condicional"/"IA
+  Assume" (sobreporia o Canvas de Fluxo) e ações "Pausar/Notificar" por
+  etapa do script.
+
+**Pendência real que sai desta sessão**: confirmar com o Marcelo, ao
+vivo, que uma mensagem de teste chega no Inbox com IA respondendo com
+múltiplos blocos em sequência — a verificação de código (`tsc`+`build`)
+passou limpa, mas o teste ponta a ponta no WhatsApp real depende dele.

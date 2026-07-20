@@ -10,6 +10,7 @@ import {
   saveCompanySettings,
   getAiAgentStats,
   type ScriptStepInput,
+  type ScriptStepBlockInput,
   type ObjectionInput,
   type KnowledgeSourceInput,
 } from '@/actions/salesbot';
@@ -85,22 +86,31 @@ function ScriptStepsEditor({
   onChange: (steps: ScriptStepInput[]) => void;
   addLabel: string;
 }) {
-  const [uploadingIdx, setUploadingIdx] = useState<number | null>(null);
+  const [uploadingKey, setUploadingKey] = useState<string | null>(null);
   const [uploadError, setUploadError] = useState<string | null>(null);
   const fileInputRefs = React.useRef<Record<string, HTMLInputElement | null>>({});
 
+  function updateStepBlocks(idx: number, updater: (blocks: ScriptStepBlockInput[]) => ScriptStepBlockInput[]) {
+    onChange(steps.map((s, i) => i === idx ? { ...s, blocks: updater(s.blocks) } : s));
+  }
+
+  function addTextBlock(idx: number) {
+    updateStepBlocks(idx, blocks => [...blocks, { type: 'TEXT', content: '', mediaUrl: null }]);
+  }
+
   async function handleFileSelected(idx: number, mediaType: 'AUDIO' | 'IMAGE' | 'VIDEO', file: File) {
+    const key = `${idx}-${mediaType}`;
     setUploadError(null);
-    setUploadingIdx(idx);
+    setUploadingKey(key);
     try {
       const formData = new FormData();
       formData.append('file', file);
       const { url } = await uploadScriptStepMedia(mediaType, formData);
-      onChange(steps.map((s, i) => i === idx ? { ...s, mediaType, mediaUrl: url } : s));
+      updateStepBlocks(idx, blocks => [...blocks, { type: mediaType, content: null, mediaUrl: url }]);
     } catch (e) {
       setUploadError(e instanceof Error ? e.message : 'Falha ao enviar o arquivo.');
     } finally {
-      setUploadingIdx(null);
+      setUploadingKey(null);
     }
   }
 
@@ -136,23 +146,48 @@ function ScriptStepsEditor({
             className="w-full h-16 bg-[#111] border border-[#2a2a2a] rounded-lg p-2 text-xs text-zinc-400 focus:outline-none focus:border-indigo-500/50 resize-none"
           />
 
-          {step.mediaType !== 'TEXT' && step.mediaUrl ? (
-            <div className="flex items-center gap-2 bg-[#111] border border-[#2a2a2a] rounded-lg p-2 text-xs">
-              <span className="text-emerald-400 font-medium shrink-0">{MEDIA_LABEL[step.mediaType as 'AUDIO' | 'IMAGE' | 'VIDEO']} anexado</span>
-              <a href={step.mediaUrl} target="_blank" rel="noopener noreferrer" className="text-zinc-500 hover:text-zinc-300 truncate flex-1">{step.mediaUrl}</a>
-              <button
-                onClick={() => onChange(steps.map((s, i) => i === idx ? { ...s, mediaType: 'TEXT', mediaUrl: null } : s))}
-                className="text-zinc-500 hover:text-red-400 shrink-0"
-              >
-                <X className="size-3.5" />
-              </button>
+          {step.blocks.length > 0 && (
+            <div className="space-y-1.5">
+              {step.blocks.map((block, bIdx) => (
+                <div key={bIdx} className="flex items-center gap-2 bg-[#111] border border-[#2a2a2a] rounded-lg p-2 text-xs">
+                  <span className="text-zinc-600 font-mono shrink-0">{bIdx + 1}.</span>
+                  {block.type === 'TEXT' ? (
+                    <input
+                      value={block.content || ''}
+                      onChange={(e) => updateStepBlocks(idx, blocks => blocks.map((b, bi) => bi === bIdx ? { ...b, content: e.target.value } : b))}
+                      placeholder="Texto da mensagem..."
+                      className="flex-1 bg-transparent text-zinc-300 focus:outline-none"
+                    />
+                  ) : (
+                    <>
+                      <span className="text-emerald-400 font-medium shrink-0">{MEDIA_LABEL[block.type as 'AUDIO' | 'IMAGE' | 'VIDEO']}</span>
+                      <a href={block.mediaUrl || '#'} target="_blank" rel="noopener noreferrer" className="text-zinc-500 hover:text-zinc-300 truncate flex-1">{block.mediaUrl}</a>
+                    </>
+                  )}
+                  <button onClick={() => updateStepBlocks(idx, blocks => moveItem(blocks, bIdx, -1))} disabled={bIdx === 0} className="p-0.5 text-zinc-500 hover:text-zinc-300 disabled:opacity-20 shrink-0">
+                    <ChevronUp className="size-3.5" />
+                  </button>
+                  <button onClick={() => updateStepBlocks(idx, blocks => moveItem(blocks, bIdx, 1))} disabled={bIdx === step.blocks.length - 1} className="p-0.5 text-zinc-500 hover:text-zinc-300 disabled:opacity-20 shrink-0">
+                    <ChevronDown className="size-3.5" />
+                  </button>
+                  <button onClick={() => updateStepBlocks(idx, blocks => blocks.filter((_, bi) => bi !== bIdx))} className="p-0.5 text-zinc-500 hover:text-red-400 shrink-0">
+                    <X className="size-3.5" />
+                  </button>
+                </div>
+              ))}
             </div>
-          ) : (
-            <div className="flex items-center gap-2">
-              {(['AUDIO', 'IMAGE', 'VIDEO'] as const).map(mediaType => (
+          )}
+
+          <div className="flex items-center gap-3 flex-wrap">
+            <button type="button" onClick={() => addTextBlock(idx)} className="text-[11px] text-zinc-500 hover:text-indigo-400 font-medium">
+              + Texto
+            </button>
+            {(['AUDIO', 'IMAGE', 'VIDEO'] as const).map(mediaType => {
+              const key = `${idx}-${mediaType}`;
+              return (
                 <React.Fragment key={mediaType}>
                   <input
-                    ref={(el) => { fileInputRefs.current[`${idx}-${mediaType}`] = el; }}
+                    ref={(el) => { fileInputRefs.current[key] = el; }}
                     type="file"
                     accept={MEDIA_ACCEPT[mediaType]}
                     className="hidden"
@@ -164,19 +199,19 @@ function ScriptStepsEditor({
                   />
                   <button
                     type="button"
-                    disabled={uploadingIdx === idx}
-                    onClick={() => fileInputRefs.current[`${idx}-${mediaType}`]?.click()}
+                    disabled={uploadingKey === key}
+                    onClick={() => fileInputRefs.current[key]?.click()}
                     className="text-[11px] text-zinc-500 hover:text-indigo-400 disabled:opacity-40 font-medium"
                   >
-                    {uploadingIdx === idx ? 'Enviando...' : `+ ${MEDIA_LABEL[mediaType]}`}
+                    {uploadingKey === key ? 'Enviando...' : `+ ${MEDIA_LABEL[mediaType]}`}
                   </button>
                 </React.Fragment>
-              ))}
-            </div>
-          )}
+              );
+            })}
+          </div>
         </div>
       ))}
-      <button onClick={() => onChange([...steps, { title: '', content: '', mediaType: 'TEXT', mediaUrl: null }])} className="text-indigo-400 text-sm hover:text-indigo-300 font-medium">{addLabel}</button>
+      <button onClick={() => onChange([...steps, { title: '', content: '', blocks: [] }])} className="text-indigo-400 text-sm hover:text-indigo-300 font-medium">{addLabel}</button>
     </div>
   );
 }
@@ -307,12 +342,13 @@ export default function SalesbotPage() {
         setDirectives(parseArray(agent.directives, DEFAULT_DIRECTIVES));
         setTypicalExpressions(parseArray(agent.typicalExpressions, []));
 
-        setAttendanceSteps(
-          agent.scriptSteps.filter(s => s.type === 'ATENDIMENTO').map(s => ({ title: s.title, content: s.content || '', mediaType: s.mediaType, mediaUrl: s.mediaUrl }))
-        );
-        setClosingSteps(
-          agent.scriptSteps.filter(s => s.type === 'FECHAMENTO').map(s => ({ title: s.title, content: s.content || '', mediaType: s.mediaType, mediaUrl: s.mediaUrl }))
-        );
+        const toStepInput = (s: typeof agent.scriptSteps[number]): ScriptStepInput => ({
+          title: s.title,
+          content: s.content || '',
+          blocks: s.blocks.map(b => ({ type: b.type, content: b.content, mediaUrl: b.mediaUrl })),
+        });
+        setAttendanceSteps(agent.scriptSteps.filter(s => s.type === 'ATENDIMENTO').map(toStepInput));
+        setClosingSteps(agent.scriptSteps.filter(s => s.type === 'FECHAMENTO').map(toStepInput));
         setObjections(agent.objections.map(o => ({ title: o.title, response: o.response })));
         setKnowledgeSources(agent.knowledgeSources.map(s => ({ title: s.title, content: s.content })));
       }
