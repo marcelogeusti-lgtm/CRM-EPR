@@ -64,6 +64,41 @@ export async function sendText(
   }
 }
 
+export interface SubscribeWabaResult {
+  success: boolean;
+  error?: string;
+}
+
+/**
+ * Inscreve o app (dono do access token) para receber webhooks da WABA
+ * informada. Números de teste (sandbox) já vêm inscritos automaticamente;
+ * números reais/produção exigem esta chamada uma única vez — sem ela, a
+ * Meta nunca envia POST para /api/webhooks/meta quando o cliente manda
+ * mensagem (o envio funciona normalmente, só o recebimento fica mudo).
+ */
+export async function subscribeAppToWaba(wabaId: string, accessToken: string): Promise<SubscribeWabaResult> {
+  try {
+    const response = await fetch(
+      `https://graph.facebook.com/${META_API_VERSION}/${wabaId}/subscribed_apps`,
+      {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${accessToken}` },
+      }
+    );
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      return { success: false, error: data?.error?.message || 'Falha ao inscrever o app na WABA.' };
+    }
+
+    return { success: true };
+  } catch (error) {
+    console.error('❌ [WHATSAPP] Falha de rede ao inscrever app na WABA:', error);
+    return { success: false, error: 'Falha de rede ao conectar com o WhatsApp.' };
+  }
+}
+
 export type SendableMediaType = 'IMAGE' | 'AUDIO' | 'VIDEO';
 
 const MEDIA_TYPE_TO_META_TYPE: Record<SendableMediaType, string> = {

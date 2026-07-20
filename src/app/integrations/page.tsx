@@ -4,7 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { Search, Puzzle, Star, Zap, MessageCircle, Phone, CreditCard, Box, Settings, CheckCircle2, X, Info } from 'lucide-react';
 import { clsx } from 'clsx';
 import { twMerge } from 'tailwind-merge';
-import { saveIntegration, getIntegrations } from '@/actions/integrations';
+import { saveIntegration, getIntegrations, subscribeWhatsappWebhook } from '@/actions/integrations';
 import { withRetry } from '@/lib/withRetry';
 import { MOCK_INTEGRATIONS } from '@/lib/integrationCatalog';
 
@@ -35,11 +35,14 @@ export default function IntegrationsPage() {
   
   // Custom Configs
   const [metaPhoneId, setMetaPhoneId] = useState('');
+  const [metaWabaId, setMetaWabaId] = useState('');
   const [metaVerifyToken, setMetaVerifyToken] = useState('');
   const [tiktokAppId, setTiktokAppId] = useState('');
   const [tiktokAppSecret, setTiktokAppSecret] = useState('');
 
   const [isSaving, setIsSaving] = useState(false);
+  const [isSubscribing, setIsSubscribing] = useState(false);
+  const [subscribeMessage, setSubscribeMessage] = useState<{ ok: boolean; text: string } | null>(null);
 
   // DB State
   const [installedApps, setInstalledApps] = useState<any[]>([]);
@@ -75,6 +78,9 @@ export default function IntegrationsPage() {
     let configObj: any = {};
     if (selectedApp.id === 'instagram' || selectedApp.id === 'whatsapp') {
       configObj = { metaPhoneId: metaPhoneId, verifyToken: metaVerifyToken };
+      if (selectedApp.id === 'whatsapp') {
+        configObj.metaWabaId = metaWabaId;
+      }
     } else if (selectedApp.id === 'tiktok') {
       configObj = { appId: tiktokAppId, appSecret: tiktokAppSecret };
     }
@@ -106,6 +112,7 @@ export default function IntegrationsPage() {
       const parsedConfig = config.config ? JSON.parse(config.config) : {};
       if (app.id === 'instagram' || app.id === 'whatsapp') {
         setMetaPhoneId(parsedConfig.metaPhoneId || '');
+        setMetaWabaId(parsedConfig.metaWabaId || '');
         setMetaVerifyToken(parsedConfig.verifyToken || '');
       } else if (app.id === 'tiktok') {
         setTiktokAppId(parsedConfig.appId || '');
@@ -115,11 +122,25 @@ export default function IntegrationsPage() {
       setApiKey('');
       setWebhookUrl('');
       setMetaPhoneId('');
+      setMetaWabaId('');
       setMetaVerifyToken('');
       setTiktokAppId('');
       setTiktokAppSecret('');
     }
+    setSubscribeMessage(null);
     setSelectedApp(app);
+  };
+
+  const handleSubscribeWebhook = async () => {
+    setIsSubscribing(true);
+    setSubscribeMessage(null);
+    const result = await subscribeWhatsappWebhook();
+    setSubscribeMessage(
+      result.success
+        ? { ok: true, text: 'App inscrito na WABA! O recebimento de mensagens deve funcionar agora.' }
+        : { ok: false, text: result.error || 'Falha ao inscrever o app na WABA.' }
+    );
+    setIsSubscribing(false);
   };
 
   return (
@@ -378,10 +399,39 @@ export default function IntegrationsPage() {
                           <label className="text-xs font-bold text-gray-700 mb-2 block">ID do Número de Telefone (Apenas para WhatsApp)</label>
                           <input type="text" value={metaPhoneId} onChange={(e) => setMetaPhoneId(e.target.value)} placeholder="Ex: 1122334455" className="w-full bg-gray-50 border border-gray-200 rounded-lg p-3 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all" />
                         </div>
+                        {selectedApp.id === 'whatsapp' && (
+                          <div>
+                            <label className="text-xs font-bold text-gray-700 mb-2 block">ID da Conta do WhatsApp Business (WABA ID)</label>
+                            <input type="text" value={metaWabaId} onChange={(e) => setMetaWabaId(e.target.value)} placeholder="Ex: 987654321098765" className="w-full bg-gray-50 border border-gray-200 rounded-lg p-3 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all" />
+                            <p className="text-[11px] text-gray-400 mt-1.5 leading-relaxed">
+                              Encontre em Meta for Developers → seu App → WhatsApp → Configuração da API, campo &quot;ID da conta do WhatsApp Business&quot;. Necessário para números reais (fora do sandbox) receberem mensagens.
+                            </p>
+                          </div>
+                        )}
                         <div>
                           <label className="text-xs font-bold text-gray-700 mb-2 block">Token de Verificação (Webhook Verify Token)</label>
                           <input type="text" value={metaVerifyToken} onChange={(e) => setMetaVerifyToken(e.target.value)} placeholder="Sua senha para a Meta (ex: nexus2026)" className="w-full bg-gray-50 border border-gray-200 rounded-lg p-3 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all" />
                         </div>
+                        {selectedApp.id === 'whatsapp' && installedApps.some(i => i.provider === 'whatsapp') && (
+                          <div className="p-4 bg-amber-50 border border-amber-100 rounded-xl">
+                            <p className="text-xs text-amber-800 font-medium leading-relaxed mb-3">
+                              Salvou o Token e o WABA ID? Clique abaixo para ativar o recebimento de mensagens deste número (passo obrigatório da Meta para números reais/produção).
+                            </p>
+                            <button
+                              type="button"
+                              onClick={handleSubscribeWebhook}
+                              disabled={isSubscribing}
+                              className="bg-amber-600 hover:bg-amber-700 disabled:opacity-50 text-white px-4 py-2 rounded-lg text-xs font-bold transition-colors"
+                            >
+                              {isSubscribing ? 'Inscrevendo...' : 'Ativar recebimento de mensagens'}
+                            </button>
+                            {subscribeMessage && (
+                              <p className={`text-xs font-medium mt-2 ${subscribeMessage.ok ? 'text-emerald-600' : 'text-red-600'}`}>
+                                {subscribeMessage.text}
+                              </p>
+                            )}
+                          </div>
+                        )}
                       </>
                     )}
 

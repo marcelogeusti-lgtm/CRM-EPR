@@ -3,6 +3,7 @@
 import { prisma } from '@/lib/prisma';
 import { requireTenantId } from '@/lib/auth';
 import { revalidatePath } from 'next/cache';
+import { subscribeAppToWaba } from '@/lib/whatsapp';
 
 // Únicos provedores com lógica real por trás (envio/recebimento de mensagem,
 // disparo de webhook). Os demais aparecem no catálogo de apps só como vitrine —
@@ -49,4 +50,25 @@ export async function getIntegrations() {
   return prisma.integration.findMany({
     where: { tenantId }
   });
+}
+
+// Inscreve o app na WABA do tenant pra ativar o recebimento de webhooks
+// (necessário uma vez por número real/produção — ver src/lib/whatsapp.ts).
+export async function subscribeWhatsappWebhook() {
+  const tenantId = await requireTenantId();
+
+  const integration = await prisma.integration.findUnique({
+    where: { tenantId_provider: { tenantId, provider: 'whatsapp' } },
+  });
+
+  if (!integration?.apiKey) {
+    return { success: false, error: 'Salve o Token de Acesso antes de inscrever o webhook.' };
+  }
+
+  const config = integration.config ? JSON.parse(integration.config) : {};
+  if (!config.metaWabaId) {
+    return { success: false, error: 'Informe o ID da Conta do WhatsApp Business (WABA ID) antes de inscrever.' };
+  }
+
+  return subscribeAppToWaba(config.metaWabaId, integration.apiKey);
 }
