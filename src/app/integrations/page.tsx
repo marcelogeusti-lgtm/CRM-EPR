@@ -4,7 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { Search, Puzzle, Star, Zap, MessageCircle, Phone, CreditCard, Box, Settings, CheckCircle2, X, Info } from 'lucide-react';
 import { clsx } from 'clsx';
 import { twMerge } from 'tailwind-merge';
-import { saveIntegration, getIntegrations, subscribeWhatsappWebhook, syncWhatsappProfile } from '@/actions/integrations';
+import { saveIntegration, getIntegrations, subscribeWhatsappWebhook, syncWhatsappProfile, registerWhatsappNumber } from '@/actions/integrations';
 import type { WhatsappProfile } from '@/lib/whatsapp';
 import { withRetry } from '@/lib/withRetry';
 import { MOCK_INTEGRATIONS } from '@/lib/integrationCatalog';
@@ -47,6 +47,9 @@ export default function IntegrationsPage() {
   const [whatsappProfile, setWhatsappProfile] = useState<(WhatsappProfile & { syncedAt?: string }) | null>(null);
   const [isSyncing, setIsSyncing] = useState(false);
   const [syncError, setSyncError] = useState('');
+  const [registerPin, setRegisterPin] = useState('');
+  const [isRegistering, setIsRegistering] = useState(false);
+  const [registerMessage, setRegisterMessage] = useState<{ ok: boolean; text: string } | null>(null);
 
   // DB State
   const [installedApps, setInstalledApps] = useState<any[]>([]);
@@ -135,7 +138,21 @@ export default function IntegrationsPage() {
     }
     setSubscribeMessage(null);
     setSyncError('');
+    setRegisterPin('');
+    setRegisterMessage(null);
     setSelectedApp(app);
+  };
+
+  const handleRegisterNumber = async () => {
+    setIsRegistering(true);
+    setRegisterMessage(null);
+    const result = await registerWhatsappNumber(registerPin);
+    setRegisterMessage(
+      result.success
+        ? { ok: true, text: 'Número registrado na Cloud API! Já pode enviar e receber mensagens.' }
+        : { ok: false, text: result.error || 'Falha ao registrar o número.' }
+    );
+    setIsRegistering(false);
   };
 
   const handleSubscribeWebhook = async () => {
@@ -467,6 +484,39 @@ export default function IntegrationsPage() {
                           <label className="text-xs font-bold text-gray-700 mb-2 block">ID do Número de Telefone (Apenas para WhatsApp)</label>
                           <input type="text" value={metaPhoneId} onChange={(e) => setMetaPhoneId(e.target.value)} placeholder="Ex: 1122334455" className="w-full bg-gray-50 border border-gray-200 rounded-lg p-3 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all" />
                         </div>
+
+                        {selectedApp.id === 'whatsapp' && installedApps.some(i => i.provider === 'whatsapp') && (
+                          <div className="p-4 bg-indigo-50 border border-indigo-100 rounded-xl">
+                            <p className="text-xs text-indigo-800 font-medium leading-relaxed mb-3">
+                              Registre o número na Cloud API com um PIN de verificação em duas etapas (6 dígitos). Sem isso, um número real (fora do sandbox) não envia nem recebe mensagens pela API — se o número nunca teve PIN, o valor digitado aqui vira o PIN dele.
+                            </p>
+                            <div className="flex flex-wrap items-center gap-2">
+                              <input
+                                type="text"
+                                inputMode="numeric"
+                                maxLength={6}
+                                value={registerPin}
+                                onChange={(e) => setRegisterPin(e.target.value.replace(/\D/g, ''))}
+                                placeholder="PIN de 6 dígitos"
+                                className="bg-white border border-indigo-200 rounded-lg px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all w-40"
+                              />
+                              <button
+                                type="button"
+                                onClick={handleRegisterNumber}
+                                disabled={isRegistering || registerPin.length !== 6}
+                                className="bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white px-4 py-2 rounded-lg text-xs font-bold transition-colors"
+                              >
+                                {isRegistering ? 'Registrando...' : 'Registrar número'}
+                              </button>
+                            </div>
+                            {registerMessage && (
+                              <p className={`text-xs font-medium mt-2 ${registerMessage.ok ? 'text-emerald-600' : 'text-red-600'}`}>
+                                {registerMessage.text}
+                              </p>
+                            )}
+                          </div>
+                        )}
+
                         {selectedApp.id === 'whatsapp' && (
                           <div>
                             <label className="text-xs font-bold text-gray-700 mb-2 block">ID da Conta do WhatsApp Business (WABA ID)</label>

@@ -160,6 +160,44 @@ export async function getWhatsappProfile(phoneNumberId: string, accessToken: str
   }
 }
 
+export interface RegisterPhoneNumberResult {
+  success: boolean;
+  error?: string;
+}
+
+/**
+ * Registra o número na Cloud API com um PIN de verificação em duas etapas —
+ * passo obrigatório da Meta antes de um número (fora do sandbox) conseguir
+ * enviar/receber mensagens pela API. Se o número nunca teve PIN, o valor
+ * enviado aqui vira o PIN dele daqui pra frente.
+ */
+export async function registerPhoneNumber(phoneNumberId: string, accessToken: string, pin: string): Promise<RegisterPhoneNumberResult> {
+  try {
+    const response = await fetch(
+      `https://graph.facebook.com/${META_API_VERSION}/${phoneNumberId}/register`,
+      {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ messaging_product: 'whatsapp', pin }),
+      }
+    );
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      return { success: false, error: data?.error?.message || 'Falha ao registrar o número.' };
+    }
+
+    return { success: true };
+  } catch (error) {
+    console.error('❌ [WHATSAPP] Falha de rede ao registrar número:', error);
+    return { success: false, error: 'Falha de rede ao conectar com o WhatsApp.' };
+  }
+}
+
 export type SendableMediaType = 'IMAGE' | 'AUDIO' | 'VIDEO';
 
 const MEDIA_TYPE_TO_META_TYPE: Record<SendableMediaType, string> = {

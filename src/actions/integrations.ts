@@ -3,7 +3,7 @@
 import { prisma } from '@/lib/prisma';
 import { requireTenantId } from '@/lib/auth';
 import { revalidatePath } from 'next/cache';
-import { subscribeAppToWaba, getWhatsappProfile } from '@/lib/whatsapp';
+import { subscribeAppToWaba, getWhatsappProfile, registerPhoneNumber } from '@/lib/whatsapp';
 
 // Únicos provedores com lógica real por trás (envio/recebimento de mensagem,
 // disparo de webhook). Os demais aparecem no catálogo de apps só como vitrine —
@@ -106,4 +106,30 @@ export async function syncWhatsappProfile() {
 
   revalidatePath('/integrations');
   return { success: true, profile: config.profile };
+}
+
+// Registra o número na Cloud API (POST /{phone-number-id}/register) — sem
+// isso a Meta não deixa o número enviar/receber mensagens pela API, mesmo
+// com token, WABA ID e webhook certos.
+export async function registerWhatsappNumber(pin: string) {
+  const tenantId = await requireTenantId();
+
+  if (!/^\d{6}$/.test(pin)) {
+    return { success: false, error: 'O PIN deve ter exatamente 6 dígitos.' };
+  }
+
+  const integration = await prisma.integration.findUnique({
+    where: { tenantId_provider: { tenantId, provider: 'whatsapp' } },
+  });
+
+  if (!integration?.apiKey) {
+    return { success: false, error: 'Salve o Token de Acesso antes de registrar o número.' };
+  }
+
+  const config = integration.config ? JSON.parse(integration.config) : {};
+  if (!config.metaPhoneId) {
+    return { success: false, error: 'Informe o ID do Número de Telefone antes de registrar.' };
+  }
+
+  return registerPhoneNumber(config.metaPhoneId, integration.apiKey, pin);
 }
