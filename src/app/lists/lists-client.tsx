@@ -1,8 +1,8 @@
 'use client';
 
-import React, { useMemo, useState } from 'react';
-import { Users, Building2, Search, Filter, X } from 'lucide-react';
-import { createContact } from '@/actions/contacts';
+import React, { useMemo, useRef, useState } from 'react';
+import { Users, Building2, Search, Filter, X, Upload, Loader2, Check } from 'lucide-react';
+import { createContact, importContacts } from '@/actions/contacts';
 
 interface Contact {
   id: string;
@@ -23,6 +23,11 @@ export function ListsClient({ initialContacts }: { initialContacts: Contact[] })
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [formError, setFormError] = useState('');
+
+  const importInputRef = useRef<HTMLInputElement>(null);
+  const [isImporting, setIsImporting] = useState(false);
+  const [importError, setImportError] = useState('');
+  const [importResult, setImportResult] = useState<{ imported: number; skipped: number; total: number } | null>(null);
 
   const filteredContacts = useMemo(() => {
     const query = search.trim().toLowerCase();
@@ -58,19 +63,81 @@ export function ListsClient({ initialContacts }: { initialContacts: Contact[] })
     setIsModalOpen(false);
   };
 
+  async function handleImportFile(file: File) {
+    setIsImporting(true);
+    setImportError('');
+    setImportResult(null);
+
+    const formData = new FormData();
+    formData.append('file', file);
+
+    try {
+      const result = await importContacts(formData);
+      if (!result.success) {
+        setImportError(result.error || 'Não foi possível importar o arquivo.');
+        return;
+      }
+      if (result.contacts?.length) {
+        setContacts(prev => [
+          ...result.contacts.map((c) => ({ ...c, company: null })),
+          ...prev,
+        ]);
+      }
+      setImportResult({ imported: result.imported ?? 0, skipped: result.skipped ?? 0, total: result.total ?? 0 });
+    } catch (e) {
+      setImportError(e instanceof Error ? e.message : 'Falha ao importar o arquivo.');
+    } finally {
+      setIsImporting(false);
+    }
+  }
+
   return (
     <div className="flex flex-col h-full bg-[#0a0a0a] text-white">
       {/* Header */}
       <div className="px-8 py-6 border-b border-[#222]">
         <div className="flex justify-between items-center mb-6">
           <h1 className="text-2xl font-bold tracking-tight text-zinc-100">Listas e Contatos</h1>
-          <button
-            onClick={() => setIsModalOpen(true)}
-            className="bg-blue-600 hover:bg-blue-500 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors"
-          >
-            + Novo Contato
-          </button>
+          <div className="flex items-center gap-3">
+            <input
+              ref={importInputRef}
+              type="file"
+              accept=".csv,.vcf,text/csv,text/vcard,text/x-vcard"
+              className="hidden"
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                if (file) handleImportFile(file);
+                e.target.value = '';
+              }}
+            />
+            <button
+              onClick={() => importInputRef.current?.click()}
+              disabled={isImporting}
+              className="flex items-center gap-2 bg-[#141414] border border-[#262626] hover:border-blue-500/40 text-zinc-300 hover:text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors disabled:opacity-50"
+            >
+              {isImporting ? <Loader2 className="size-4 animate-spin" /> : <Upload className="size-4" />}
+              Importar contatos
+            </button>
+            <button
+              onClick={() => setIsModalOpen(true)}
+              className="bg-blue-600 hover:bg-blue-500 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors"
+            >
+              + Novo Contato
+            </button>
+          </div>
         </div>
+
+        {importError && (
+          <div className="mb-4 bg-red-500/10 border border-red-500/30 rounded-lg p-3 text-sm text-red-400">
+            {importError}
+          </div>
+        )}
+        {importResult && (
+          <div className="mb-4 flex items-center gap-2 bg-emerald-500/10 border border-emerald-500/30 rounded-lg p-3 text-sm text-emerald-400">
+            <Check className="size-4 shrink-0" />
+            {importResult.imported} contato{importResult.imported === 1 ? '' : 's'} importado{importResult.imported === 1 ? '' : 's'}
+            {importResult.skipped > 0 && ` — ${importResult.skipped} já existia${importResult.skipped === 1 ? '' : 'm'} (telefone repetido) e foram ignorados`}.
+          </div>
+        )}
 
         {/* Search and Filters */}
         <div className="flex gap-4">
