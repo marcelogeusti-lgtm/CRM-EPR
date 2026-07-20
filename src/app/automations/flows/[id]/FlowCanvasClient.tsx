@@ -21,7 +21,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import {
   ChevronLeft, Loader2, Check, Trash2, X, Play,
-  MessageSquare, Image as ImageIcon, GitBranch, Tag, Bot,
+  MessageSquare, Image as ImageIcon, GitBranch, Tag, Bot, Monitor,
 } from 'lucide-react';
 import { saveFlow, setFlowActive, deleteFlow, type FlowNodeInput, type FlowEdgeInput } from '@/actions/automationFlows';
 import { uploadScriptStepMedia, type UploadableMediaType } from '@/actions/mediaUpload';
@@ -438,6 +438,11 @@ export default function FlowCanvasClient({ flow }: { flow: DbFlow }) {
           {isSaving && <Loader2 className="size-3.5 animate-spin" />}
           Salvar
         </button>
+      </div>
+
+      <div className="md:hidden px-4 py-2 border-b border-[#222] bg-indigo-500/10 flex items-center gap-2 text-indigo-300">
+        <Monitor className="size-4 shrink-0" />
+        <p className="text-xs">Montar o fluxo é mais fácil no computador. No celular você ainda pode editar o texto de um bloco.</p>
       </div>
 
       <div className="px-4 py-2 border-b border-[#222] flex items-center gap-2 overflow-x-auto custom-scrollbar">
