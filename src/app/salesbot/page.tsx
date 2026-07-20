@@ -90,6 +90,16 @@ function ScriptStepsEditor({
   const [uploadError, setUploadError] = useState<string | null>(null);
   const fileInputRefs = React.useRef<Record<string, HTMLInputElement | null>>({});
 
+  const [recordingIdx, setRecordingIdx] = useState<number | null>(null);
+  const [recordSeconds, setRecordSeconds] = useState(0);
+  const [previewIdx, setPreviewIdx] = useState<number | null>(null);
+  const [recordedUrl, setRecordedUrl] = useState<string | null>(null);
+  const [isUploadingRecording, setIsUploadingRecording] = useState(false);
+  const mediaRecorderRef = React.useRef<MediaRecorder | null>(null);
+  const recordedChunksRef = React.useRef<Blob[]>([]);
+  const recordedBlobRef = React.useRef<Blob | null>(null);
+  const recordTimerRef = React.useRef<ReturnType<typeof setInterval> | null>(null);
+
   function updateStepBlocks(idx: number, updater: (blocks: ScriptStepBlockInput[]) => ScriptStepBlockInput[]) {
     onChange(steps.map((s, i) => i === idx ? { ...s, blocks: updater(s.blocks) } : s));
   }
@@ -111,6 +121,66 @@ function ScriptStepsEditor({
       setUploadError(e instanceof Error ? e.message : 'Falha ao enviar o arquivo.');
     } finally {
       setUploadingKey(null);
+    }
+  }
+
+  function clearRecordingState() {
+    if (recordedUrl) URL.revokeObjectURL(recordedUrl);
+    recordedChunksRef.current = [];
+    recordedBlobRef.current = null;
+    setRecordedUrl(null);
+    setPreviewIdx(null);
+    setRecordSeconds(0);
+  }
+
+  async function startRecording(idx: number) {
+    setUploadError(null);
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const mimeType = ['audio/webm', 'audio/mp4', 'audio/ogg'].find(t => MediaRecorder.isTypeSupported(t));
+      const recorder = new MediaRecorder(stream, mimeType ? { mimeType } : undefined);
+      recordedChunksRef.current = [];
+      recorder.ondataavailable = (e) => { if (e.data.size > 0) recordedChunksRef.current.push(e.data); };
+      recorder.onstop = () => {
+        stream.getTracks().forEach(t => t.stop());
+        const blob = new Blob(recordedChunksRef.current, { type: recorder.mimeType || 'audio/webm' });
+        recordedBlobRef.current = blob;
+        setRecordedUrl(URL.createObjectURL(blob));
+        setPreviewIdx(idx);
+      };
+      mediaRecorderRef.current = recorder;
+      recorder.start();
+      setRecordSeconds(0);
+      setRecordingIdx(idx);
+      recordTimerRef.current = setInterval(() => setRecordSeconds(s => s + 1), 1000);
+    } catch {
+      setUploadError('Não foi possível acessar o microfone. Verifique a permissão do navegador.');
+    }
+  }
+
+  function stopRecording() {
+    mediaRecorderRef.current?.stop();
+    if (recordTimerRef.current) clearInterval(recordTimerRef.current);
+    setRecordingIdx(null);
+  }
+
+  async function confirmRecording(idx: number) {
+    const blob = recordedBlobRef.current;
+    if (!blob) return;
+    setIsUploadingRecording(true);
+    setUploadError(null);
+    try {
+      const ext = blob.type.includes('mp4') ? 'm4a' : blob.type.includes('ogg') ? 'ogg' : 'webm';
+      const file = new File([blob], `gravacao-${Date.now()}.${ext}`, { type: blob.type });
+      const formData = new FormData();
+      formData.append('file', file);
+      const { url } = await uploadScriptStepMedia('AUDIO', formData);
+      updateStepBlocks(idx, blocks => [...blocks, { type: 'AUDIO', content: null, mediaUrl: url }]);
+      clearRecordingState();
+    } catch (e) {
+      setUploadError(e instanceof Error ? e.message : 'Falha ao enviar a gravação.');
+    } finally {
+      setIsUploadingRecording(false);
     }
   }
 
@@ -208,6 +278,31 @@ function ScriptStepsEditor({
                 </React.Fragment>
               );
             })}
+
+            {recordingIdx === idx ? (
+              <button type="button" onClick={stopRecording} className="text-[11px] text-red-400 font-medium flex items-center gap-1">
+                ⏹ Parar ({Math.floor(recordSeconds / 60)}:{String(recordSeconds % 60).padStart(2, '0')})
+              </button>
+            ) : previewIdx === idx && recordedUrl ? (
+              <div className="flex items-center gap-2">
+                <audio controls src={recordedUrl} className="h-7" />
+                <button type="button" onClick={() => confirmRecording(idx)} disabled={isUploadingRecording} className="text-[11px] text-emerald-400 hover:text-emerald-300 disabled:opacity-40 font-medium">
+                  {isUploadingRecording ? 'Enviando...' : '✓ Usar áudio'}
+                </button>
+                <button type="button" onClick={clearRecordingState} disabled={isUploadingRecording} className="text-[11px] text-zinc-500 hover:text-red-400 disabled:opacity-40 font-medium">
+                  Descartar
+                </button>
+              </div>
+            ) : (
+              <button
+                type="button"
+                disabled={recordingIdx !== null}
+                onClick={() => startRecording(idx)}
+                className="text-[11px] text-zinc-500 hover:text-indigo-400 disabled:opacity-40 font-medium"
+              >
+                🎙 Gravar áudio
+              </button>
+            )}
           </div>
         </div>
       ))}
