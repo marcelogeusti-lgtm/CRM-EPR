@@ -62,7 +62,9 @@ export async function sendAiAgentReply(params: AiReplyContext) {
     .reverse()
     .map(m => ({
       role: (m.authorType === 'CONTACT' ? 'user' : 'assistant') as 'user' | 'assistant',
-      content: m.content,
+      // "[MEDIA:TIPO]url" vira só "[tipo]" aqui — o histórico é pra dar
+      // contexto pra IA, não pra ela mastigar uma URL longa do storage.
+      content: m.content.replace(/^\[MEDIA:(AUDIO|IMAGE|VIDEO)\][\s\S]+$/, (_m, t: string) => `[${t.toLowerCase()}]`),
     }));
 
   const openai = createOpenAI({ apiKey: openaiConfig.value });
@@ -98,7 +100,7 @@ export async function sendAiAgentReply(params: AiReplyContext) {
                   : { success: false, error: 'Bloco sem conteúdo.' };
 
             if (result.success) {
-              const logContent = block.type === 'TEXT' ? block.content || '' : `[${block.type.toLowerCase()}]`;
+              const logContent = block.type === 'TEXT' ? block.content || '' : `[MEDIA:${block.type}]${block.mediaUrl}`;
               await prisma.message.create({
                 data: { conversationId: params.conversationId, authorType: 'AI', content: logContent },
               });

@@ -2,7 +2,7 @@
 
 import { prisma } from '@/lib/prisma';
 import { getCurrentUser } from '@/lib/auth';
-import { sendText } from '@/lib/whatsapp';
+import { sendText, sendMedia, type SendableMediaType } from '@/lib/whatsapp';
 import { addTagToContact, removeTagFromContact } from '@/lib/tags';
 import { revalidatePath } from 'next/cache';
 
@@ -120,6 +120,90 @@ export async function sendMessage(dealId: string, content: string): Promise<{ su
       result = await sendText(config.metaPhoneId, integration.apiKey, deal.contact.phone, content);
       if (!result.success) {
         console.error('❌ Erro ao enviar via Meta:', result.error);
+      }
+    } catch (error) {
+      console.error('❌ Configuração da integração do WhatsApp inválida:', error);
+      result = { success: false, error: 'Configuração da integração do WhatsApp inválida.' };
+    }
+  } else {
+    console.warn('⚠️ Integração do WhatsApp não configurada ou sem Token Permanente.');
+  }
+
+  revalidatePath('/inbox');
+  revalidatePath('/pipeline');
+
+  return result;
+}
+
+// Mesma janela de 24h / mesmo destino do sendMessage, mas pra um arquivo
+// (imagem/áudio/vídeo) já hospedado no bucket agent-media em vez de texto
+// livre. O conteúdo salvo usa o prefixo "[MEDIA:TIPO]url" pra o Inbox
+// conseguir renderizar o arquivo (ver LeadInboxPanel) em vez de só mostrar
+// a URL como texto — aiReply.ts filtra esse prefixo antes de mandar o
+// histórico pra IA, pra não poluir o contexto dela com URLs longas.
+export async function sendMediaMessage(
+  dealId: string,
+  mediaType: SendableMediaType,
+  mediaUrl: string
+): Promise<{ success: boolean; error?: string }> {
+  const tenantId = await getDefaultTenant();
+  if (!tenantId) throw new Error('Tenant não encontrado');
+
+  const deal = await prisma.deal.findUnique({
+    where: { id: dealId, tenantId },
+    include: { contact: true }
+  });
+
+  if (!deal || !deal.contact?.phone) {
+    throw new Error('Deal ou Telefone não encontrado');
+  }
+
+  const integration = await prisma.integration.findFirst({
+    where: { tenantId, provider: 'whatsapp', isActive: true }
+  });
+
+  const conversation = await prisma.conversation.findFirst({
+    where: { dealId }
+  });
+
+  if (integration) {
+    const lastInbound = conversation
+      ? await prisma.message.findFirst({
+          where: { conversationId: conversation.id, authorType: 'CONTACT' },
+          orderBy: { createdAt: 'desc' }
+        })
+      : null;
+
+    const windowOpen = !!lastInbound && Date.now() - lastInbound.createdAt.getTime() < WHATSAPP_WINDOW_MS;
+
+    if (!windowOpen) {
+      return {
+        success: false,
+        error: 'Janela de 24h expirada: envie um template aprovado (HSM) para retomar a conversa.'
+      };
+    }
+  }
+
+  const content = `[MEDIA:${mediaType}]${mediaUrl}`;
+
+  await prisma.activity.create({
+    data: { tenantId, dealId, type: 'MESSAGE', content, author: 'Agent' }
+  });
+
+  if (conversation) {
+    await prisma.message.create({
+      data: { conversationId: conversation.id, authorType: 'USER', content }
+    });
+  }
+
+  let result: { success: boolean; error?: string } = { success: true };
+
+  if (integration?.apiKey && integration.config) {
+    try {
+      const config = JSON.parse(integration.config);
+      result = await sendMedia(config.metaPhoneId, integration.apiKey, deal.contact.phone, mediaType, mediaUrl);
+      if (!result.success) {
+        console.error('❌ Erro ao enviar mídia via Meta:', result.error);
       }
     } catch (error) {
       console.error('❌ Configuração da integração do WhatsApp inválida:', error);

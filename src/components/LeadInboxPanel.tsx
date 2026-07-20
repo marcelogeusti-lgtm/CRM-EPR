@@ -4,7 +4,8 @@ import React, { useState, useEffect, useRef } from 'react';
 import { X, Send, Bot, Check, MoreVertical, Phone, Paperclip, Mic, Tag as TagIcon, Plus } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { getDealActivities, sendMessage, addInternalNote, getContactTags, addContactTag, removeContactTag } from '@/actions/inbox';
+import { getDealActivities, sendMessage, sendMediaMessage, addInternalNote, getContactTags, addContactTag, removeContactTag } from '@/actions/inbox';
+import { uploadScriptStepMedia, type UploadableMediaType } from '@/actions/mediaUpload';
 
 interface LeadInboxPanelProps {
   deal: any;
@@ -25,6 +26,18 @@ export function LeadInboxPanel({ deal, onClose }: LeadInboxPanelProps) {
   const [isAddingTag, setIsAddingTag] = useState(false);
   const [newTagInput, setNewTagInput] = useState('');
   const [tagError, setTagError] = useState('');
+
+  const [isUploadingMedia, setIsUploadingMedia] = useState(false);
+  const [mediaError, setMediaError] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+
+  const [isRecording, setIsRecording] = useState(false);
+  const [recordSeconds, setRecordSeconds] = useState(0);
+  const [recordedUrl, setRecordedUrl] = useState<string | null>(null);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const recordedChunksRef = useRef<Blob[]>([]);
+  const recordedBlobRef = useRef<Blob | null>(null);
+  const recordTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   useEffect(() => {
     async function fetchActivities() {
@@ -120,6 +133,100 @@ export function LeadInboxPanel({ deal, onClose }: LeadInboxPanelProps) {
       alert('Falha ao enviar ação');
     } finally {
       setIsSending(false);
+    }
+  }
+
+  async function sendMediaAndRefresh(mediaType: UploadableMediaType, url: string) {
+    const result = await sendMediaMessage(deal.id, mediaType, url);
+    if (!result.success) {
+      setMediaError(result.error || 'Falha ao enviar arquivo.');
+      return;
+    }
+    const data = await getDealActivities(deal.id);
+    setActivities(data);
+  }
+
+  async function handleFileSelected(file: File) {
+    setMediaError(null);
+    const mediaType: UploadableMediaType | null = file.type.startsWith('image/')
+      ? 'IMAGE'
+      : file.type.startsWith('video/')
+        ? 'VIDEO'
+        : file.type.startsWith('audio/')
+          ? 'AUDIO'
+          : null;
+    if (!mediaType) {
+      setMediaError('Tipo de arquivo não suportado — envie foto, áudio ou vídeo.');
+      return;
+    }
+    setIsUploadingMedia(true);
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      const { url } = await uploadScriptStepMedia(mediaType, formData);
+      await sendMediaAndRefresh(mediaType, url);
+    } catch (e) {
+      setMediaError(e instanceof Error ? e.message : 'Falha ao enviar arquivo.');
+    } finally {
+      setIsUploadingMedia(false);
+    }
+  }
+
+  function clearRecording() {
+    if (recordedUrl) URL.revokeObjectURL(recordedUrl);
+    recordedChunksRef.current = [];
+    recordedBlobRef.current = null;
+    setRecordedUrl(null);
+    setRecordSeconds(0);
+  }
+
+  async function startRecording() {
+    setMediaError(null);
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const mimeType = ['audio/webm', 'audio/mp4', 'audio/ogg'].find(t => MediaRecorder.isTypeSupported(t));
+      const recorder = new MediaRecorder(stream, mimeType ? { mimeType } : undefined);
+      recordedChunksRef.current = [];
+      recorder.ondataavailable = (e) => { if (e.data.size > 0) recordedChunksRef.current.push(e.data); };
+      recorder.onstop = () => {
+        stream.getTracks().forEach(t => t.stop());
+        const blob = new Blob(recordedChunksRef.current, { type: recorder.mimeType || 'audio/webm' });
+        recordedBlobRef.current = blob;
+        setRecordedUrl(URL.createObjectURL(blob));
+      };
+      mediaRecorderRef.current = recorder;
+      recorder.start();
+      setRecordSeconds(0);
+      setIsRecording(true);
+      recordTimerRef.current = setInterval(() => setRecordSeconds(s => s + 1), 1000);
+    } catch {
+      setMediaError('Não foi possível acessar o microfone. Verifique a permissão do navegador.');
+    }
+  }
+
+  function stopRecording() {
+    mediaRecorderRef.current?.stop();
+    if (recordTimerRef.current) clearInterval(recordTimerRef.current);
+    setIsRecording(false);
+  }
+
+  async function confirmRecording() {
+    const blob = recordedBlobRef.current;
+    if (!blob) return;
+    setIsUploadingMedia(true);
+    setMediaError(null);
+    try {
+      const ext = blob.type.includes('mp4') ? 'm4a' : blob.type.includes('ogg') ? 'ogg' : 'webm';
+      const file = new File([blob], `gravacao-${Date.now()}.${ext}`, { type: blob.type });
+      const formData = new FormData();
+      formData.append('file', file);
+      const { url } = await uploadScriptStepMedia('AUDIO', formData);
+      await sendMediaAndRefresh('AUDIO', url);
+      clearRecording();
+    } catch (e) {
+      setMediaError(e instanceof Error ? e.message : 'Falha ao enviar gravação.');
+    } finally {
+      setIsUploadingMedia(false);
     }
   }
 
@@ -243,11 +350,22 @@ export function LeadInboxPanel({ deal, onClose }: LeadInboxPanelProps) {
           }
 
           const isMe = act.author === 'Agent' || act.author === 'System';
-          
+          const mediaMatch = typeof act.content === 'string' ? act.content.match(/^\[MEDIA:(AUDIO|IMAGE|VIDEO)\]([\s\S]+)$/) : null;
+
           return (
             <div key={act.id} className={`flex ${isMe ? 'justify-end' : 'justify-start'}`}>
               <div className={`${isMe ? 'bg-indigo-600/20 border-indigo-500/30 text-indigo-100 rounded-tr-none' : 'bg-[#222222] border-[#333333] text-zinc-200 rounded-tl-none'} border p-3 rounded-2xl max-w-[85%] shadow-sm relative`}>
-                <p className="text-sm leading-relaxed">{act.content}</p>
+                {mediaMatch ? (
+                  mediaMatch[1] === 'IMAGE' ? (
+                    <img src={mediaMatch[2]} alt="" className="max-w-full max-h-64 rounded-lg" />
+                  ) : mediaMatch[1] === 'VIDEO' ? (
+                    <video src={mediaMatch[2]} controls className="max-w-full max-h-64 rounded-lg" />
+                  ) : (
+                    <audio src={mediaMatch[2]} controls className="max-w-full h-10" />
+                  )
+                ) : (
+                  <p className="text-sm leading-relaxed">{act.content}</p>
+                )}
                 <div className={`flex items-center gap-1 mt-1 ${isMe ? 'justify-end' : 'justify-end'}`}>
                   <span className={`text-[9px] ${isMe ? 'text-indigo-300/70' : 'text-zinc-500'}`}>
                     {format(new Date(act.createdAt), 'HH:mm')}
@@ -262,16 +380,54 @@ export function LeadInboxPanel({ deal, onClose }: LeadInboxPanelProps) {
       </div>
 
       <div className={`p-4 border-t ${inputMode === 'NOTE' ? 'bg-amber-950/20 border-amber-900/30' : inputMode === 'TASK' ? 'bg-rose-950/20 border-rose-900/30' : 'bg-[#141414] border-[#262626]'}`}>
+        {mediaError && (
+          <div className="mb-2 bg-red-500/10 border border-red-500/30 rounded-lg p-2 text-[11px] text-red-400">{mediaError}</div>
+        )}
+
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="image/*,video/*,audio/*"
+          className="hidden"
+          onChange={(e) => {
+            const file = e.target.files?.[0];
+            if (file) handleFileSelected(file);
+            e.target.value = '';
+          }}
+        />
+
+        {inputMode === 'MESSAGE' && isRecording ? (
+          <div className="flex items-center gap-3 bg-[#222222] border border-[#333333] rounded-xl px-4 py-3">
+            <span className="flex items-center gap-2 text-red-400 text-sm font-medium">
+              <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
+              Gravando {Math.floor(recordSeconds / 60)}:{String(recordSeconds % 60).padStart(2, '0')}
+            </span>
+            <button onClick={stopRecording} className="ml-auto text-xs text-zinc-300 hover:text-white font-medium">
+              Parar
+            </button>
+          </div>
+        ) : inputMode === 'MESSAGE' && recordedUrl ? (
+          <div className="flex items-center gap-2 bg-[#222222] border border-[#333333] rounded-xl px-3 py-2">
+            <audio controls src={recordedUrl} className="h-9 flex-1" />
+            <button onClick={confirmRecording} disabled={isUploadingMedia} className="text-emerald-400 hover:text-emerald-300 disabled:opacity-40 text-xs font-medium shrink-0">
+              {isUploadingMedia ? 'Enviando...' : 'Enviar'}
+            </button>
+            <button onClick={clearRecording} disabled={isUploadingMedia} className="text-zinc-500 hover:text-red-400 disabled:opacity-40 text-xs font-medium shrink-0">
+              Descartar
+            </button>
+          </div>
+        ) : (
         <div className="relative flex items-center">
-          <button 
-            onClick={() => alert('Envio de arquivos em breve!')}
-            className={`absolute left-2 p-2 transition-colors ${
+          <button
+            onClick={() => fileInputRef.current?.click()}
+            disabled={isUploadingMedia}
+            className={`absolute left-2 p-2 transition-colors disabled:opacity-40 ${
               inputMode === 'MESSAGE' ? 'text-zinc-500 hover:text-zinc-300' : 'hidden'
             }`}
           >
             <Paperclip className="size-4" />
           </button>
-          
+
           <input
             type="text"
             value={message}
@@ -279,22 +435,23 @@ export function LeadInboxPanel({ deal, onClose }: LeadInboxPanelProps) {
             onKeyDown={(e) => e.key === 'Enter' && handleSend()}
             placeholder={inputMode === 'NOTE' ? 'Digite uma anotação interna...' : inputMode === 'TASK' ? 'O que precisa ser feito?' : 'Digite uma mensagem (WhatsApp)...'}
             className={`w-full border rounded-xl ${inputMode === 'MESSAGE' ? 'pl-10 pr-24' : 'pl-4 pr-12'} py-3 text-sm focus:outline-none transition-colors ${
-              inputMode === 'NOTE' ? 'bg-amber-500/5 border-amber-500/20 text-amber-100 placeholder:text-amber-700/50 focus:border-amber-500/50' : 
-              inputMode === 'TASK' ? 'bg-rose-500/5 border-rose-500/20 text-rose-100 placeholder:text-rose-700/50 focus:border-rose-500/50' : 
+              inputMode === 'NOTE' ? 'bg-amber-500/5 border-amber-500/20 text-amber-100 placeholder:text-amber-700/50 focus:border-amber-500/50' :
+              inputMode === 'TASK' ? 'bg-rose-500/5 border-rose-500/20 text-rose-100 placeholder:text-rose-700/50 focus:border-rose-500/50' :
               'bg-[#222222] border-[#333333] text-zinc-200 placeholder:text-zinc-500 focus:border-blue-500/50'
             }`}
           />
-          
+
           <div className="absolute right-2 flex items-center gap-1">
-            <button 
-              onClick={() => alert('Gravação de áudio em breve!')}
-              className={`p-2 transition-colors ${
+            <button
+              onClick={startRecording}
+              disabled={isUploadingMedia}
+              className={`p-2 transition-colors disabled:opacity-40 ${
                 inputMode === 'MESSAGE' ? 'text-zinc-500 hover:text-zinc-300' : 'hidden'
               }`}
             >
               <Mic className="size-4" />
             </button>
-            <button 
+            <button
               onClick={handleSend}
               disabled={isSending || !message.trim()}
               className={`p-2 disabled:opacity-50 text-white rounded-lg transition-colors ${
@@ -307,6 +464,7 @@ export function LeadInboxPanel({ deal, onClose }: LeadInboxPanelProps) {
             </button>
           </div>
         </div>
+        )}
         <div className="flex gap-4 mt-2 px-2">
           <button 
             onClick={() => setInputMode('MESSAGE')}
