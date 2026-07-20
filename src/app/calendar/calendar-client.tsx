@@ -61,10 +61,10 @@ export default function CalendarClient({ initialTasks }: { initialTasks: Task[] 
     <div className="h-screen flex flex-col bg-[#0a0a0a] text-zinc-200 overflow-hidden relative">
       
       {/* Top Header / Navbar */}
-      <div className="h-[60px] border-b border-[#222] bg-[#111] flex items-center justify-between px-6 shrink-0 z-30">
-        
+      <div className="h-[60px] border-b border-[#222] bg-[#111] flex items-center justify-between px-3 md:px-6 gap-3 shrink-0 z-30 overflow-x-auto custom-scrollbar">
+
         {/* Left Side: View Toggles & Timeframe */}
-        <div className="flex items-center gap-6">
+        <div className="flex items-center gap-3 md:gap-6 shrink-0">
           <div className="flex items-center gap-1 bg-[#1a1a1a] p-1 rounded-lg border border-[#333]">
             <button className="p-1.5 rounded transition-colors bg-[#333] text-white shadow-sm"><Columns className="size-[15px]" /></button>
             <button className="p-1.5 rounded transition-colors text-zinc-500 hover:text-zinc-300"><ListIcon className="size-[15px]" /></button>
@@ -83,7 +83,7 @@ export default function CalendarClient({ initialTasks }: { initialTasks: Task[] 
         </div>
 
         {/* Right Side: Actions */}
-        <div className="flex items-center gap-4 relative">
+        <div className="flex items-center gap-2 md:gap-4 relative shrink-0">
           <button onClick={() => setIsDropdownOpen(!isDropdownOpen)} className={`p-2 rounded transition-colors ${isDropdownOpen ? 'text-white bg-[#222]' : 'text-zinc-400 hover:text-white hover:bg-[#1a1a1a]'}`}>
             <MoreHorizontal className="size-5" />
           </button>
@@ -106,12 +106,12 @@ export default function CalendarClient({ initialTasks }: { initialTasks: Task[] 
             </>
           )}
 
-          <button className="h-8 px-4 flex items-center gap-2 rounded bg-white/5 hover:bg-white/10 border border-[#333] text-zinc-300 text-[12px] font-bold transition-all group">
-            <RefreshCw className="size-3.5 text-zinc-400 group-hover:text-white group-hover:rotate-180 transition-all duration-500" /> SINCRONIZAR
+          <button className="h-8 px-3 md:px-4 flex items-center gap-2 rounded bg-white/5 hover:bg-white/10 border border-[#333] text-zinc-300 text-[12px] font-bold transition-all group shrink-0">
+            <RefreshCw className="size-3.5 text-zinc-400 group-hover:text-white group-hover:rotate-180 transition-all duration-500" /> <span className="hidden sm:inline">SINCRONIZAR</span>
           </button>
 
-          <button onClick={() => setIsNewEventModalOpen(true)} className="h-8 px-4 flex items-center gap-1.5 rounded bg-blue-600 hover:bg-blue-500 text-white text-[12px] font-bold shadow-lg shadow-blue-600/20 transition-all">
-            <Plus className="size-4" /> NOVO EVENTO
+          <button onClick={() => setIsNewEventModalOpen(true)} className="h-8 px-3 md:px-4 flex items-center gap-1.5 rounded bg-blue-600 hover:bg-blue-500 text-white text-[12px] font-bold shadow-lg shadow-blue-600/20 transition-all shrink-0">
+            <Plus className="size-4" /> <span className="hidden sm:inline">NOVO EVENTO</span>
           </button>
         </div>
       </div>
