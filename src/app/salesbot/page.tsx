@@ -454,24 +454,24 @@ export default function SalesbotPage() {
   ] as const;
 
   return (
-    <div className="flex h-full bg-[#0a0a0a] text-white overflow-hidden">
+    <div className="flex flex-col md:flex-row h-full bg-[#0a0a0a] text-white overflow-y-auto md:overflow-hidden">
 
       {/* Left Area (Settings) */}
       <div className="flex-1 flex flex-col min-w-0">
 
         {/* Header */}
-        <div className="px-8 pt-6 pb-2 border-b border-[#222]">
-          <div className="flex justify-between items-center mb-6">
+        <div className="px-4 md:px-8 pt-6 pb-2 border-b border-[#222]">
+          <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3 mb-2">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-lg bg-indigo-500/10 flex items-center justify-center border border-indigo-500/20">
+              <div className="w-10 h-10 rounded-lg bg-indigo-500/10 flex items-center justify-center border border-indigo-500/20 shrink-0">
                 <Bot className="size-5 text-indigo-400" />
               </div>
-              <h1 className="text-2xl font-bold tracking-tight text-zinc-100">NEXT Assistente de Vendas</h1>
+              <h1 className="text-xl md:text-2xl font-bold tracking-tight text-zinc-100">NEXT Assistente de Vendas</h1>
             </div>
             <button
               onClick={handleToggleAgent}
               disabled={isTogglingAgent || isLoadingAgent}
-              className={`px-4 py-2 rounded-lg text-sm font-bold transition-all flex items-center gap-2 disabled:opacity-50 ${
+              className={`self-start sm:self-auto px-4 py-2 rounded-lg text-sm font-bold transition-all flex items-center gap-2 disabled:opacity-50 ${
                 isAgentActive ? 'bg-emerald-600 hover:bg-emerald-500 text-white' : 'bg-blue-600 hover:bg-blue-500 text-white'
               }`}
             >
@@ -480,7 +480,7 @@ export default function SalesbotPage() {
             </button>
           </div>
 
-          <p className="text-[11px] text-zinc-600 -mt-4 mb-4">
+          <p className="text-[11px] text-zinc-600 mb-4">
             Este é o interruptor global — também pode ser ligado automaticamente por uma regra de
             etapa (Automações → Fluxos → Regras rápidas) ou por um Fluxo que termine em &quot;IA Assume&quot;.
           </p>
@@ -505,7 +505,7 @@ export default function SalesbotPage() {
         </div>
 
         {/* Dynamic Content Area */}
-        <div className="flex-1 overflow-y-auto p-8 custom-scrollbar">
+        <div className="flex-1 md:overflow-y-auto p-4 md:p-8 custom-scrollbar">
 
           {agentLoadError && (
             <div className="mb-6 max-w-3xl bg-red-500/10 border border-red-500/30 rounded-xl p-4 text-sm text-red-400">
@@ -828,7 +828,7 @@ export default function SalesbotPage() {
       </div>
 
       {/* Right Area (Simulator) */}
-      <div className="w-[400px] bg-[#111] border-l border-[#222] p-6 flex flex-col shrink-0 relative overflow-hidden overflow-y-auto custom-scrollbar">
+      <div className="w-full md:w-[400px] bg-[#111] border-l border-[#222] p-6 flex flex-col shrink-0 relative overflow-hidden md:overflow-y-auto custom-scrollbar">
         {/* Background glow */}
         <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-indigo-600/5 blur-[120px] pointer-events-none rounded-full" />
 
