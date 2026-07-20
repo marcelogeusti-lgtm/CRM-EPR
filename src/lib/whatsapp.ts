@@ -198,6 +198,44 @@ export async function registerPhoneNumber(phoneNumberId: string, accessToken: st
   }
 }
 
+export interface DownloadMediaResult {
+  success: boolean;
+  error?: string;
+  buffer?: Buffer;
+  mimeType?: string;
+}
+
+/**
+ * Resolve um media id recebido no webhook (ex.: msg.image.id) pra uma URL
+ * temporária da Meta e baixa o arquivo — a Cloud API nunca manda a mídia
+ * direto no payload, só a referência. As duas chamadas exigem o mesmo
+ * access token da integração.
+ */
+export async function downloadWhatsappMedia(mediaId: string, accessToken: string): Promise<DownloadMediaResult> {
+  try {
+    const metaRes = await fetch(`https://graph.facebook.com/${META_API_VERSION}/${mediaId}`, {
+      headers: { Authorization: `Bearer ${accessToken}` },
+    });
+    const metaData = await metaRes.json();
+    if (!metaRes.ok || !metaData?.url) {
+      return { success: false, error: metaData?.error?.message || 'Falha ao resolver URL da mídia.' };
+    }
+
+    const fileRes = await fetch(metaData.url, {
+      headers: { Authorization: `Bearer ${accessToken}` },
+    });
+    if (!fileRes.ok) {
+      return { success: false, error: 'Falha ao baixar o arquivo de mídia.' };
+    }
+
+    const arrayBuffer = await fileRes.arrayBuffer();
+    return { success: true, buffer: Buffer.from(arrayBuffer), mimeType: metaData.mime_type };
+  } catch (error) {
+    console.error('❌ [WHATSAPP] Falha de rede ao baixar mídia:', error);
+    return { success: false, error: 'Falha de rede ao conectar com o WhatsApp.' };
+  }
+}
+
 export type SendableMediaType = 'IMAGE' | 'AUDIO' | 'VIDEO';
 
 const MEDIA_TYPE_TO_META_TYPE: Record<SendableMediaType, string> = {

@@ -883,11 +883,27 @@ passou limpa, mas o teste ponta a ponta no WhatsApp real depende dele.
   URL) pra o Inbox conseguir renderizar inline (img/audio/video) — o
   histórico que volta pro prompt da IA (`aiReply.ts`) filtra esse
   prefixo de volta pra `[tipo]`, sem poluir o contexto com URL longa.
-  **Achado, não corrigido**: o webhook (`src/app/api/webhooks/meta`) só
-  processa `msg.type === 'text'` — se o lead manda foto/áudio pro
-  WhatsApp da empresa, a mensagem é descartada silenciosamente, nunca
-  aparece no Inbox. Precisa resolver `media_id` da Meta (chamada extra
-  na Graph API pra virar URL temporária) e baixar/re-hospedar antes de
-  expirar. Não corrigido nesta sessão — fora do escopo do que foi
-  pedido (enviar, não receber); avisado ao Marcelo, decisão de priorizar
-  fica com ele.
+  **Achado e corrigido na sequência**: o webhook
+  (`src/app/api/webhooks/meta/route.ts`) só processava `msg.type ===
+  'text'` — foto/áudio/vídeo do lead eram descartados silenciosamente,
+  nunca apareciam no Inbox. Confirmado no Meta for Developers (Webhooks
+  → produto "Whatsapp Business Account") que o campo `messages` já
+  estava assinado — todos os tipos de mensagem chegam por esse único
+  campo, não tinha nada pra configurar lá, o gap era só código.
+  Corrigido: `downloadWhatsappMedia()` novo em `src/lib/whatsapp.ts`
+  resolve o `media_id` do payload numa URL temporária da Meta e baixa o
+  arquivo; `uploadInboundMedia()` novo em `src/lib/mediaStorage.ts`
+  re-hospeda no bucket `agent-media`, mesma pasta por tenant de sempre.
+  `processWhatsAppMessage()` generalizado pra aceitar texto ou mídia,
+  gravando no mesmo formato `[MEDIA:TIPO]url` do envio manual.
+  **Dependência nova**: como o webhook não tem sessão de usuário, o
+  upload pro Storage precisa da `service_role` key (RLS do bucket exige
+  `authenticated` + `auth.uid()` mapeado pro tenant — confirmado via
+  `pg_policies`). Novo `src/utils/supabase/admin.ts` lê
+  `SUPABASE_SERVICE_ROLE_KEY` do ambiente — **ainda não configurada na
+  Vercel** (só existe `NEXT_PUBLIC_SUPABASE_ANON_KEY` hoje). Sem essa
+  variável a função falha de forma controlada (loga erro, não grava a
+  mensagem, não derruba o webhook) — pendência real pro Marcelo: pegar a
+  chave em Supabase → Project Settings → API → "service_role" (projeto
+  `uqktlxqdfnrmlvmqxveb`) e adicionar em Vercel → Settings →
+  Environment Variables.

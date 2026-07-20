@@ -3,6 +3,8 @@ import crypto from 'node:crypto';
 import { prisma } from '@/lib/prisma';
 import { sendAiAgentReply } from '@/lib/aiReply';
 import { matchTrigger, runFlow } from '@/lib/flowEngine';
+import { downloadWhatsappMedia } from '@/lib/whatsapp';
+import { uploadInboundMedia } from '@/lib/mediaStorage';
 
 // A resposta automática da IA (chamada à OpenAI + envio via Meta) pode
 // passar do timeout padrão da Vercel antes de terminar.
@@ -78,8 +80,14 @@ export async function GET(request: Request) {
   return new NextResponse('Bad Request: Missing parameters', { status: 400 });
 }
 
+interface IncomingContent {
+  type: 'text' | 'image' | 'audio' | 'video';
+  text?: string;
+  mediaId?: string;
+}
+
 // Helper para processar mensagens do WhatsApp
-async function processWhatsAppMessage(fromPhone: string, textBody: string, phoneNumberId: string) {
+async function processWhatsAppMessage(fromPhone: string, incoming: IncomingContent, phoneNumberId: string) {
   // 1. Encontrar o Tenant dono deste phoneNumberId
   const integrations = await prisma.integration.findMany({
     where: { provider: 'whatsapp', isActive: true }
@@ -101,6 +109,33 @@ async function processWhatsAppMessage(fromPhone: string, textBody: string, phone
     return;
   }
   const tenantId = integration.tenantId;
+
+  // 1.5 Resolver o conteúdo: texto vem pronto, mídia precisa ser baixada
+  // da Meta (só chega um media id no payload, não o arquivo) e
+  // re-hospedada no storage do próprio Nexus antes de virar mensagem —
+  // mesmo formato "[MEDIA:TIPO]url" que o envio manual pelo Inbox usa
+  // (ver src/actions/inbox.ts), pra renderizar igual na timeline.
+  let content: string;
+  if (incoming.type === 'text') {
+    content = incoming.text || '';
+  } else {
+    if (!incoming.mediaId) {
+      console.warn(`⚠️ [WEBHOOK] Mensagem de mídia (${incoming.type}) sem media id. Ignorada.`);
+      return;
+    }
+    const downloaded = await downloadWhatsappMedia(incoming.mediaId, integration.apiKey || '');
+    if (!downloaded.success || !downloaded.buffer) {
+      console.error(`❌ [WEBHOOK] Falha ao baixar mídia (${incoming.type}) do lead:`, downloaded.error);
+      return;
+    }
+    const mediaType = incoming.type === 'image' ? 'IMAGE' : incoming.type === 'video' ? 'VIDEO' : 'AUDIO';
+    const uploaded = await uploadInboundMedia(tenantId, mediaType, downloaded.buffer, downloaded.mimeType || '');
+    if (!uploaded.success || !uploaded.url) {
+      console.error(`❌ [WEBHOOK] Falha ao subir mídia (${incoming.type}) do lead pro storage:`, uploaded.error);
+      return;
+    }
+    content = `[MEDIA:${mediaType}]${uploaded.url}`;
+  }
 
   // 2. Procurar ou criar o Contato
   let contact = await prisma.contact.findFirst({
@@ -175,7 +210,7 @@ async function processWhatsAppMessage(fromPhone: string, textBody: string, phone
     data: {
       conversationId: conversation.id,
       authorType: 'CONTACT',
-      content: textBody
+      content
     }
   });
 
@@ -185,7 +220,7 @@ async function processWhatsAppMessage(fromPhone: string, textBody: string, phone
       tenantId,
       dealId: deal.id,
       type: 'MESSAGE',
-      content: textBody,
+      content,
       author: 'Contact'
     }
   });
@@ -209,10 +244,10 @@ async function processWhatsAppMessage(fromPhone: string, textBody: string, phone
       toPhone: fromPhone,
       phoneNumberId,
       accessToken: integration.apiKey || '',
-      messageText: textBody,
+      messageText: content,
     };
 
-    const matchedFlow = await matchTrigger(tenantId, textBody, isFirstMessage);
+    const matchedFlow = await matchTrigger(tenantId, content, isFirstMessage);
     if (matchedFlow) {
       await runFlow(matchedFlow, replyContext);
     } else {
@@ -263,14 +298,27 @@ export async function POST(request: Request) {
           if (change.value && change.value.messages) {
             const phoneNumberId = change.value.metadata.phone_number_id;
             change.value.messages.forEach((msg: any) => {
+              const fromPhone = msg.from;
+
               if (msg.type === 'text') {
-                const fromPhone = msg.from;
                 const textBody = msg.text.body;
                 console.log(`🟢 [WHATSAPP] Mensagem de ${fromPhone}: ${textBody}`);
-                
-                // Enfileira o processamento assíncrono no Banco de Dados
-                processPromises.push(processWhatsAppMessage(fromPhone, textBody, phoneNumberId));
+                processPromises.push(
+                  processWhatsAppMessage(fromPhone, { type: 'text', text: textBody }, phoneNumberId)
+                );
+              } else if (msg.type === 'image' || msg.type === 'audio' || msg.type === 'video') {
+                console.log(`🟢 [WHATSAPP] Mídia (${msg.type}) de ${fromPhone}`);
+                processPromises.push(
+                  processWhatsAppMessage(
+                    fromPhone,
+                    { type: msg.type, mediaId: msg[msg.type]?.id },
+                    phoneNumberId
+                  )
+                );
               }
+              // Outros tipos (document, sticker, location, contacts,
+              // interactive, button...) ainda não são tratados — a
+              // mensagem chega mas é ignorada, sem quebrar o webhook.
             });
           }
         });
