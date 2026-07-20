@@ -87,13 +87,13 @@ export function ServiceOrdersClient({
 
   return (
     <div className="flex flex-col h-full bg-[#0a0a0a] text-white">
-      <div className="px-8 py-6 border-b border-[#222]">
-        <div className="flex justify-between items-center mb-6">
+      <div className="px-4 md:px-8 py-4 md:py-6 border-b border-[#222]">
+        <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3 mb-6">
           <h1 className="text-2xl font-bold tracking-tight text-zinc-100">Ordens de Serviço</h1>
           {tab === 'ordens' && (
             <button
               onClick={() => setIsModalOpen(true)}
-              className="bg-blue-600 hover:bg-blue-500 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-2"
+              className="self-start sm:self-auto bg-blue-600 hover:bg-blue-500 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-2"
             >
               <Plus className="size-4" /> Nova Ordem de Serviço
             </button>
@@ -119,7 +119,7 @@ export function ServiceOrdersClient({
         </div>
       </div>
 
-      <div className="flex-1 overflow-auto p-8">
+      <div className="flex-1 overflow-auto p-4 md:p-8">
         {tab === 'ordens' ? (
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
             {columns.map(col => (

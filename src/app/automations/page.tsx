@@ -116,7 +116,7 @@ export default function AutomationsPage() {
 
   return (
     <div className="h-full bg-[#0a0a0a] overflow-auto">
-      <div className="p-8 max-w-6xl mx-auto">
+      <div className="p-4 md:p-8 max-w-6xl mx-auto">
         <div className="mb-6">
           <h1 className="text-2xl font-bold text-white tracking-tight flex items-center gap-2">
             <Zap className="size-6 text-indigo-400" />
