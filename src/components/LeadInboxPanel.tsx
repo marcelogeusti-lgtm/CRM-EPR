@@ -197,8 +197,9 @@ export function LeadInboxPanel({ deal, onClose }: LeadInboxPanelProps) {
         {tagError && <p className="text-[10px] text-red-400 mt-1">{tagError}</p>}
       </div>
 
-      <div ref={scrollRef} className="flex-1 overflow-y-auto p-4 flex flex-col gap-4 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] bg-repeat opacity-[0.03]" style={{ backgroundColor: '#0a0a0a' }}>
-        
+      <div ref={scrollRef} className="flex-1 overflow-y-auto p-4 relative" style={{ backgroundColor: '#0a0a0a' }}>
+        <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] bg-repeat opacity-[0.03] pointer-events-none" />
+        <div className="relative flex flex-col gap-4">
         {activities.map((act) => {
           if (act.type === 'STATUS_CHANGE') {
             return (
@@ -257,7 +258,7 @@ export function LeadInboxPanel({ deal, onClose }: LeadInboxPanelProps) {
             </div>
           );
         })}
-
+        </div>
       </div>
 
       <div className={`p-4 border-t ${inputMode === 'NOTE' ? 'bg-amber-950/20 border-amber-900/30' : inputMode === 'TASK' ? 'bg-rose-950/20 border-rose-900/30' : 'bg-[#141414] border-[#262626]'}`}>
