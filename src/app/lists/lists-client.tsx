@@ -94,10 +94,10 @@ export function ListsClient({ initialContacts }: { initialContacts: Contact[] })
   return (
     <div className="flex flex-col h-full bg-[#0a0a0a] text-white">
       {/* Header */}
-      <div className="px-8 py-6 border-b border-[#222]">
-        <div className="flex justify-between items-center mb-6">
+      <div className="px-4 md:px-8 py-4 md:py-6 border-b border-[#222]">
+        <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 mb-6">
           <h1 className="text-2xl font-bold tracking-tight text-zinc-100">Listas e Contatos</h1>
-          <div className="flex items-center gap-3">
+          <div className="flex flex-wrap items-center gap-3">
             <input
               ref={importInputRef}
               type="file"
@@ -181,64 +181,90 @@ export function ListsClient({ initialContacts }: { initialContacts: Contact[] })
       </div>
 
       {/* Content */}
-      <div className="flex-1 overflow-auto p-8">
-        <div className="bg-[#111] border border-[#222] rounded-xl overflow-hidden">
-          <table className="w-full text-left text-sm">
-            <thead className="bg-[#1a1a1a] text-zinc-400 font-medium border-b border-[#222]">
-              <tr>
-                <th className="px-6 py-4">Nome do Contato</th>
-                <th className="px-6 py-4">Telefone / E-mail</th>
-                <th className="px-6 py-4">Empresa</th>
-                <th className="px-6 py-4">Data de Criação</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-[#222]">
-              {filteredContacts.map(contact => (
-                <tr key={contact.id} className="hover:bg-[#161616] transition-colors group cursor-pointer">
-                  <td className="px-6 py-4">
-                    <div className="flex items-center gap-3">
-                      <div className="w-8 h-8 rounded-full bg-blue-500/10 text-blue-400 flex items-center justify-center font-bold">
-                        {contact.name.charAt(0).toUpperCase()}
-                      </div>
-                      <span className="font-medium text-zinc-200">{contact.name}</span>
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 text-zinc-400">
-                    <div className="flex flex-col gap-1">
-                      {contact.phone && <span>{contact.phone}</span>}
-                      {contact.email && <span className="text-xs text-zinc-500">{contact.email}</span>}
-                      {!contact.phone && !contact.email && <span>-</span>}
-                    </div>
-                  </td>
-                  <td className="px-6 py-4">
-                    {contact.company ? (
-                      <div className="flex items-center gap-2 text-zinc-300">
-                        <Building2 className="size-4 text-zinc-500" />
-                        {contact.company.name}
-                      </div>
-                    ) : (
-                      <span className="text-zinc-600">-</span>
-                    )}
-                  </td>
-                  <td className="px-6 py-4 text-zinc-500">
-                    {new Date(contact.createdAt).toLocaleDateString('pt-BR')}
-                  </td>
-                </tr>
-              ))}
+      <div className="flex-1 overflow-auto p-4 md:p-8">
+        {filteredContacts.length === 0 ? (
+          <div className="bg-[#111] border border-[#222] rounded-xl px-6 py-12 text-center text-zinc-500">
+            <div className="flex flex-col items-center gap-3">
+              <Users className="size-8 text-zinc-600" />
+              <p>{contacts.length === 0 ? 'Nenhum contato encontrado no seu CRM.' : 'Nenhum contato corresponde à busca/filtro.'}</p>
+            </div>
+          </div>
+        ) : (
+          <>
+            {/* Tabela — telas médias/grandes */}
+            <div className="hidden md:block bg-[#111] border border-[#222] rounded-xl overflow-hidden">
+              <table className="w-full text-left text-sm">
+                <thead className="bg-[#1a1a1a] text-zinc-400 font-medium border-b border-[#222]">
+                  <tr>
+                    <th className="px-6 py-4">Nome do Contato</th>
+                    <th className="px-6 py-4">Telefone / E-mail</th>
+                    <th className="px-6 py-4">Empresa</th>
+                    <th className="px-6 py-4">Data de Criação</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-[#222]">
+                  {filteredContacts.map(contact => (
+                    <tr key={contact.id} className="hover:bg-[#161616] transition-colors group cursor-pointer">
+                      <td className="px-6 py-4">
+                        <div className="flex items-center gap-3">
+                          <div className="w-8 h-8 rounded-full bg-blue-500/10 text-blue-400 flex items-center justify-center font-bold">
+                            {contact.name.charAt(0).toUpperCase()}
+                          </div>
+                          <span className="font-medium text-zinc-200">{contact.name}</span>
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 text-zinc-400">
+                        <div className="flex flex-col gap-1">
+                          {contact.phone && <span>{contact.phone}</span>}
+                          {contact.email && <span className="text-xs text-zinc-500">{contact.email}</span>}
+                          {!contact.phone && !contact.email && <span>-</span>}
+                        </div>
+                      </td>
+                      <td className="px-6 py-4">
+                        {contact.company ? (
+                          <div className="flex items-center gap-2 text-zinc-300">
+                            <Building2 className="size-4 text-zinc-500" />
+                            {contact.company.name}
+                          </div>
+                        ) : (
+                          <span className="text-zinc-600">-</span>
+                        )}
+                      </td>
+                      <td className="px-6 py-4 text-zinc-500">
+                        {new Date(contact.createdAt).toLocaleDateString('pt-BR')}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
 
-              {filteredContacts.length === 0 && (
-                <tr>
-                  <td colSpan={4} className="px-6 py-12 text-center text-zinc-500">
-                    <div className="flex flex-col items-center gap-3">
-                      <Users className="size-8 text-zinc-600" />
-                      <p>{contacts.length === 0 ? 'Nenhum contato encontrado no seu CRM.' : 'Nenhum contato corresponde à busca/filtro.'}</p>
+            {/* Lista de cards — mobile, mesma informação da tabela */}
+            <div className="md:hidden space-y-3">
+              {filteredContacts.map(contact => (
+                <div key={contact.id} className="bg-[#111] border border-[#222] rounded-xl p-4">
+                  <div className="flex items-center gap-3 mb-3">
+                    <div className="w-9 h-9 rounded-full bg-blue-500/10 text-blue-400 flex items-center justify-center font-bold shrink-0">
+                      {contact.name.charAt(0).toUpperCase()}
                     </div>
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
+                    <span className="font-medium text-zinc-200 truncate">{contact.name}</span>
+                  </div>
+                  <div className="space-y-1.5 text-sm text-zinc-400 pl-12">
+                    {contact.phone && <p>{contact.phone}</p>}
+                    {contact.email && <p className="text-xs text-zinc-500">{contact.email}</p>}
+                    {contact.company && (
+                      <p className="flex items-center gap-2 text-zinc-300">
+                        <Building2 className="size-3.5 text-zinc-500 shrink-0" />
+                        {contact.company.name}
+                      </p>
+                    )}
+                    <p className="text-xs text-zinc-600">{new Date(contact.createdAt).toLocaleDateString('pt-BR')}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </>
+        )}
       </div>
 
       {/* New Contact Modal */}
