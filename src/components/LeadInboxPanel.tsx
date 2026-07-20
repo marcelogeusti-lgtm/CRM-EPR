@@ -124,7 +124,7 @@ export function LeadInboxPanel({ deal, onClose }: LeadInboxPanelProps) {
   }
 
   return (
-    <div className="w-1/3 min-w-[400px] h-full bg-[#111111] border-l border-[#262626] flex flex-col animate-in slide-in-from-right duration-300 shadow-2xl">
+    <div className="w-full md:w-1/3 md:min-w-[400px] h-full bg-[#111111] border-l border-[#262626] flex flex-col animate-in slide-in-from-right duration-300 shadow-2xl">
       <div className="p-4 border-b border-[#262626] flex justify-between items-center bg-[#141414]">
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 rounded-full bg-blue-500/20 text-blue-400 flex items-center justify-center font-bold text-lg border border-blue-500/30">

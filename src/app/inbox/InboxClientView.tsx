@@ -25,8 +25,10 @@ export function InboxClientView({ initialDeals }: { initialDeals: any[] }) {
 
   return (
     <div className="flex h-full w-full">
-      {/* Lista de Chats (Esquerda) */}
-      <div className={`flex flex-col border-r border-white/5 bg-[#050505] transition-all duration-300 ${selectedDeal ? 'w-[350px]' : 'w-[350px] max-w-[500px]'} shrink-0 relative z-20`}>
+      {/* Lista de Chats (Esquerda) — ocupa a tela inteira no mobile; some
+          quando uma conversa está aberta, porque o painel do lead assume
+          o lugar dela (ver classe do painel principal abaixo) */}
+      <div className={`${selectedDeal ? 'hidden md:flex' : 'flex'} flex-col border-r border-white/5 bg-[#050505] transition-all duration-300 w-full md:w-[350px] md:max-w-[500px] shrink-0 relative z-20`}>
         
         {/* Header Left Panel */}
         <div className="p-5 border-b border-white/5 flex items-center justify-between bg-[#0a0a0a]">
@@ -87,8 +89,9 @@ export function InboxClientView({ initialDeals }: { initialDeals: any[] }) {
         </div>
       </div>
 
-      {/* Painel Principal do Chat (Direita) */}
-      <div className="flex-1 bg-[#0a0a0a] relative overflow-hidden">
+      {/* Painel Principal do Chat (Direita) — some no mobile até uma
+          conversa ser selecionada; a lista acima assume o lugar dele */}
+      <div className={`${selectedDeal ? 'block' : 'hidden md:block'} flex-1 bg-[#0a0a0a] relative overflow-hidden`}>
         {selectedDeal ? (
           <div className="absolute inset-0">
             <div className="w-full h-full flex [&>div]:w-full [&>div]:border-l-0">
