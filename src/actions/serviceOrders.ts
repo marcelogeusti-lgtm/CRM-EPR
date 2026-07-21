@@ -137,14 +137,40 @@ export interface UpdateServiceOrderInput {
 }
 
 export async function updateServiceOrder(id: string, data: UpdateServiceOrderInput) {
-  const tenantId = await requireTenantId();
+  const user = await requireUser();
+  const tenantId = user.tenantId;
 
-  const result = await prisma.serviceOrder.updateMany({
-    where: { id, tenantId },
-    data,
-  });
+  const order = await prisma.serviceOrder.findFirst({ where: { id, tenantId } });
+  if (!order) return { success: false, error: 'Ordem de Serviço não encontrada.' };
 
-  if (result.count === 0) return { success: false, error: 'Ordem de Serviço não encontrada.' };
+  const isEmployeeChange = 'employeeId' in data && data.employeeId !== order.employeeId;
+
+  let fromEmployeeName: string | null = null;
+  let toEmployeeName: string | null = null;
+  if (isEmployeeChange) {
+    const [fromEmployee, toEmployee] = await Promise.all([
+      order.employeeId ? prisma.employee.findUnique({ where: { id: order.employeeId } }) : null,
+      data.employeeId ? prisma.employee.findUnique({ where: { id: data.employeeId } }) : null,
+    ]);
+    fromEmployeeName = fromEmployee?.name || null;
+    toEmployeeName = toEmployee?.name || null;
+  }
+
+  await prisma.serviceOrder.update({ where: { id: order.id }, data });
+
+  if (isEmployeeChange) {
+    await prisma.serviceOrderHistory.create({
+      data: {
+        tenantId,
+        serviceOrderId: order.id,
+        userId: user.id,
+        field: 'EMPLOYEE',
+        fromValue: fromEmployeeName,
+        toValue: toEmployeeName,
+        reason: null,
+      },
+    });
+  }
 
   revalidatePath('/service-orders');
   return { success: true };
