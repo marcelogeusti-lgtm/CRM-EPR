@@ -245,9 +245,12 @@ const MEDIA_TYPE_TO_META_TYPE: Record<SendableMediaType, string> = {
 };
 
 /**
- * Envia um arquivo (imagem/áudio/vídeo) via WhatsApp Cloud API, referenciado
- * por URL pública (bucket agent-media) — mais simples do que fazer upload
- * prévio pra Meta e usar um media id. Mesma janela de 24h do sendText.
+ * Envia um arquivo (imagem/áudio/vídeo) via WhatsApp Cloud API. Faz upload
+ * do arquivo pros servidores da própria Meta primeiro (media id) em vez de
+ * só referenciar por URL (link) — mandar por link faz a mensagem chegar
+ * marcada como "Encaminhada" no WhatsApp de quem recebe, porque não passa
+ * pelo mesmo caminho de mídia nativa que um envio direto pelo app usa; por
+ * media id chega como um envio normal. Mesma janela de 24h do sendText.
  * Áudio não aceita "caption" na API da Meta, por isso o campo é opcional.
  */
 export async function sendMedia(
@@ -262,6 +265,31 @@ export async function sendMedia(
   const metaType = MEDIA_TYPE_TO_META_TYPE[mediaType];
 
   try {
+    const fileRes = await fetch(mediaUrl);
+    if (!fileRes.ok) {
+      return { success: false, error: 'Falha ao baixar o arquivo de mídia pra reenviar à Meta.' };
+    }
+    const contentType = fileRes.headers.get('content-type') || 'application/octet-stream';
+    const fileBuffer = await fileRes.arrayBuffer();
+
+    const uploadForm = new FormData();
+    uploadForm.append('messaging_product', 'whatsapp');
+    uploadForm.append('file', new Blob([fileBuffer], { type: contentType }), 'media');
+    uploadForm.append('type', contentType);
+
+    const uploadRes = await fetch(
+      `https://graph.facebook.com/${META_API_VERSION}/${phoneNumberId}/media`,
+      {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${accessToken}` },
+        body: uploadForm,
+      }
+    );
+    const uploadData = await uploadRes.json();
+    if (!uploadRes.ok || !uploadData?.id) {
+      return { success: false, error: uploadData?.error?.message || 'Falha ao subir mídia pra Meta.' };
+    }
+
     const response = await fetch(
       `https://graph.facebook.com/${META_API_VERSION}/${phoneNumberId}/messages`,
       {
@@ -275,7 +303,7 @@ export async function sendMedia(
           to: cleanPhone,
           type: metaType,
           [metaType]: {
-            link: mediaUrl,
+            id: uploadData.id,
             ...(metaType !== 'audio' && caption ? { caption } : {}),
           },
         }),

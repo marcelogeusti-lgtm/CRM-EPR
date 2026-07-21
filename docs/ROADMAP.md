@@ -980,3 +980,54 @@ Verificado com `tsc`+`build`; teste visual ao vivo ainda pendente
 (depende do Marcelo abrir `/salesbot` e conferir a tooltip/texto de
 ajuda, e do comportamento da IA em produção refletir o prompt mais
 rico).
+
+## Redesign do editor de script + 2 bugs reais de envio de mídia (2026-07-21)
+
+O Marcelo mandou print do editor de etapas do ZapSuite e pediu pra
+igualar o layout do Nexus. Confirmado com ele (perguntei antes de
+mexer, batia de frente com decisões de escopo já tomadas): só visual +
+bloco "Link" novo — Condicional, IA Assume, Pausar e Notificar por
+etapa do Script ficam de fora (mesma razão de antes: sobreporiam o
+Canvas de Fluxo e as regras de etapa do Pipeline).
+
+- `STEP_THEME` novo em `src/app/salesbot/page.tsx`: Atendimento=indigo,
+  Fechamento=emerald, Objeções=rose — badge numerado + borda na cor do
+  tema em cada card, igual ao ZapSuite
+- Etapas colapsam/expandem (estado local); blocos viram cards com
+  textarea (texto quebra em várias linhas) e ganham botão de duplicar
+- Objeções ganharam numeração + reordenar (não existia antes)
+- Bloco novo `LINK` — tratado como texto pro envio (`sendText`), só o
+  ícone/cor muda; `agentPrompt.ts` e `aiReply.ts` atualizados
+
+Testando a tela nova ao vivo, o Marcelo bateu em dois bugs reais,
+achados via `get_runtime_errors` da Vercel:
+
+- **Upload falhando intermitente** — `Falha ao enviar o arquivo: new
+  row violates row-level security policy` em `/salesbot`. Não é o
+  mesmo bug do GRANT (esse já tinha corrigido — confirmado: um upload
+  às 04:18 funcionou). É a MESMA classe de corrida de renovação de
+  sessão já documentada em `src/lib/auth.ts` (várias ocorrências
+  anteriores, ver "UNAUTHENTICATED intermitente" mais acima neste
+  arquivo) — a política de RLS do bucket reavalia `auth.uid()` no
+  Postgres no momento do upload, e pode pegar o token no meio de uma
+  renovação mesmo com `requireTenantId()` (o gate de autorização real)
+  já tendo validado a sessão certinho. **Corrigido**:
+  `uploadScriptStepMedia` (`src/actions/mediaUpload.ts`) passou a usar
+  o cliente admin (`service_role`, mesmo de `src/utils/supabase/admin.ts`
+  criado pro webhook) em vez do cliente da sessão — remove essa segunda
+  checagem de RLS redundante e frágil, mantendo `requireTenantId()`
+  como única porta de autorização.
+- **Áudio chegando marcado como "Encaminhada"** — o Marcelo não queria
+  isso, queria que parecesse enviado na hora. Causa: `sendMedia()`
+  mandava a mídia referenciada por `link` (URL pública do nosso
+  bucket) — a Cloud API marca esse tipo de envio como encaminhado no
+  WhatsApp de quem recebe, por não passar pelo mesmo caminho de mídia
+  nativa de um envio direto pelo app. **Corrigido**: `sendMedia()`
+  agora sobe o arquivo pros servidores da própria Meta primeiro
+  (`POST /{phone-number-id}/media`) e manda a mensagem referenciando o
+  `media_id` retornado, no lugar de `link` — mesmo caminho que um envio
+  nativo usa.
+
+Verificado com `tsc`+`build`. Teste real (upload de vídeo/áudio grande
+e conferir se o áudio chega sem a marca de encaminhado) pendente do
+Marcelo.

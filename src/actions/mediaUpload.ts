@@ -1,6 +1,6 @@
 'use server';
 
-import { createClient } from '@/utils/supabase/server';
+import { createAdminClient } from '@/utils/supabase/admin';
 import { requireTenantId } from '@/lib/auth';
 
 export type UploadableMediaType = 'AUDIO' | 'IMAGE' | 'VIDEO';
@@ -29,7 +29,13 @@ export async function uploadScriptStepMedia(mediaType: UploadableMediaType, form
     throw new Error(`Formato "${file.type || 'desconhecido'}" não suportado para ${mediaType.toLowerCase()}.`);
   }
 
-  const supabase = await createClient();
+  // Cliente admin (service_role) em vez do cliente da sessão do usuário: a
+  // política de RLS do bucket reavalia auth.uid() no Postgres no momento do
+  // upload, e isso corre risco da mesma classe de corrida de renovação de
+  // sessão já documentada em src/lib/auth.ts — requireTenantId() acima já é
+  // o gate de autorização real (validado), então uma segunda checagem via
+  // RLS aqui é redundante e só adiciona um ponto de falha intermitente.
+  const supabase = createAdminClient();
   const ext = file.name.split('.').pop()?.toLowerCase() || 'bin';
   const path = `${tenantId}/${crypto.randomUUID()}.${ext}`;
 
