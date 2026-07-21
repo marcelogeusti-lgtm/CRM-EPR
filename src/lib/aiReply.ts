@@ -87,7 +87,7 @@ export async function sendAiAgentReply(params: AiReplyContext) {
             if (!block) return { success: false, error: 'Bloco não encontrado.' };
 
             const result =
-              block.type === 'TEXT'
+              block.type === 'TEXT' || block.type === 'LINK'
                 ? await sendText(params.phoneNumberId, params.accessToken, params.toPhone, block.content || '')
                 : block.mediaUrl
                   ? await sendMedia(
@@ -100,7 +100,7 @@ export async function sendAiAgentReply(params: AiReplyContext) {
                   : { success: false, error: 'Bloco sem conteúdo.' };
 
             if (result.success) {
-              const logContent = block.type === 'TEXT' ? block.content || '' : `[MEDIA:${block.type}]${block.mediaUrl}`;
+              const logContent = block.type === 'TEXT' || block.type === 'LINK' ? block.content || '' : `[MEDIA:${block.type}]${block.mediaUrl}`;
               await prisma.message.create({
                 data: { conversationId: params.conversationId, authorType: 'AI', content: logContent },
               });

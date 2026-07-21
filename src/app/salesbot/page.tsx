@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { Bot, Sparkles, Phone, User, Database, Zap, Settings, RefreshCw, Send, ChevronLeft, Volume2, Maximize, Activity, X, Loader2, Check, ChevronUp, ChevronDown, ShieldAlert, Wrench, KeyRound, MessageSquare, TrendingUp, Info } from 'lucide-react';
+import { Bot, Sparkles, Phone, User, Database, Zap, Settings, RefreshCw, Send, ChevronLeft, Volume2, Maximize, Activity, X, Loader2, Check, ChevronUp, ChevronDown, ShieldAlert, Wrench, KeyRound, MessageSquare, TrendingUp, Info, Copy } from 'lucide-react';
 import {
   getAiAgent,
   saveAiAgent,
@@ -80,13 +80,42 @@ const MEDIA_LABEL: Record<'AUDIO' | 'IMAGE' | 'VIDEO', string> = {
   VIDEO: 'Vídeo',
 };
 
+const BLOCK_TYPE_META: Record<'TEXT' | 'LINK' | 'AUDIO' | 'IMAGE' | 'VIDEO', { label: string; icon: string }> = {
+  TEXT: { label: 'Texto', icon: 'T' },
+  LINK: { label: 'Link', icon: '🔗' },
+  AUDIO: { label: 'Áudio', icon: '🔊' },
+  IMAGE: { label: 'Imagem', icon: '🖼️' },
+  VIDEO: { label: 'Vídeo', icon: '🎬' },
+};
+
+type StepThemeName = 'indigo' | 'emerald' | 'rose';
+
+// Cores por tipo de script — indigo (Atendimento), emerald (Fechamento),
+// rose (Objeções) — pra bater com o padrão visual do ZapSuite (referência
+// do Marcelo): cada script tem sua cor, etapas numeradas em badge.
+const STEP_THEME: Record<StepThemeName, { border: string; badge: string; icon: string; accentText: string; hoverText: string; addText: string }> = {
+  indigo: { border: 'border-indigo-500/40', badge: 'bg-indigo-500/20 text-indigo-300', icon: 'bg-indigo-500/15 text-indigo-300', accentText: 'text-indigo-400', hoverText: 'hover:text-indigo-400', addText: 'text-indigo-400 hover:text-indigo-300' },
+  emerald: { border: 'border-emerald-500/40', badge: 'bg-emerald-500/20 text-emerald-300', icon: 'bg-emerald-500/15 text-emerald-300', accentText: 'text-emerald-400', hoverText: 'hover:text-emerald-400', addText: 'text-emerald-400 hover:text-emerald-300' },
+  rose: { border: 'border-rose-500/40', badge: 'bg-rose-500/20 text-rose-300', icon: 'bg-rose-500/15 text-rose-300', accentText: 'text-rose-400', hoverText: 'hover:text-rose-400', addText: 'text-rose-400 hover:text-rose-300' },
+};
+
 function ScriptStepsEditor({
-  steps, onChange, addLabel,
+  steps, onChange, addLabel, theme = 'indigo',
 }: {
   steps: ScriptStepInput[];
   onChange: (steps: ScriptStepInput[]) => void;
   addLabel: string;
+  theme?: StepThemeName;
 }) {
+  const t = STEP_THEME[theme];
+  const [collapsedSteps, setCollapsedSteps] = useState<Set<number>>(new Set());
+  function toggleCollapsed(idx: number) {
+    setCollapsedSteps(prev => {
+      const next = new Set(prev);
+      next.has(idx) ? next.delete(idx) : next.add(idx);
+      return next;
+    });
+  }
   const [uploadingKey, setUploadingKey] = useState<string | null>(null);
   const [uploadError, setUploadError] = useState<string | null>(null);
   const fileInputRefs = React.useRef<Record<string, HTMLInputElement | null>>({});
@@ -107,6 +136,14 @@ function ScriptStepsEditor({
 
   function addTextBlock(idx: number) {
     updateStepBlocks(idx, blocks => [...blocks, { type: 'TEXT', content: '', mediaUrl: null }]);
+  }
+
+  function addLinkBlock(idx: number) {
+    updateStepBlocks(idx, blocks => [...blocks, { type: 'LINK', content: '', mediaUrl: null }]);
+  }
+
+  function duplicateBlock(idx: number, bIdx: number) {
+    updateStepBlocks(idx, blocks => [...blocks.slice(0, bIdx + 1), { ...blocks[bIdx] }, ...blocks.slice(bIdx + 1)]);
   }
 
   async function handleFileSelected(idx: number, mediaType: 'AUDIO' | 'IMAGE' | 'VIDEO', file: File) {
@@ -190,15 +227,19 @@ function ScriptStepsEditor({
       {uploadError && (
         <div className="bg-red-500/10 border border-red-500/30 rounded-lg p-2.5 text-xs text-red-400">{uploadError}</div>
       )}
-      {steps.map((step, idx) => (
-        <div key={idx} className="bg-[#161616] border border-[#2a2a2a] rounded-lg p-3 space-y-2">
-          <div className="flex items-center gap-2">
-            <span className="text-xs font-bold text-zinc-500 w-5 shrink-0">{idx + 1}.</span>
+      {steps.map((step, idx) => {
+        const isCollapsed = collapsedSteps.has(idx);
+        return (
+        <div key={idx} className={`bg-[#161616] border ${t.border} rounded-lg overflow-hidden`}>
+          <div className="flex items-center gap-2 p-3">
+            <span className={`size-6 rounded-full ${t.badge} text-xs font-bold flex items-center justify-center shrink-0`}>
+              {idx + 1}
+            </span>
             <input
               value={step.title}
               onChange={(e) => onChange(steps.map((s, i) => i === idx ? { ...s, title: e.target.value } : s))}
               placeholder="Nome da etapa (ex: Apresentação)"
-              className="flex-1 bg-transparent font-semibold text-sm text-zinc-200 focus:outline-none"
+              className="flex-1 bg-transparent font-bold text-sm text-zinc-200 focus:outline-none"
             />
             <button onClick={() => onChange(moveItem(steps, idx, -1))} disabled={idx === 0} className="p-1 text-zinc-500 hover:text-zinc-300 disabled:opacity-20 disabled:hover:text-zinc-500">
               <ChevronUp className="size-4" />
@@ -209,7 +250,13 @@ function ScriptStepsEditor({
             <button onClick={() => onChange(steps.filter((_, i) => i !== idx))} className="p-1 text-zinc-500 hover:text-red-400">
               <X className="size-4" />
             </button>
+            <button onClick={() => toggleCollapsed(idx)} className="p-1 text-zinc-500 hover:text-zinc-300">
+              {isCollapsed ? <ChevronDown className="size-4" /> : <ChevronUp className="size-4" />}
+            </button>
           </div>
+
+          {!isCollapsed && (
+          <div className="px-3 pb-3 space-y-2">
           <textarea
             value={step.content}
             onChange={(e) => onChange(steps.map((s, i) => i === idx ? { ...s, content: e.target.value } : s))}
@@ -218,40 +265,57 @@ function ScriptStepsEditor({
           />
 
           {step.blocks.length > 0 && (
-            <div className="space-y-1.5">
-              {step.blocks.map((block, bIdx) => (
-                <div key={bIdx} className="flex items-center gap-2 bg-[#111] border border-[#2a2a2a] rounded-lg p-2 text-xs">
-                  <span className="text-zinc-600 font-mono shrink-0">{bIdx + 1}.</span>
-                  {block.type === 'TEXT' ? (
-                    <input
-                      value={block.content || ''}
-                      onChange={(e) => updateStepBlocks(idx, blocks => blocks.map((b, bi) => bi === bIdx ? { ...b, content: e.target.value } : b))}
-                      placeholder="Texto da mensagem..."
-                      className="flex-1 bg-transparent text-zinc-300 focus:outline-none"
-                    />
-                  ) : (
-                    <>
-                      <span className="text-emerald-400 font-medium shrink-0">{MEDIA_LABEL[block.type as 'AUDIO' | 'IMAGE' | 'VIDEO']}</span>
-                      <a href={block.mediaUrl || '#'} target="_blank" rel="noopener noreferrer" className="text-zinc-500 hover:text-zinc-300 truncate flex-1">{block.mediaUrl}</a>
-                    </>
-                  )}
-                  <button onClick={() => updateStepBlocks(idx, blocks => moveItem(blocks, bIdx, -1))} disabled={bIdx === 0} className="p-0.5 text-zinc-500 hover:text-zinc-300 disabled:opacity-20 shrink-0">
-                    <ChevronUp className="size-3.5" />
-                  </button>
-                  <button onClick={() => updateStepBlocks(idx, blocks => moveItem(blocks, bIdx, 1))} disabled={bIdx === step.blocks.length - 1} className="p-0.5 text-zinc-500 hover:text-zinc-300 disabled:opacity-20 shrink-0">
-                    <ChevronDown className="size-3.5" />
-                  </button>
-                  <button onClick={() => updateStepBlocks(idx, blocks => blocks.filter((_, bi) => bi !== bIdx))} className="p-0.5 text-zinc-500 hover:text-red-400 shrink-0">
-                    <X className="size-3.5" />
-                  </button>
+            <div className="space-y-2">
+              {step.blocks.map((block, bIdx) => {
+                const meta = BLOCK_TYPE_META[block.type as keyof typeof BLOCK_TYPE_META] ?? BLOCK_TYPE_META.TEXT;
+                const isTextLike = block.type === 'TEXT' || block.type === 'LINK';
+                return (
+                <div key={bIdx} className="flex items-start gap-3 bg-[#111] border border-[#2a2a2a] rounded-lg p-3">
+                  <span className={`size-7 rounded-full ${t.icon} text-xs font-bold flex items-center justify-center shrink-0`}>
+                    {meta.icon}
+                  </span>
+                  <div className="flex-1 min-w-0">
+                    {isTextLike ? (
+                      <textarea
+                        value={block.content || ''}
+                        onChange={(e) => updateStepBlocks(idx, blocks => blocks.map((b, bi) => bi === bIdx ? { ...b, content: e.target.value } : b))}
+                        placeholder={block.type === 'LINK' ? 'https://...' : 'Texto da mensagem...'}
+                        rows={1}
+                        className="w-full bg-transparent text-sm text-zinc-300 focus:outline-none resize-none"
+                      />
+                    ) : (
+                      <>
+                        <span className={`text-xs font-bold ${t.accentText}`}>{meta.label}</span>
+                        <a href={block.mediaUrl || '#'} target="_blank" rel="noopener noreferrer" className="block text-xs text-zinc-500 hover:text-zinc-300 truncate">{block.mediaUrl}</a>
+                      </>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-1 shrink-0">
+                    <button onClick={() => duplicateBlock(idx, bIdx)} title="Duplicar bloco" className="p-0.5 text-zinc-500 hover:text-zinc-300">
+                      <Copy className="size-3.5" />
+                    </button>
+                    <button onClick={() => updateStepBlocks(idx, blocks => moveItem(blocks, bIdx, -1))} disabled={bIdx === 0} className="p-0.5 text-zinc-500 hover:text-zinc-300 disabled:opacity-20">
+                      <ChevronUp className="size-3.5" />
+                    </button>
+                    <button onClick={() => updateStepBlocks(idx, blocks => moveItem(blocks, bIdx, 1))} disabled={bIdx === step.blocks.length - 1} className="p-0.5 text-zinc-500 hover:text-zinc-300 disabled:opacity-20">
+                      <ChevronDown className="size-3.5" />
+                    </button>
+                    <button onClick={() => updateStepBlocks(idx, blocks => blocks.filter((_, bi) => bi !== bIdx))} className="p-0.5 text-zinc-500 hover:text-red-400">
+                      <X className="size-3.5" />
+                    </button>
+                  </div>
                 </div>
-              ))}
+                );
+              })}
             </div>
           )}
 
           <div className="flex items-center gap-3 flex-wrap">
-            <button type="button" onClick={() => addTextBlock(idx)} className="text-[11px] text-zinc-500 hover:text-indigo-400 font-medium">
+            <button type="button" onClick={() => addTextBlock(idx)} className={`text-[11px] text-zinc-500 ${t.hoverText} font-medium`}>
               + Texto
+            </button>
+            <button type="button" onClick={() => addLinkBlock(idx)} className={`text-[11px] text-zinc-500 ${t.hoverText} font-medium`}>
+              + Link
             </button>
             {(['AUDIO', 'IMAGE', 'VIDEO'] as const).map(mediaType => {
               const key = `${idx}-${mediaType}`;
@@ -272,7 +336,7 @@ function ScriptStepsEditor({
                     type="button"
                     disabled={uploadingKey === key}
                     onClick={() => fileInputRefs.current[key]?.click()}
-                    className="text-[11px] text-zinc-500 hover:text-indigo-400 disabled:opacity-40 font-medium"
+                    className={`text-[11px] text-zinc-500 ${t.hoverText} disabled:opacity-40 font-medium`}
                   >
                     {uploadingKey === key ? 'Enviando...' : `+ ${MEDIA_LABEL[mediaType]}`}
                   </button>
@@ -299,15 +363,18 @@ function ScriptStepsEditor({
                 type="button"
                 disabled={recordingIdx !== null}
                 onClick={() => startRecording(idx)}
-                className="text-[11px] text-zinc-500 hover:text-indigo-400 disabled:opacity-40 font-medium"
+                className={`text-[11px] text-zinc-500 ${t.hoverText} disabled:opacity-40 font-medium`}
               >
                 🎙 Gravar áudio
               </button>
             )}
           </div>
+          </div>
+          )}
         </div>
-      ))}
-      <button onClick={() => onChange([...steps, { title: '', content: '', blocks: [] }])} className="text-indigo-400 text-sm hover:text-indigo-300 font-medium">{addLabel}</button>
+        );
+      })}
+      <button onClick={() => onChange([...steps, { title: '', content: '', blocks: [] }])} className={`text-sm font-medium ${t.addText}`}>{addLabel}</button>
     </div>
   );
 }
@@ -318,17 +385,27 @@ function ObjectionsEditor({
   objections: ObjectionInput[];
   onChange: (objections: ObjectionInput[]) => void;
 }) {
+  const t = STEP_THEME.rose;
   return (
     <div className="space-y-3">
       {objections.map((obj, idx) => (
-        <div key={idx} className="bg-[#161616] border border-[#2a2a2a] rounded-lg p-3 space-y-2">
+        <div key={idx} className={`bg-[#161616] border ${t.border} rounded-lg p-3 space-y-2`}>
           <div className="flex items-center gap-2">
+            <span className={`size-6 rounded-full ${t.badge} text-xs font-bold flex items-center justify-center shrink-0`}>
+              {idx + 1}
+            </span>
             <input
               value={obj.title}
               onChange={(e) => onChange(objections.map((o, i) => i === idx ? { ...o, title: e.target.value } : o))}
               placeholder='Objeção (ex: "Tá caro")'
-              className="flex-1 bg-transparent font-semibold text-sm text-zinc-200 focus:outline-none"
+              className="flex-1 bg-transparent font-bold text-sm text-zinc-200 focus:outline-none"
             />
+            <button onClick={() => onChange(moveItem(objections, idx, -1))} disabled={idx === 0} className="p-1 text-zinc-500 hover:text-zinc-300 disabled:opacity-20 disabled:hover:text-zinc-500">
+              <ChevronUp className="size-4" />
+            </button>
+            <button onClick={() => onChange(moveItem(objections, idx, 1))} disabled={idx === objections.length - 1} className="p-1 text-zinc-500 hover:text-zinc-300 disabled:opacity-20 disabled:hover:text-zinc-500">
+              <ChevronDown className="size-4" />
+            </button>
             <button onClick={() => onChange(objections.filter((_, i) => i !== idx))} className="p-1 text-zinc-500 hover:text-red-400 shrink-0">
               <X className="size-4" />
             </button>
@@ -341,7 +418,7 @@ function ObjectionsEditor({
           />
         </div>
       ))}
-      <button onClick={() => onChange([...objections, { title: '', response: '' }])} className="text-indigo-400 text-sm hover:text-indigo-300 font-medium">+ Adicionar objeção</button>
+      <button onClick={() => onChange([...objections, { title: '', response: '' }])} className={`text-sm font-medium ${t.addText}`}>+ Adicionar objeção</button>
     </div>
   );
 }
@@ -695,13 +772,13 @@ export default function SalesbotPage() {
               <div className="space-y-3 pt-4 border-t border-[#222]">
                 <label className="text-sm font-bold text-zinc-200">Script de Atendimento</label>
                 <p className="text-xs text-zinc-500">Etapas, em ordem, que a IA deve seguir para qualificar o lead.</p>
-                <ScriptStepsEditor steps={attendanceSteps} onChange={setAttendanceSteps} addLabel="+ Adicionar etapa" />
+                <ScriptStepsEditor steps={attendanceSteps} onChange={setAttendanceSteps} addLabel="+ Adicionar etapa" theme="indigo" />
               </div>
 
               <div className="space-y-3 pt-4 border-t border-[#222]">
                 <label className="text-sm font-bold text-zinc-200">Script de Fechamento</label>
                 <p className="text-xs text-zinc-500">Etapas para quando o lead estiver pronto para comprar.</p>
-                <ScriptStepsEditor steps={closingSteps} onChange={setClosingSteps} addLabel="+ Adicionar etapa de fechamento" />
+                <ScriptStepsEditor steps={closingSteps} onChange={setClosingSteps} addLabel="+ Adicionar etapa de fechamento" theme="emerald" />
               </div>
 
               <div className="space-y-3 pt-4 border-t border-[#222]">

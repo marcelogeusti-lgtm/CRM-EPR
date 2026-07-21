@@ -168,7 +168,10 @@ export function buildSystemPrompt(
     const blocksNote = s.blocks.length
       ? ` [${s.blocks.length} bloco(s) de conteúdo desta etapa, nesta ordem: ${s.blocks
           .map(b => {
-            const desc = b.type === 'TEXT' ? `texto: "${b.content}"` : `arquivo de ${b.type.toLowerCase()}`;
+            const desc =
+              b.type === 'TEXT' ? `texto: "${b.content}"`
+              : b.type === 'LINK' ? `link: "${b.content}"`
+              : `arquivo de ${b.type.toLowerCase()}`;
             const status = sentBlockIds?.has(b.id) ? '[JÁ ENVIADO]' : '[PENDENTE]';
             return `"${b.id}" (${desc}) ${status}`;
           })
