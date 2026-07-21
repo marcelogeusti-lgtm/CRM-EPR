@@ -115,12 +115,20 @@ export function ServiceOrdersClient({
     invalidateHistory(orderId);
   }
 
-  function invalidateHistory(orderId: string) {
+  async function invalidateHistory(orderId: string) {
     setHistoryByOrder(prev => {
       const next = { ...prev };
       delete next[orderId];
       return next;
     });
+    // Se o painel de histórico já está aberto pra essa OS, só apagar o
+    // cache deixava a tela presa em "Carregando..." — toggleHistory só
+    // busca de novo na transição fechado→aberto. Busca na hora pra quem
+    // está com o painel aberto vendo a mudança acontecer.
+    if (openHistoryId === orderId) {
+      const history = await getServiceOrderHistory(orderId);
+      setHistoryByOrder(prev => ({ ...prev, [orderId]: history }));
+    }
   }
 
   async function toggleHistory(orderId: string) {
