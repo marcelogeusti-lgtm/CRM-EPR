@@ -1068,3 +1068,20 @@ otimista da tela nesse render; o polling seguinte busca de novo do
 banco e ela reaparece. Não mexi nisso agora — é uma mudança de
 comportamento (não só bug), precisa decidir com o Marcelo se quer
 marcar como "falhou" visualmente ou não salvar até confirmar o envio.
+
+## `lamejs` quebrava em runtime: "MPEGMode is not defined" (2026-07-21)
+
+Ao testar a gravação de áudio de verdade, o Marcelo bateu em
+`MPEGMode is not defined` — bug conhecido do pacote `lamejs`: a lib foi
+escrita pra ser carregada via `<script>` concatenado (variáveis tipo
+`MPEGMode`/`Lame`/`BitStream` soltas no escopo global), e isso quebra
+quando um bundler moderno (Webpack/Next.js) isola cada arquivo no
+próprio módulo — só dá pra pegar em runtime no navegador, `tsc`/`build`
+não detectam.
+
+**Corrigido**: trocado `lamejs` por `@breezystack/lamejs` (fork mantido
+especificamente corrigindo esse problema de bundler, com tipos
+TypeScript próprios — removido o shim manual `src/types/lamejs.d.ts`
+que não é mais necessário). Mesma API (`Mp3Encoder`), só o pacote muda.
+Verificado com `tsc`+`build`; teste real de gravação (só é possível
+detectar em runtime no navegador) pendente do Marcelo.

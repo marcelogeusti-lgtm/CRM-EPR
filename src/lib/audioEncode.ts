@@ -1,4 +1,4 @@
-import { Mp3Encoder } from 'lamejs';
+import { Mp3Encoder } from '@breezystack/lamejs';
 
 function floatTo16BitPCM(input: Float32Array): Int16Array {
   const output = new Int16Array(input.length);
@@ -31,7 +31,7 @@ export async function convertRecordingToMp3(blob: Blob): Promise<Blob> {
   const left = floatTo16BitPCM(audioBuffer.getChannelData(0));
   const right = channels === 2 ? floatTo16BitPCM(audioBuffer.getChannelData(1)) : null;
 
-  const chunks: Int8Array[] = [];
+  const chunks: Uint8Array[] = [];
   const blockSize = 1152;
   for (let i = 0; i < left.length; i += blockSize) {
     const leftChunk = left.subarray(i, i + blockSize);
