@@ -906,4 +906,36 @@ passou limpa, mas o teste ponta a ponta no WhatsApp real depende dele.
   mensagem, não derruba o webhook) — pendência real pro Marcelo: pegar a
   chave em Supabase → Project Settings → API → "service_role" (projeto
   `uqktlxqdfnrmlvmqxveb`) e adicionar em Vercel → Settings →
-  Environment Variables.
+  Environment Variables. **Feito pelo Marcelo em seguida** — `
+  SUPABASE_SERVICE_ROLE_KEY` configurada, redeploy automático confirmado
+  via `list_deployments`.
+
+## Bug real encontrado testando: upload autenticado pro Storage sempre falhou (2026-07-21)
+
+Ao tentar anexar um arquivo pelo Inbox de verdade, o Marcelo bateu em
+`Error: Falha ao enviar o arquivo: permission denied for table User`
+(achado via `get_runtime_errors` da Vercel, rota `/inbox`, digest
+`3822237387`, primeira ocorrência já em 2026-07-18 — ou seja, esse bug é
+mais antigo que esta sessão, só não tinha sido exercitado/notado ainda).
+
+**Causa raiz**: a tabela `"User"` foi criada via migration do Prisma, não
+pelo editor de tabelas da Supabase — então nunca ganhou o `GRANT`
+automático que a Supabase dá por padrão pras roles `authenticated`/
+`anon`. Confirmado via `information_schema.role_table_grants`: nenhuma
+tabela do schema `public` tinha grant pra `authenticated`/`anon` (o app
+nem precisa disso normalmente, já que o Prisma conecta direto via
+`DATABASE_URL`, sem passar pelo PostgREST). O único lugar onde isso
+importa é a política RLS `agent-media tenant upload` do bucket de mídia,
+que faz `SELECT "tenantId" FROM "User" WHERE id = auth.uid()` pra
+descobrir o tenant do usuário logado — sem o GRANT, essa subquery falha
+com "permission denied" **antes** da RLS ser avaliada. Isso quebrava
+**todo** upload autenticado pro bucket `agent-media` desde que a
+política foi criada, incluindo o "+ Áudio"/"+ Imagem"/"+ Vídeo" do
+Salesbot (não só o anexo novo do Inbox) — só ficou visível agora porque
+foi a primeira vez que alguém testou o fluxo de verdade.
+
+**Correção**: migration `20260721021500_grant_user_select_authenticated`
+— `GRANT SELECT ON "User" TO authenticated;`. Aplicada direto no projeto
+via Supabase MCP e confirmada em `role_table_grants`. Teste real
+(mandar foto/áudio pelo Inbox) ainda pendente de confirmação do
+Marcelo.
