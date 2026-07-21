@@ -8,6 +8,18 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { LeadInboxPanel } from '@/components/LeadInboxPanel';
 
+const MEDIA_PREVIEW_LABEL: Record<string, string> = {
+  AUDIO: '🎤 Áudio',
+  IMAGE: '📷 Foto',
+  VIDEO: '🎬 Vídeo',
+};
+
+function previewText(content: string | null | undefined): string {
+  if (!content) return 'Sem mensagens';
+  const match = content.match(/^\[MEDIA:(AUDIO|IMAGE|VIDEO)\]/);
+  return match ? MEDIA_PREVIEW_LABEL[match[1]] : content;
+}
+
 export function InboxClientView({ initialDeals }: { initialDeals: any[] }) {
   const router = useRouter();
   const deals = initialDeals; // Usa a prop diretamente para receber os updates do router.refresh()
@@ -79,7 +91,7 @@ export function InboxClientView({ initialDeals }: { initialDeals: any[] }) {
                 </div>
                 <div className="flex justify-between items-center pl-2">
                   <p className="text-[13px] text-zinc-500 truncate pr-4 leading-relaxed">
-                    {lastActivity?.content || 'Sem mensagens'}
+                    {previewText(lastActivity?.content)}
                   </p>
                   {deal.stage === 'NEW' && <div className="w-2 h-2 rounded-full bg-blue-500 shrink-0 shadow-[0_0_8px_rgba(59,130,246,0.8)]"></div>}
                 </div>

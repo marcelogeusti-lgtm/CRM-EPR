@@ -17,6 +17,7 @@ import {
 import { uploadScriptStepMedia } from '@/actions/mediaUpload';
 import { withRetry } from '@/lib/withRetry';
 import { PERSONALITY_TRAIT_GUIDE } from '@/lib/agentPrompt';
+import { convertRecordingToMp3 } from '@/lib/audioEncode';
 
 type Tab = 'painel' | 'persona' | 'fontes' | 'acoes' | 'integracoes' | 'configs';
 
@@ -208,8 +209,8 @@ function ScriptStepsEditor({
     setIsUploadingRecording(true);
     setUploadError(null);
     try {
-      const ext = blob.type.includes('mp4') ? 'm4a' : blob.type.includes('ogg') ? 'ogg' : 'webm';
-      const file = new File([blob], `gravacao-${Date.now()}.${ext}`, { type: blob.type });
+      const mp3Blob = await convertRecordingToMp3(blob);
+      const file = new File([mp3Blob], `gravacao-${Date.now()}.mp3`, { type: 'audio/mpeg' });
       const formData = new FormData();
       formData.append('file', file);
       const { url } = await uploadScriptStepMedia('AUDIO', formData);

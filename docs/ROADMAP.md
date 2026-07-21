@@ -1031,3 +1031,40 @@ achados via `get_runtime_errors` da Vercel:
 Verificado com `tsc`+`build`. Teste real (upload de vídeo/áudio grande
 e conferir se o áudio chega sem a marca de encaminhado) pendente do
 Marcelo.
+
+## Áudio gravado no navegador chegando como "webm" — rejeitado pela Meta (2026-07-21)
+
+O Marcelo mandou print do Inbox mostrando o erro real da própria API:
+`(#100) Param file must be a file with one of the following types:
+audio/aac, audio/mp4, audio/mpeg, audio/amr, audio/ogg, audio/opus...
+Received file of type 'audio/webm'`.
+
+Causa: o `MediaRecorder` do navegador (Chrome) só grava em
+`audio/webm` — usado tanto na gravação do Salesbot quanto do Inbox
+(features desta mesma sessão). A Cloud API do WhatsApp rejeita esse
+container de cara, não aceita nenhum dos formatos que o
+`MediaRecorder` consegue produzir nativamente no Chrome.
+
+**Corrigido**: novo `src/lib/audioEncode.ts` —
+`convertRecordingToMp3()` decodifica o áudio gravado
+(`AudioContext.decodeAudioData`) e reencoda como MP3 (`audio/mpeg`, um
+dos formatos aceitos) inteiramente no navegador, via `lamejs` (encoder
+MP3 puro JS, sem depender de binário/servidor de transcodificação).
+Aplicado nos dois pontos de gravação (`ScriptStepsEditor` no Salesbot e
+`LeadInboxPanel` no Inbox) — ambos agora convertem antes de subir.
+
+**Achado à parte, não corrigido**: no mesmo print, a lista de
+conversas do Inbox mostrava o texto cru `[MEDIA:AUDIO]https://...` no
+preview da última mensagem — corrigido também
+(`InboxClientView.tsx` agora mostra "🎤 Áudio"/"📷 Foto"/"🎬 Vídeo").
+
+**Achado à parte, NÃO corrigido, fica registrado**: tanto
+`sendMessage()` quanto `sendMediaMessage()`
+(`src/actions/inbox.ts`) gravam a mensagem em `Message`/`Activity`
+**antes** de confirmar que o envio pra Meta deu certo — se o envio
+falhar (como aconteceu aqui), a mensagem já fica salva no histórico
+como se tivesse sido entregue ao lead. O frontend só remove a versão
+otimista da tela nesse render; o polling seguinte busca de novo do
+banco e ela reaparece. Não mexi nisso agora — é uma mudança de
+comportamento (não só bug), precisa decidir com o Marcelo se quer
+marcar como "falhou" visualmente ou não salvar até confirmar o envio.

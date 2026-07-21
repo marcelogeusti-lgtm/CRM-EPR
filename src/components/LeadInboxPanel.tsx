@@ -6,6 +6,7 @@ import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { getDealActivities, sendMessage, sendMediaMessage, addInternalNote, getContactTags, addContactTag, removeContactTag } from '@/actions/inbox';
 import { uploadScriptStepMedia, type UploadableMediaType } from '@/actions/mediaUpload';
+import { convertRecordingToMp3 } from '@/lib/audioEncode';
 
 interface LeadInboxPanelProps {
   deal: any;
@@ -216,8 +217,8 @@ export function LeadInboxPanel({ deal, onClose }: LeadInboxPanelProps) {
     setIsUploadingMedia(true);
     setMediaError(null);
     try {
-      const ext = blob.type.includes('mp4') ? 'm4a' : blob.type.includes('ogg') ? 'ogg' : 'webm';
-      const file = new File([blob], `gravacao-${Date.now()}.${ext}`, { type: blob.type });
+      const mp3Blob = await convertRecordingToMp3(blob);
+      const file = new File([mp3Blob], `gravacao-${Date.now()}.mp3`, { type: 'audio/mpeg' });
       const formData = new FormData();
       formData.append('file', file);
       const { url } = await uploadScriptStepMedia('AUDIO', formData);
