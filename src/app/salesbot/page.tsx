@@ -16,6 +16,7 @@ import {
 } from '@/actions/salesbot';
 import { uploadScriptStepMedia } from '@/actions/mediaUpload';
 import { withRetry } from '@/lib/withRetry';
+import { PERSONALITY_TRAIT_GUIDE } from '@/lib/agentPrompt';
 
 type Tab = 'painel' | 'persona' | 'fontes' | 'acoes' | 'integracoes' | 'configs';
 
@@ -652,6 +653,10 @@ export default function SalesbotPage() {
 
               <div className="space-y-3">
                 <label className="text-sm font-bold text-zinc-200">Função e personalidade (Prompt de Sistema)</label>
+                <p className="text-xs text-zinc-500">
+                  Responda estas 5 perguntas pra escrever uma persona forte: <strong>quem</strong> ela é, <strong>o que</strong> ela faz,
+                  <strong> como</strong> ela faz, <strong>por que</strong> ela faz, e <strong>qual o público-alvo</strong> dela.
+                </p>
                 <textarea
                   value={persona}
                   onChange={(e) => setPersona(e.target.value)}
@@ -664,19 +669,26 @@ export default function SalesbotPage() {
                 <label className="text-sm font-bold text-zinc-200">Personalidade do agente</label>
                 <p className="text-xs text-zinc-500">Selecione as características que melhor definem como o agente deve atender.</p>
                 <div className="flex flex-wrap gap-2">
-                  {PERSONALITY_OPTIONS.map(tag => (
-                    <button
-                      key={tag}
-                      onClick={() => togglePersonalityTag(tag)}
-                      className={`px-3 py-1.5 rounded-full text-xs font-bold border transition-colors ${
-                        personalityTags.includes(tag)
-                          ? 'bg-indigo-600/20 border-indigo-500/50 text-indigo-300'
-                          : 'bg-[#141414] border-[#333] text-zinc-500 hover:text-zinc-300'
-                      }`}
-                    >
-                      {tag}
-                    </button>
-                  ))}
+                  {PERSONALITY_OPTIONS.map(tag => {
+                    const guide = PERSONALITY_TRAIT_GUIDE[tag];
+                    const tooltip = guide
+                      ? `${guide.comoFunciona.join(' • ')}\nEx.: "${guide.exemploTom}"\nImpacto: ${guide.impacto}`
+                      : undefined;
+                    return (
+                      <button
+                        key={tag}
+                        title={tooltip}
+                        onClick={() => togglePersonalityTag(tag)}
+                        className={`px-3 py-1.5 rounded-full text-xs font-bold border transition-colors ${
+                          personalityTags.includes(tag)
+                            ? 'bg-indigo-600/20 border-indigo-500/50 text-indigo-300'
+                            : 'bg-[#141414] border-[#333] text-zinc-500 hover:text-zinc-300'
+                        }`}
+                      >
+                        {tag}
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
 

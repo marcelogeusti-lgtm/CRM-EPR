@@ -939,3 +939,44 @@ foi a primeira vez que alguém testou o fluxo de verdade.
 via Supabase MCP e confirmada em `role_table_grants`. Teste real
 (mandar foto/áudio pelo Inbox) ainda pendente de confirmação do
 Marcelo.
+
+## Curso oficial do ZapSuite assistido — 2 melhorias de prompt aplicadas (2026-07-21)
+
+O Marcelo pediu pra eu assistir o curso "IA Personalizada" do ZapSuite
+(`membros.zapsuite.com.br`, módulo "Agente Padrão MSA") pra entender
+onde nosso Agente de IA "precisa ser melhorado". Vídeos embutidos num
+player que não expõe transcrição — sem tocar áudio (não tenho como
+ouvir), acompanhei via **legendas queimadas na tela** (screenshot
+periódico), que o próprio player mostra. O player também travava com
+frequência sob automação; o Marcelo destravou manualmente algumas vezes
+clicando o play ele mesmo direto no navegador.
+
+Assisti 3 das 6 aulas (Escolhendo o produto, Personalidade do agente,
+Persona) até achar conteúdo concreto o bastante pra agir, em vez de
+esgotar as 6 só por esgotar:
+
+- **Aula 1 — biblioteca de modelos por nicho**: ZapSuite tem templates
+  prontos (ex. "SECAPS BLACK CHÁ", "CREATINA GUMMY", "LONG BEAUTY") que
+  preenchem persona + scripts + objeções de uma vez, com confirmação
+  antes de sobrescrever. Nexus não tem isso — **não implementado ainda**,
+  fica pra decisão separada (precisa definir: templates curados por nós
+  ou por tenant? unidade genérica ou por nicho real?).
+- **Aula 2 — documentação comportamental por tag de personalidade**:
+  cada tag (Confiante, Direto, Meigo, Firme, Pé no chão, Orientado a
+  ação, Emocional, Agressivo, SPIN Selling...) tem "como funciona /
+  exemplo de tom / impacto" documentado, mais um guia de combinações
+  (ex.: Confiante+Firme→autoridade). Hoje o Nexus só jogava o nome cru
+  da tag no prompt ("Personalidade: Direto"), sem dizer o que isso
+  significa de verdade. **Implementado**: `PERSONALITY_TRAIT_GUIDE` novo
+  em `src/lib/agentPrompt.ts` — o prompt agora inclui a definição
+  completa de cada tag selecionada + dica de combinação; e virou tooltip
+  (`title`) nos botões de personalidade em `/salesbot`.
+- **Aula 3 — framework de 5 perguntas pra Persona**: quem ela é / o que
+  faz / como faz / por que faz / qual o público-alvo. **Implementado**:
+  texto de ajuda acima do campo "Função e personalidade" em
+  `/salesbot` com essas 5 perguntas.
+
+Verificado com `tsc`+`build`; teste visual ao vivo ainda pendente
+(depende do Marcelo abrir `/salesbot` e conferir a tooltip/texto de
+ajuda, e do comportamento da IA em produção refletir o prompt mais
+rico).

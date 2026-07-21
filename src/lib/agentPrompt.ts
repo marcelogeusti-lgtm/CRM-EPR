@@ -16,6 +16,84 @@ function parseJsonArray(value: string | null): string[] {
   }
 }
 
+// Cada tag de personalidade (ver PERSONALITY_OPTIONS em src/app/salesbot/page.tsx,
+// as chaves aqui precisam bater com aquele array) descreve como ela deve se
+// manifestar de verdade nas respostas — sem isso a IA só recebe o nome da
+// tag ("Personalidade: Direto"), que não diz nada sobre COMO soar direto.
+// Reexportado pra também virar tooltip na tela de Persona.
+export const PERSONALITY_TRAIT_GUIDE: Record<string, { comoFunciona: string[]; exemploTom: string; impacto: string }> = {
+  'Confiante': {
+    comoFunciona: ['Fala com certeza, sem parecer insegura', 'Evita "talvez" ou excesso de ressalvas', 'Usa frases afirmativas e postura de liderança'],
+    exemploTom: 'Isso funciona porque resolve exatamente esse problema.',
+    impacto: 'gera autoridade, segurança e reduz objeções',
+  },
+  'Inspirador': {
+    comoFunciona: ['Mostra possibilidades futuras', 'Faz o lead se imaginar num cenário melhor', 'Usa linguagem de progresso, evolução e conquista'],
+    exemploTom: 'Você não está atrasado, você só está começando do jeito certo agora.',
+    impacto: 'aumenta engajamento e motivação emocional',
+  },
+  'Amigável': {
+    comoFunciona: ['Conversa como alguém próximo', 'Linguagem simples, humana e acolhedora', 'Não impõe, convida'],
+    exemploTom: 'Fica tranquilo, isso é mais simples do que parece.',
+    impacto: 'cria conexão e reduz resistência',
+  },
+  'Direto': {
+    comoFunciona: ['Vai ao ponto, sem floreio', 'Frases curtas', 'Respostas práticas'],
+    exemploTom: 'O problema é esse. A solução é essa. O próximo passo é esse.',
+    impacto: 'clareza, objetividade e ação rápida',
+  },
+  'Meigo': {
+    comoFunciona: ['Tom suave, empático', 'Validação emocional', 'Linguagem carinhosa sem ser infantil'],
+    exemploTom: 'Eu sei que isso cansa, e tá tudo bem se sentir assim.',
+    impacto: 'cria segurança emocional e acolhimento',
+  },
+  'Firme': {
+    comoFunciona: ['Não passa a mão na cabeça', 'Corrige crenças erradas', 'Mantém empatia, mas impõe limites'],
+    exemploTom: 'Se você continuar fazendo isso, o resultado não vai mudar.',
+    impacto: 'autoridade, respeito e posicionamento',
+  },
+  'Pé no chão': {
+    comoFunciona: ['Não promete milagres', 'Alinha expectativa com realidade', 'Fala de esforço, processo e constância'],
+    exemploTom: 'Isso dá resultado, mas não da noite pro dia.',
+    impacto: 'credibilidade e confiança real',
+  },
+  'Orientado a ação': {
+    comoFunciona: ['Sempre termina com um próximo passo', 'Chamada clara para ação', 'Menos teoria, mais execução'],
+    exemploTom: 'Agora faz isso: me manda seu peso e altura que eu já calculo pra você.',
+    impacto: 'movimento do lead, evita estagnação',
+  },
+  'Emocional': {
+    comoFunciona: ['Toca em dores, desejos e frustrações', 'Usa storytelling', 'Linguagem sensível e envolvente'],
+    exemploTom: 'Talvez o que mais dói não seja o dinheiro, mas a sensação de estar parado.',
+    impacto: 'conexão profunda e persuasão',
+  },
+  'Agressivo': {
+    comoFunciona: ['Provoca (com estratégia, não com grosseria)', 'Usa confronto controlado', 'Quebra desculpas'],
+    exemploTom: 'Se você já tentou de tudo e nada mudou, o problema não é falta de esforço.',
+    impacto: 'gera impacto e quebra padrões — usar com cuidado, nunca ser rude',
+  },
+  'SPIN Selling': {
+    comoFunciona: [
+      'A IA não vende direto, ela conduz o lead a chegar sozinho na conclusão',
+      'S-Situação: pergunta pra entender o cenário atual',
+      'P-Problema: faz o lead reconhecer a dor',
+      'I-Implicação: amplifica as consequências de não resolver',
+      'N-Necessidade: leva o lead a desejar a solução',
+    ],
+    exemploTom: 'E isso te gera o quê? Se continuar assim, onde você acha que vai estar daqui a 6 meses?',
+    impacto: 'o lead se convence sozinho, em vez de sentir que estão vendendo pra ele',
+  },
+};
+
+// Combinações que se reforçam bem — citado no prompt só como dica de
+// coerência, não como regra rígida.
+const PERSONALITY_COMBO_HINTS = [
+  'Confiante + Firme → autoridade',
+  'Amigável + Meigo → conexão',
+  'Emocional + Inspirador → desejo',
+  'Direto + Orientado a ação → conversão',
+];
+
 /**
  * Único ponto que monta o system prompt do Agente de IA a partir da
  * configuração salva no banco. Usado pelo simulador (/api/chat) e, na
@@ -47,13 +125,30 @@ export function buildSystemPrompt(
   sections.push(
     [
       'Diretrizes adicionais:',
-      personalityTags.length ? `- Personalidade: ${personalityTags.join(', ')}` : null,
       `- Tamanho da resposta: ${agent.responseSize}`,
       `- Idioma: ${agent.responseLanguage}`,
-    ]
-      .filter(Boolean)
-      .join('\n')
+    ].join('\n')
   );
+
+  if (personalityTags.length) {
+    const traitLines = personalityTags.map(tag => {
+      const guide = PERSONALITY_TRAIT_GUIDE[tag];
+      if (!guide) return `- ${tag}`;
+      return `- ${tag}: ${guide.comoFunciona.join('; ')}. Exemplo de tom: "${guide.exemploTom}" (impacto: ${guide.impacto}).`;
+    });
+    const relevantCombos = PERSONALITY_COMBO_HINTS.filter(hint =>
+      personalityTags.some(tag => hint.startsWith(tag))
+    );
+    sections.push(
+      [
+        'Personalidade selecionada — como cada traço deve se manifestar de verdade nas respostas (não é só um rótulo):',
+        ...traitLines,
+        relevantCombos.length ? `Dica de coerência entre os traços escolhidos: ${relevantCombos.join('; ')}.` : null,
+      ]
+        .filter(Boolean)
+        .join('\n')
+    );
+  }
 
   if (directives.length) {
     sections.push(`Regras de ouro:\n${directives.map(d => `- ${d}`).join('\n')}`);
