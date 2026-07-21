@@ -194,9 +194,9 @@ model Conversation {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  deal     Deal      @relation(fields: [dealId], references: [id], onDelete: Cascade)
-  channel  Channel   @relation(fields: [channelId], references: [id], onDelete: Restrict)
-  messages Message[]
+  deal             Deal              @relation(fields: [dealId], references: [id], onDelete: Cascade)
+  channel          Channel           @relation(fields: [channelId], references: [id], onDelete: Restrict)
+  messages         Message[]
   sentScriptBlocks SentScriptBlock[]
 }
 
@@ -259,7 +259,7 @@ model Activity {
   userId    String? // quem de fato fez a ação, quando aplicável
   createdAt DateTime @default(now())
 
-  deal Deal @relation(fields: [dealId], references: [id], onDelete: Cascade)
+  deal Deal  @relation(fields: [dealId], references: [id], onDelete: Cascade)
   user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
 }
 
@@ -363,7 +363,7 @@ model AgentScriptStepBlock {
   mediaUrl  String? // URL pública (bucket agent-media) — obrigatório se AUDIO/IMAGE/VIDEO
   createdAt DateTime @default(now())
 
-  step AgentScriptStep @relation(fields: [stepId], references: [id], onDelete: Cascade)
+  step        AgentScriptStep   @relation(fields: [stepId], references: [id], onDelete: Cascade)
   sentRecords SentScriptBlock[]
 }
 
@@ -518,11 +518,11 @@ model ServiceOrder {
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
 
-  tenant   Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  deal     Deal?     @relation(fields: [dealId], references: [id], onDelete: SetNull)
-  contact  Contact?  @relation(fields: [contactId], references: [id], onDelete: SetNull)
-  company  Company?  @relation(fields: [companyId], references: [id], onDelete: SetNull)
-  employee Employee? @relation(fields: [employeeId], references: [id], onDelete: SetNull)
+  tenant   Tenant                @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  deal     Deal?                 @relation(fields: [dealId], references: [id], onDelete: SetNull)
+  contact  Contact?              @relation(fields: [contactId], references: [id], onDelete: SetNull)
+  company  Company?              @relation(fields: [companyId], references: [id], onDelete: SetNull)
+  employee Employee?             @relation(fields: [employeeId], references: [id], onDelete: SetNull)
   history  ServiceOrderHistory[]
 
   @@unique([tenantId, number])
