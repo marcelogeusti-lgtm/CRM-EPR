@@ -46,11 +46,13 @@ model User {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  tenant    Tenant     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  deals     Deal[] // Deals assigned to this user
-  tasks     Task[] // Tasks assigned to this user
-  messages  Message[] // Messages sent by this user
-  feedbacks Feedback[]
+  tenant                Tenant                @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  deals                 Deal[] // Deals assigned to this user
+  tasks                 Task[] // Tasks assigned to this user
+  messages              Message[] // Messages sent by this user
+  feedbacks             Feedback[]
+  activities            Activity[] // ações que este usuário registrou
+  serviceOrderHistories ServiceOrderHistory[]
 }
 
 // ==========================================
@@ -254,9 +256,11 @@ model Activity {
   type      String // STAGE_CHANGED, NOTE_ADDED
   content   String
   author    String // "System", "Agent"
+  userId    String? // quem de fato fez a ação, quando aplicável
   createdAt DateTime @default(now())
 
   deal Deal @relation(fields: [dealId], references: [id], onDelete: Cascade)
+  user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
 }
 
 model Integration {
@@ -519,8 +523,28 @@ model ServiceOrder {
   contact  Contact?  @relation(fields: [contactId], references: [id], onDelete: SetNull)
   company  Company?  @relation(fields: [companyId], references: [id], onDelete: SetNull)
   employee Employee? @relation(fields: [employeeId], references: [id], onDelete: SetNull)
+  history  ServiceOrderHistory[]
 
   @@unique([tenantId, number])
+}
+
+// Histórico de mudanças sensíveis de uma Ordem de Serviço (status ou
+// funcionário responsável) — cada linha é uma mudança, com quem fez.
+// Tabela própria (não reaproveita Activity) porque OS não tem timeline
+// tipo chat hoje; é mais parecido com log de auditoria puro.
+model ServiceOrderHistory {
+  id             String   @id @default(uuid())
+  tenantId       String
+  serviceOrderId String
+  userId         String
+  field          String // "STATUS" | "EMPLOYEE"
+  fromValue      String?
+  toValue        String?
+  reason         String? // obrigatório só quando reabre um status Concluída
+  createdAt      DateTime @default(now())
+
+  serviceOrder ServiceOrder @relation(fields: [serviceOrderId], references: [id], onDelete: Cascade)
+  user         User         @relation(fields: [userId], references: [id], onDelete: Restrict)
 }
 
 // ==========================================
