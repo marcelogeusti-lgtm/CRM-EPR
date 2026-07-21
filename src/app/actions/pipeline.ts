@@ -1,7 +1,7 @@
 'use server';
 
 import { prisma } from '@/lib/prisma';
-import { requireTenantId } from '@/lib/auth';
+import { requireTenantId, requireUser } from '@/lib/auth';
 import { runStageAutomations } from '@/actions/automations';
 import { revalidatePath } from 'next/cache';
 
@@ -110,7 +110,8 @@ export async function createLead(formData: FormData) {
 
 export async function updateLeadStage(leadId: string, newStageName: string) {
   try {
-    const tenantId = await requireTenantId();
+    const user = await requireUser();
+    const tenantId = user.tenantId;
 
     const pipeline = await prisma.pipeline.findFirst({ where: { tenantId } });
     if (!pipeline) return { success: false, error: 'No pipeline found' };
@@ -121,13 +122,36 @@ export async function updateLeadStage(leadId: string, newStageName: string) {
 
     if (!targetStage) return { success: false, error: 'Stage not found' };
 
-    // Escopa o update ao tenant para impedir mover deal de outro cliente.
-    const result = await prisma.deal.updateMany({
+    // Busca o deal com a etapa ATUAL antes de mudar — precisa do nome
+    // antigo pra montar a mensagem de auditoria, e updateMany() sozinho
+    // não devolve o estado anterior.
+    const currentDeal = await prisma.deal.findFirst({
       where: { id: leadId, tenantId },
-      data: { stageId: targetStage.id }
+      include: { stage: true },
+    });
+    if (!currentDeal) return { success: false, error: 'Deal not found' };
+
+    const previousStageName = currentDeal.stage?.name || null;
+
+    await prisma.deal.update({
+      where: { id: currentDeal.id },
+      data: { stageId: targetStage.id },
     });
 
-    if (result.count === 0) return { success: false, error: 'Deal not found' };
+    // Só registra se a etapa realmente mudou — evita Activity duplicada
+    // quando o mesmo valor é salvo de novo (ex.: drag solto na mesma coluna).
+    if (previousStageName !== targetStage.name) {
+      await prisma.activity.create({
+        data: {
+          tenantId,
+          dealId: currentDeal.id,
+          type: 'STATUS_CHANGE', // mesmo type que o timeline do Inbox já renderiza como pill central
+          content: `${user.name} moveu de "${previousStageName ?? 'sem etapa'}" para "${targetStage.name}"`,
+          author: user.name,
+          userId: user.id,
+        },
+      });
+    }
 
     await runStageAutomations(tenantId, targetStage.id, leadId);
 
