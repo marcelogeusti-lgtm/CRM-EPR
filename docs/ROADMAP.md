@@ -1085,3 +1085,61 @@ TypeScript próprios — removido o shim manual `src/types/lamejs.d.ts`
 que não é mais necessário). Mesma API (`Mp3Encoder`), só o pacote muda.
 Verificado com `tsc`+`build`; teste real de gravação (só é possível
 detectar em runtime no navegador) pendente do Marcelo.
+
+## Auditoria de responsabilidade + trava do status "Concluída" em Ordens de Serviço (2026-07-21)
+
+O Marcelo pediu (ao cadastrar login próprio pra outras funcionárias no
+CRM) pra eu estudar duas coisas antes de implementar: (1) como registrar
+quem foi o responsável por ações sensíveis (transferência, fechar
+orçamento), e (2) revisar por que uma Ordem de Serviço "Concluída"
+podia ter o status alterado de volta livremente. Passou pelo processo
+completo de brainstorming → spec → plano → implementação via
+subagentes (specs em
+`docs/superpowers/specs/2026-07-21-auditoria-e-status-os-design.md` e
+`docs/superpowers/plans/2026-07-21-auditoria-e-status-os.md`).
+
+**Achados no código antes de mexer**: `Activity.author` era texto livre
+("System"/"Agent"), nunca apontava pra um `User` real;
+`updateLeadStage()` nunca gravava Activity nenhuma apesar do comentário
+no schema prometer isso ("STAGE_CHANGED"); `Deal.assignedTo` existe no
+schema mas não é editável em lugar nenhum da UI (não é isso que
+"transferência" significava — era `ServiceOrder.employeeId`, já
+editável, só faltava registrar quem trocou); `updateServiceOrderStatus`
+aceitava qualquer transição sem checar papel nem gravar histórico.
+
+**Implementado** (6 tasks, cada uma implementada por um subagente
+dedicado e revisada por outro antes de seguir pra próxima — nenhuma
+precisou de mais de uma rodada de correção):
+
+1. Schema: `Activity.userId` (FK opcional pra `User`) + tabela nova
+   `ServiceOrderHistory` (tenantId, serviceOrderId, userId, field:
+   'STATUS'|'EMPLOYEE', fromValue, toValue, reason, createdAt).
+   Migration `20260721060000_audit_trail_service_order_history`
+   aplicada via Supabase MCP.
+2. `updateLeadStage` (`src/app/actions/pipeline.ts`) passou a gravar
+   uma `Activity` real (`type: 'STATUS_CHANGE'`, `userId` do usuário
+   logado) quando um Deal muda de etapa — já aparece sozinho no
+   timeline que o `LeadInboxPanel.tsx` já sabia renderizar, sem mudança
+   de UI nenhuma nesse lado.
+3. `updateServiceOrderStatus` (`src/actions/serviceOrders.ts`): reabrir
+   uma OS que já estava Concluída agora exige papel ADMIN
+   (`requireAdmin()`) + motivo escrito; qualquer outra transição só
+   exige usuário logado. Toda mudança grava em `ServiceOrderHistory`.
+   Corrigido de brinde: `completedAt` agora vira `null` explícito ao
+   sair de Concluída (antes ficava com a data antiga presa, porque
+   `undefined` no Prisma significa "não mexe no campo").
+4. `updateServiceOrder`: troca do funcionário responsável
+   (`employeeId`) também grava histórico (sem exigir motivo — isso é
+   só pra reabertura de status).
+5. UI (`src/app/service-orders/`): seção "Ver histórico" por card
+   (busca sob demanda, cacheada), modal pedindo motivo quando ADMIN
+   reabre uma OS, bloqueio imediato no cliente pra quem não é ADMIN. A
+   revisão da Task 3 apontou que `handleStatusChange` fazia update
+   otimista sem reverter em caso de falha — corrigido nesta task
+   (estado local volta pro status real se o servidor rejeitar).
+
+Verificado com `tsc`+`build` em cada task. Teste real (mudar etapa de
+Deal e conferir o timeline, reabrir OS como AGENT vs. ADMIN, trocar
+responsável) pendente do Marcelo — nenhuma das 5 tasks de código pôde
+ser clicada de ponta a ponta numa sessão logada de verdade a partir
+deste ambiente.
