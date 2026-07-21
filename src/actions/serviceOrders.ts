@@ -1,7 +1,7 @@
 'use server';
 
 import { prisma } from '@/lib/prisma';
-import { requireTenantId } from '@/lib/auth';
+import { requireTenantId, requireUser, requireAdmin } from '@/lib/auth';
 import { revalidatePath } from 'next/cache';
 import { Prisma } from '@prisma/client';
 
@@ -73,18 +73,57 @@ export async function createServiceOrder(data: CreateServiceOrderInput) {
   return { success: false, error: 'Falha ao criar Ordem de Serviço.' };
 }
 
-export async function updateServiceOrderStatus(id: string, status: string) {
-  const tenantId = await requireTenantId();
+const STATUS_LABELS: Record<string, string> = {
+  RASCUNHO: 'Rascunho',
+  ABERTA: 'Aberta',
+  EM_ANDAMENTO: 'Em Andamento',
+  CONCLUIDA: 'Concluída',
+  CANCELADA: 'Cancelada',
+};
 
-  const result = await prisma.serviceOrder.updateMany({
-    where: { id, tenantId },
+export async function updateServiceOrderStatus(id: string, status: string, reason?: string) {
+  const user = await requireUser();
+  const tenantId = user.tenantId;
+
+  const order = await prisma.serviceOrder.findFirst({ where: { id, tenantId } });
+  if (!order) return { success: false, error: 'Ordem de Serviço não encontrada.' };
+
+  if (order.status === status) {
+    return { success: true }; // nada mudou, não precisa validar nem registrar
+  }
+
+  const isReopeningFromConcluida = order.status === 'CONCLUIDA' && status !== 'CONCLUIDA';
+
+  if (isReopeningFromConcluida) {
+    try {
+      await requireAdmin();
+    } catch {
+      return { success: false, error: 'Só administradores podem reabrir uma Ordem de Serviço concluída.' };
+    }
+    if (!reason?.trim()) {
+      return { success: false, error: 'Informe o motivo da reabertura.' };
+    }
+  }
+
+  await prisma.serviceOrder.update({
+    where: { id: order.id },
     data: {
       status,
-      completedAt: status === 'CONCLUIDA' ? new Date() : undefined,
+      completedAt: status === 'CONCLUIDA' ? new Date() : null,
     },
   });
 
-  if (result.count === 0) return { success: false, error: 'Ordem de Serviço não encontrada.' };
+  await prisma.serviceOrderHistory.create({
+    data: {
+      tenantId,
+      serviceOrderId: order.id,
+      userId: user.id,
+      field: 'STATUS',
+      fromValue: STATUS_LABELS[order.status] || order.status,
+      toValue: STATUS_LABELS[status] || status,
+      reason: isReopeningFromConcluida ? reason!.trim() : null,
+    },
+  });
 
   revalidatePath('/service-orders');
   return { success: true };
@@ -109,4 +148,14 @@ export async function updateServiceOrder(id: string, data: UpdateServiceOrderInp
 
   revalidatePath('/service-orders');
   return { success: true };
+}
+
+export async function getServiceOrderHistory(serviceOrderId: string) {
+  const tenantId = await requireTenantId();
+
+  return prisma.serviceOrderHistory.findMany({
+    where: { serviceOrderId, tenantId },
+    include: { user: { select: { name: true } } },
+    orderBy: { createdAt: 'desc' },
+  });
 }
