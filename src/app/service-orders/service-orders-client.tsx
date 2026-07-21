@@ -2,6 +2,7 @@
 
 import React, { useMemo, useState } from 'react';
 import { Wrench, Users, Plus, X, Phone } from 'lucide-react';
+import { format } from 'date-fns';
 import { createServiceOrder, updateServiceOrderStatus, updateServiceOrder, getServiceOrderHistory } from '@/actions/serviceOrders';
 import { createEmployee, toggleEmployeeActive } from '@/actions/employees';
 
@@ -91,7 +92,9 @@ export function ServiceOrdersClient({
     if (!result.success) {
       setOrders(prev => prev.map(o => (o.id === id ? { ...o, status: previousStatus } : o)));
       alert(result.error || 'Falha ao mudar o status.');
+      return;
     }
+    invalidateHistory(id);
   }
 
   async function confirmReopen(reason: string) {
@@ -107,7 +110,17 @@ export function ServiceOrdersClient({
         setOrders(prev => prev.map(o => (o.id === orderId ? { ...o, status: previousStatus } : o)));
       }
       alert(result.error || 'Falha ao reabrir a Ordem de Serviço.');
+      return;
     }
+    invalidateHistory(orderId);
+  }
+
+  function invalidateHistory(orderId: string) {
+    setHistoryByOrder(prev => {
+      const next = { ...prev };
+      delete next[orderId];
+      return next;
+    });
   }
 
   async function toggleHistory(orderId: string) {
@@ -123,16 +136,34 @@ export function ServiceOrdersClient({
   }
 
   async function handleEmployeeAssign(id: string, employeeId: string) {
+    const order = orders.find(o => o.id === id);
+    const previousEmployee = order?.employee ?? null;
     const employee = employees.find(e => e.id === employeeId) || null;
     setOrders(prev =>
       prev.map(o => (o.id === id ? { ...o, employee: employee ? { id: employee.id, name: employee.name } : null } : o))
     );
-    await updateServiceOrder(id, { employeeId: employeeId || null });
+    const result = await updateServiceOrder(id, { employeeId: employeeId || null });
+    if (!result.success) {
+      setOrders(prev => prev.map(o => (o.id === id ? { ...o, employee: previousEmployee } : o)));
+      alert(result.error || 'Falha ao atribuir técnico.');
+      return;
+    }
+    invalidateHistory(id);
   }
 
   async function handlePaymentStatusChange(id: string, paymentStatus: string) {
+    const order = orders.find(o => o.id === id);
+    const previousPaymentStatus = order?.paymentStatus;
     setOrders(prev => prev.map(o => (o.id === id ? { ...o, paymentStatus } : o)));
-    await updateServiceOrder(id, { paymentStatus });
+    const result = await updateServiceOrder(id, { paymentStatus });
+    if (!result.success) {
+      if (previousPaymentStatus !== undefined) {
+        setOrders(prev => prev.map(o => (o.id === id ? { ...o, paymentStatus: previousPaymentStatus } : o)));
+      }
+      alert(result.error || 'Falha ao atualizar status de pagamento.');
+      return;
+    }
+    invalidateHistory(id);
   }
 
   return (
@@ -247,10 +278,13 @@ export function ServiceOrdersClient({
                             ) : (
                               historyByOrder[order.id]!.map(h => (
                                 <p key={h.id} className="text-[11px] text-zinc-500">
+                                  <span className="text-zinc-600">[{format(new Date(h.createdAt), 'dd/MM HH:mm')}]</span>{' '}
                                   <span className="text-zinc-300">{h.user.name}</span>
                                   {h.field === 'STATUS'
                                     ? ` mudou de "${h.fromValue}" para "${h.toValue}"`
-                                    : ` trocou o responsável de "${h.fromValue || 'ninguém'}" para "${h.toValue || 'ninguém'}"`}
+                                    : h.field === 'PAYMENT'
+                                      ? ` mudou pagamento de "${h.fromValue}" para "${h.toValue}"`
+                                      : ` trocou o responsável de "${h.fromValue || 'ninguém'}" para "${h.toValue || 'ninguém'}"`}
                                   {h.reason && ` — motivo: ${h.reason}`}
                                 </p>
                               ))

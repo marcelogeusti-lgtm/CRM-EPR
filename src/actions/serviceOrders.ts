@@ -136,6 +136,12 @@ export interface UpdateServiceOrderInput {
   value?: number;
 }
 
+const PAYMENT_STATUS_LABELS: Record<string, string> = {
+  PENDENTE: 'Pagamento Pendente',
+  PARCIAL: 'Pagamento Parcial',
+  PAGO: 'Pago',
+};
+
 export async function updateServiceOrder(id: string, data: UpdateServiceOrderInput) {
   const user = await requireUser();
   const tenantId = user.tenantId;
@@ -144,6 +150,7 @@ export async function updateServiceOrder(id: string, data: UpdateServiceOrderInp
   if (!order) return { success: false, error: 'Ordem de Serviço não encontrada.' };
 
   const isEmployeeChange = 'employeeId' in data && data.employeeId !== order.employeeId;
+  const isPaymentStatusChange = 'paymentStatus' in data && data.paymentStatus !== order.paymentStatus;
 
   let fromEmployeeName: string | null = null;
   let toEmployeeName: string | null = null;
@@ -167,6 +174,21 @@ export async function updateServiceOrder(id: string, data: UpdateServiceOrderInp
         field: 'EMPLOYEE',
         fromValue: fromEmployeeName,
         toValue: toEmployeeName,
+        reason: null,
+      },
+    });
+  }
+
+  if (isPaymentStatusChange) {
+    const newPaymentStatus = data.paymentStatus!;
+    await prisma.serviceOrderHistory.create({
+      data: {
+        tenantId,
+        serviceOrderId: order.id,
+        userId: user.id,
+        field: 'PAYMENT',
+        fromValue: PAYMENT_STATUS_LABELS[order.paymentStatus] || order.paymentStatus,
+        toValue: PAYMENT_STATUS_LABELS[newPaymentStatus] || newPaymentStatus,
         reason: null,
       },
     });

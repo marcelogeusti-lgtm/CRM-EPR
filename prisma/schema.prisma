@@ -537,7 +537,7 @@ model ServiceOrderHistory {
   tenantId       String
   serviceOrderId String
   userId         String
-  field          String // "STATUS" | "EMPLOYEE"
+  field          String // "STATUS" | "EMPLOYEE" | "PAYMENT"
   fromValue      String?
   toValue        String?
   reason         String? // obrigatório só quando reabre um status Concluída
