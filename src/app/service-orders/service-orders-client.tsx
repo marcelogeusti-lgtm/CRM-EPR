@@ -2,7 +2,7 @@
 
 import React, { useMemo, useState } from 'react';
 import { Wrench, Users, Plus, X, Phone } from 'lucide-react';
-import { createServiceOrder, updateServiceOrderStatus, updateServiceOrder } from '@/actions/serviceOrders';
+import { createServiceOrder, updateServiceOrderStatus, updateServiceOrder, getServiceOrderHistory } from '@/actions/serviceOrders';
 import { createEmployee, toggleEmployeeActive } from '@/actions/employees';
 
 interface Contact {
@@ -51,15 +51,20 @@ export function ServiceOrdersClient({
   initialOrders,
   initialEmployees,
   contacts,
+  currentUserRole,
 }: {
   initialOrders: ServiceOrder[];
   initialEmployees: Employee[];
   contacts: Contact[];
+  currentUserRole: string;
 }) {
   const [tab, setTab] = useState<Tab>('ordens');
   const [orders, setOrders] = useState(initialOrders);
   const [employees, setEmployees] = useState(initialEmployees);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [reopenTarget, setReopenTarget] = useState<{ orderId: string; newStatus: string } | null>(null);
+  const [historyByOrder, setHistoryByOrder] = useState<Record<string, Awaited<ReturnType<typeof getServiceOrderHistory>> | undefined>>({});
+  const [openHistoryId, setOpenHistoryId] = useState<string | null>(null);
 
   const columns = useMemo(
     () => STATUS_COLUMNS.map(col => ({ ...col, orders: orders.filter(o => o.status === col.id) })),
@@ -67,9 +72,54 @@ export function ServiceOrdersClient({
   );
 
   async function handleStatusChange(id: string, status: string) {
+    const order = orders.find(o => o.id === id);
+    if (!order) return;
+    const previousStatus = order.status;
+    const isReopeningFromConcluida = previousStatus === 'CONCLUIDA' && status !== 'CONCLUIDA';
+
+    if (isReopeningFromConcluida) {
+      if (currentUserRole !== 'ADMIN') {
+        alert('Só administradores podem reabrir uma Ordem de Serviço concluída.');
+        return;
+      }
+      setReopenTarget({ orderId: id, newStatus: status });
+      return;
+    }
+
     setOrders(prev => prev.map(o => (o.id === id ? { ...o, status } : o)));
     const result = await updateServiceOrderStatus(id, status);
-    if (!result.success) alert(result.error || 'Falha ao mudar o status.');
+    if (!result.success) {
+      setOrders(prev => prev.map(o => (o.id === id ? { ...o, status: previousStatus } : o)));
+      alert(result.error || 'Falha ao mudar o status.');
+    }
+  }
+
+  async function confirmReopen(reason: string) {
+    if (!reopenTarget) return;
+    const { orderId, newStatus } = reopenTarget;
+    const order = orders.find(o => o.id === orderId);
+    const previousStatus = order?.status;
+    setOrders(prev => prev.map(o => (o.id === orderId ? { ...o, status: newStatus } : o)));
+    setReopenTarget(null);
+    const result = await updateServiceOrderStatus(orderId, newStatus, reason);
+    if (!result.success) {
+      if (previousStatus !== undefined) {
+        setOrders(prev => prev.map(o => (o.id === orderId ? { ...o, status: previousStatus } : o)));
+      }
+      alert(result.error || 'Falha ao reabrir a Ordem de Serviço.');
+    }
+  }
+
+  async function toggleHistory(orderId: string) {
+    if (openHistoryId === orderId) {
+      setOpenHistoryId(null);
+      return;
+    }
+    setOpenHistoryId(orderId);
+    if (!historyByOrder[orderId]) {
+      const history = await getServiceOrderHistory(orderId);
+      setHistoryByOrder(prev => ({ ...prev, [orderId]: history }));
+    }
   }
 
   async function handleEmployeeAssign(id: string, employeeId: string) {
@@ -179,6 +229,34 @@ export function ServiceOrdersClient({
                           <option value="PARCIAL">Pagamento Parcial</option>
                           <option value="PAGO">Pago</option>
                         </select>
+
+                        <button
+                          type="button"
+                          onClick={() => toggleHistory(order.id)}
+                          className="text-[11px] text-zinc-500 hover:text-zinc-300 font-medium"
+                        >
+                          {openHistoryId === order.id ? 'Ocultar histórico' : 'Ver histórico'}
+                        </button>
+
+                        {openHistoryId === order.id && (
+                          <div className="space-y-1 pt-1 border-t border-[#262626]">
+                            {historyByOrder[order.id] === undefined ? (
+                              <p className="text-[11px] text-zinc-600">Carregando...</p>
+                            ) : historyByOrder[order.id]!.length === 0 ? (
+                              <p className="text-[11px] text-zinc-600">Nenhuma mudança registrada ainda.</p>
+                            ) : (
+                              historyByOrder[order.id]!.map(h => (
+                                <p key={h.id} className="text-[11px] text-zinc-500">
+                                  <span className="text-zinc-300">{h.user.name}</span>
+                                  {h.field === 'STATUS'
+                                    ? ` mudou de "${h.fromValue}" para "${h.toValue}"`
+                                    : ` trocou o responsável de "${h.fromValue || 'ninguém'}" para "${h.toValue || 'ninguém'}"`}
+                                  {h.reason && ` — motivo: ${h.reason}`}
+                                </p>
+                              ))
+                            )}
+                          </div>
+                        )}
                       </div>
                     </div>
                   ))}
@@ -209,6 +287,13 @@ export function ServiceOrdersClient({
             setOrders(prev => [order, ...prev]);
             setIsModalOpen(false);
           }}
+        />
+      )}
+
+      {reopenTarget && (
+        <ReopenReasonModal
+          onConfirm={confirmReopen}
+          onClose={() => setReopenTarget(null)}
         />
       )}
     </div>
@@ -358,6 +443,39 @@ function NewServiceOrderModal({
             </button>
           </div>
         </form>
+      </div>
+    </div>
+  );
+}
+
+function ReopenReasonModal({ onConfirm, onClose }: { onConfirm: (reason: string) => void; onClose: () => void }) {
+  const [reason, setReason] = useState('');
+
+  return (
+    <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
+      <div className="bg-[#141414] border border-[#262626] rounded-xl p-6 w-full max-w-md">
+        <h3 className="text-lg font-semibold text-zinc-100 mb-2">Reabrir Ordem de Serviço</h3>
+        <p className="text-xs text-zinc-500 mb-4">
+          Essa OS já está marcada como Concluída. Informe o motivo da reabertura — isso fica registrado no histórico.
+        </p>
+        <textarea
+          value={reason}
+          onChange={e => setReason(e.target.value)}
+          placeholder="Ex.: cliente pediu ajuste no valor"
+          className="w-full h-20 bg-[#0a0a0a] border border-[#262626] rounded-lg p-2 text-sm text-zinc-300 focus:outline-none focus:border-blue-500/50 resize-none mb-4"
+        />
+        <div className="flex justify-end gap-2">
+          <button onClick={onClose} className="px-4 py-2 rounded-lg text-sm text-zinc-400 hover:text-zinc-200">
+            Cancelar
+          </button>
+          <button
+            onClick={() => reason.trim() && onConfirm(reason.trim())}
+            disabled={!reason.trim()}
+            className="px-4 py-2 rounded-lg text-sm bg-blue-600 hover:bg-blue-500 disabled:opacity-40 text-white font-medium"
+          >
+            Confirmar reabertura
+          </button>
+        </div>
       </div>
     </div>
   );

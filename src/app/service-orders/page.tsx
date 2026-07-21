@@ -23,6 +23,11 @@ export default async function ServiceOrdersPage() {
     : [];
 
   return (
-    <ServiceOrdersClient initialOrders={orders} initialEmployees={employees} contacts={contacts} />
+    <ServiceOrdersClient
+      initialOrders={orders}
+      initialEmployees={employees}
+      contacts={contacts}
+      currentUserRole={user?.role || 'AGENT'}
+    />
   );
 }
