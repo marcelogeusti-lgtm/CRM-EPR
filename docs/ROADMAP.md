@@ -1256,3 +1256,52 @@ sessão logada pra exercitar o fluxo ponta a ponta.
 **Próximo passo**: Fase 3 — seletor de agente em `/salesbot`, com um
 "+ Novo agente" que escolhe a qual número (Integration ainda sem
 agente) vincular.
+
+## Múltiplos Agentes de IA por número de WhatsApp — Fase 3: seletor de agente em /salesbot (2026-07-27)
+
+Última fase do recurso (ver Fases 1 e 2 acima). `src/app/salesbot/
+page.tsx` carregava sempre "o agente" implícito do tenant num único
+`useEffect`. Agora:
+
+- Uma barra de pílulas logo abaixo do cabeçalho lista todos os agentes
+  do tenant (`getAiAgents()`), cada uma com o nome do agente + o número
+  de telefone vinculado (quando o perfil já foi sincronizado em
+  Integrações) + uma bolinha verde se estiver ativo. Clicar troca o
+  agente selecionado e recarrega TODO o formulário (persona, scripts de
+  Atendimento/Fechamento, objeções, fontes) desse agente específico
+  via `getAiAgent(agentId)` — extraí a lógica de popular o formulário
+  pra uma função `applyAgentData()` reutilizável em vez de só rodar
+  uma vez no mount.
+- "+ Novo agente": abre um formulário simples (select de número + nome)
+  listando as `Integration`s de WhatsApp do tenant que **ainda não**
+  têm agente (`getIntegrations()` filtrado, comparado contra os
+  `integrationId` já usados) — chama `createAiAgent(integrationId,
+  name)`. Se todos os números já tiverem agente, mostra uma mensagem
+  direcionando pra criar mais um número em `/integrations` primeiro,
+  em vez de deixar escolher algo inválido.
+- `handleToggleAgent`, `handleSavePersona` e o `fetch('/api/chat')` do
+  simulador passaram a levar o `agentId` selecionado explicitamente —
+  sem isso, salvar/ativar/testar sempre afetaria só o primeiro agente
+  do tenant (o fallback da Fase 1), quebrando a troca de agente.
+- Achado corrigindo na hora: sem esse cuidado, um tenant recém-criado
+  (0 integrações, 0 agentes) teria o botão "Salvar" clicável sem fazer
+  nada (silenciosamente, já que `handleSavePersona` agora exige um
+  `agentId` real — não existe mais o upsert implícito de antes).
+  Corrigido com uma tela vazia explícita ("Nenhum agente configurado
+  ainda, adicione um número em Integrações primeiro") no lugar das
+  abas quando `agents.length === 0`.
+- Aba "Integrações" (que antes só dizia "Em Desenvolvimento... hoje o
+  agente vale pro workspace inteiro" — texto que ficou errado a partir
+  da Fase 1) agora mostra de fato a qual número o agente selecionado
+  está vinculado.
+
+Verificado com `npx tsc --noEmit` e `npm run build`, ambos limpos.
+Teste real (trocar de agente, criar um segundo agente vinculado a um
+número novo, confirmar que cada um responde com sua própria persona no
+simulador e no WhatsApp de verdade) pendente do Marcelo — mesma
+limitação das Fases 1 e 2, este ambiente não tem uma sessão logada.
+
+Com isso, as 3 fases do recurso "Múltiplos Agentes de IA por número de
+WhatsApp" pedido pelo Marcelo estão completas: schema/backend (Fase 1),
+gestão de vários números em Integrações (Fase 2), e seletor de agente
+em `/salesbot` (Fase 3).

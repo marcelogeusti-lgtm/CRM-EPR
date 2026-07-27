@@ -4,6 +4,8 @@ import React, { useState, useEffect } from 'react';
 import { Bot, Sparkles, Phone, User, Database, Zap, Settings, RefreshCw, Send, ChevronLeft, Volume2, Maximize, Activity, X, Loader2, Check, ChevronUp, ChevronDown, ShieldAlert, Wrench, KeyRound, MessageSquare, TrendingUp, Info, Copy } from 'lucide-react';
 import {
   getAiAgent,
+  getAiAgents,
+  createAiAgent,
   saveAiAgent,
   setAiAgentActive,
   getCompanySettings,
@@ -14,12 +16,33 @@ import {
   type ObjectionInput,
   type KnowledgeSourceInput,
 } from '@/actions/salesbot';
+import { getIntegrations } from '@/actions/integrations';
 import { uploadScriptStepMedia } from '@/actions/mediaUpload';
 import { withRetry } from '@/lib/withRetry';
 import { PERSONALITY_TRAIT_GUIDE } from '@/lib/agentPrompt';
 import { convertRecordingToMp3 } from '@/lib/audioEncode';
 
 type Tab = 'painel' | 'persona' | 'fontes' | 'acoes' | 'integracoes' | 'configs';
+
+// Item da lista de agentes do tenant (um por número de WhatsApp) — ver
+// docs/superpowers/specs/2026-07-21-multiplos-agentes-fase1-design.md.
+interface AgentListItem {
+  id: string;
+  name: string;
+  isActive: boolean;
+  integrationId: string | null;
+  integration: { id: string; config: string | null } | null;
+}
+
+function agentNumberLabel(agent: AgentListItem): string | null {
+  if (!agent.integration?.config) return null;
+  try {
+    const parsed = JSON.parse(agent.integration.config);
+    return parsed.profile?.displayPhoneNumber || null;
+  } catch {
+    return null;
+  }
+}
 
 const DEFAULT_PERSONA = "Você é um assistente de vendas e consulta inteligente que ajuda os clientes a escolher o sistema de gestão NEXT para suas barbearias...";
 const DEFAULT_DIRECTIVES = [
@@ -464,6 +487,17 @@ export default function SalesbotPage() {
   const [isAgentActive, setIsAgentActive] = useState(false);
   const [isTogglingAgent, setIsTogglingAgent] = useState(false);
 
+  // Lista de agentes do tenant (um por número de WhatsApp) e qual está
+  // selecionado no formulário abaixo.
+  const [agents, setAgents] = useState<AgentListItem[]>([]);
+  const [selectedAgentId, setSelectedAgentId] = useState<string | null>(null);
+  const [availableIntegrations, setAvailableIntegrations] = useState<{ id: string; config: string | null }[]>([]);
+  const [isCreatingAgent, setIsCreatingAgent] = useState(false);
+  const [showNewAgentForm, setShowNewAgentForm] = useState(false);
+  const [newAgentIntegrationId, setNewAgentIntegrationId] = useState('');
+  const [newAgentName, setNewAgentName] = useState('');
+  const [newAgentError, setNewAgentError] = useState('');
+
   // Persona states
   const [isLoadingAgent, setIsLoadingAgent] = useState(true);
   const [agentLoadError, setAgentLoadError] = useState('');
@@ -493,40 +527,68 @@ export default function SalesbotPage() {
   const [stats, setStats] = useState<{ periodDays: number; conversationsTouched: number; aiMessagesSent: number; newLeads: number } | null>(null);
   const [statsError, setStatsError] = useState('');
 
-  useEffect(() => {
-    withRetry(() => getAiAgent()).then(agent => {
-      if (agent) {
-        setIsAgentActive(agent.isActive);
-        setPersona(agent.systemPrompt || DEFAULT_PERSONA);
-        setResponseSize(agent.responseSize);
-        setResponseLanguage(agent.responseLanguage);
-        setPauseSeconds(String(agent.pauseSeconds));
-        setNegativePrompt(agent.negativePrompt || '');
-        setServiceOrderMode(agent.serviceOrderMode);
+  function applyAgentData(agent: NonNullable<Awaited<ReturnType<typeof getAiAgent>>>) {
+    setIsAgentActive(agent.isActive);
+    setPersona(agent.systemPrompt || DEFAULT_PERSONA);
+    setResponseSize(agent.responseSize);
+    setResponseLanguage(agent.responseLanguage);
+    setPauseSeconds(String(agent.pauseSeconds));
+    setNegativePrompt(agent.negativePrompt || '');
+    setServiceOrderMode(agent.serviceOrderMode);
 
-        const parseArray = (value: string | null, fallback: string[]) => {
-          try {
-            const parsed = value ? JSON.parse(value) : fallback;
-            return Array.isArray(parsed) ? parsed : fallback;
-          } catch {
-            return fallback;
-          }
-        };
-        setPersonalityTags(parseArray(agent.personalityTags, ['Amigável']));
-        setDirectives(parseArray(agent.directives, DEFAULT_DIRECTIVES));
-        setTypicalExpressions(parseArray(agent.typicalExpressions, []));
-
-        const toStepInput = (s: typeof agent.scriptSteps[number]): ScriptStepInput => ({
-          title: s.title,
-          content: s.content || '',
-          blocks: s.blocks.map(b => ({ type: b.type, content: b.content, mediaUrl: b.mediaUrl })),
-        });
-        setAttendanceSteps(agent.scriptSteps.filter(s => s.type === 'ATENDIMENTO').map(toStepInput));
-        setClosingSteps(agent.scriptSteps.filter(s => s.type === 'FECHAMENTO').map(toStepInput));
-        setObjections(agent.objections.map(o => ({ title: o.title, response: o.response })));
-        setKnowledgeSources(agent.knowledgeSources.map(s => ({ title: s.title, content: s.content })));
+    const parseArray = (value: string | null, fallback: string[]) => {
+      try {
+        const parsed = value ? JSON.parse(value) : fallback;
+        return Array.isArray(parsed) ? parsed : fallback;
+      } catch {
+        return fallback;
       }
+    };
+    setPersonalityTags(parseArray(agent.personalityTags, ['Amigável']));
+    setDirectives(parseArray(agent.directives, DEFAULT_DIRECTIVES));
+    setTypicalExpressions(parseArray(agent.typicalExpressions, []));
+
+    const toStepInput = (s: typeof agent.scriptSteps[number]): ScriptStepInput => ({
+      title: s.title,
+      content: s.content || '',
+      blocks: s.blocks.map(b => ({ type: b.type, content: b.content, mediaUrl: b.mediaUrl })),
+    });
+    setAttendanceSteps(agent.scriptSteps.filter(s => s.type === 'ATENDIMENTO').map(toStepInput));
+    setClosingSteps(agent.scriptSteps.filter(s => s.type === 'FECHAMENTO').map(toStepInput));
+    setObjections(agent.objections.map(o => ({ title: o.title, response: o.response })));
+    setKnowledgeSources(agent.knowledgeSources.map(s => ({ title: s.title, content: s.content })));
+  }
+
+  async function loadAgent(agentId: string) {
+    setIsLoadingAgent(true);
+    try {
+      const agent = await getAiAgent(agentId);
+      if (agent) applyAgentData(agent);
+      setSelectedAgentId(agentId);
+    } catch (err) {
+      console.error(err);
+      setAgentLoadError('Não foi possível carregar o agente. Tente recarregar a página.');
+    } finally {
       setIsLoadingAgent(false);
+    }
+  }
+
+  async function loadAgentsList() {
+    const [agentList, integrations] = await Promise.all([getAiAgents(), getIntegrations()]);
+    setAgents(agentList);
+    setAvailableIntegrations(
+      integrations.filter(i => i.provider === 'whatsapp' && !agentList.some(a => a.integrationId === i.id))
+    );
+    return agentList;
+  }
+
+  useEffect(() => {
+    withRetry(() => loadAgentsList()).then(async agentList => {
+      if (agentList.length > 0) {
+        await loadAgent(agentList[0].id);
+      } else {
+        setIsLoadingAgent(false);
+      }
     }).catch(err => {
       console.error(err);
       setAgentLoadError('Não foi possível carregar o agente. Tente recarregar a página.');
@@ -543,15 +605,40 @@ export default function SalesbotPage() {
     });
   }, []);
 
+  async function handleSelectAgent(agentId: string) {
+    if (agentId === selectedAgentId) return;
+    setAgentLoadError('');
+    await loadAgent(agentId);
+  }
+
+  async function handleCreateAgent() {
+    if (!newAgentIntegrationId) return;
+    setIsCreatingAgent(true);
+    setNewAgentError('');
+    try {
+      const agent = await createAiAgent(newAgentIntegrationId, newAgentName.trim() || 'Assistente de Vendas');
+      await loadAgentsList();
+      await loadAgent(agent.id);
+      setShowNewAgentForm(false);
+      setNewAgentIntegrationId('');
+      setNewAgentName('');
+    } catch (err: any) {
+      setNewAgentError(err?.message || 'Falha ao criar o agente.');
+    } finally {
+      setIsCreatingAgent(false);
+    }
+  }
+
   function togglePersonalityTag(tag: string) {
     setPersonalityTags(prev => prev.includes(tag) ? prev.filter(t => t !== tag) : [...prev, tag]);
   }
 
   async function handleToggleAgent() {
+    if (!selectedAgentId) return;
     setIsTogglingAgent(true);
     const next = !isAgentActive;
     try {
-      const agent = await setAiAgentActive(next);
+      const agent = await setAiAgentActive(next, selectedAgentId);
       setIsAgentActive(agent.isActive);
     } catch (e) {
       console.error(e);
@@ -562,6 +649,7 @@ export default function SalesbotPage() {
   }
 
   async function handleSavePersona() {
+    if (!selectedAgentId) return;
     setIsSavingPersona(true);
     setJustSaved(false);
     try {
@@ -579,7 +667,7 @@ export default function SalesbotPage() {
         objections,
         knowledgeSources,
         serviceOrderMode,
-      });
+      }, selectedAgentId);
       setJustSaved(true);
       setTimeout(() => setJustSaved(false), 2000);
     } catch (e) {
@@ -626,7 +714,7 @@ export default function SalesbotPage() {
       const response = await fetch('/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ messages: newMessages })
+        body: JSON.stringify({ messages: newMessages, agentId: selectedAgentId })
       });
 
       if (!response.body) throw new Error('No response body');
@@ -691,9 +779,87 @@ export default function SalesbotPage() {
           </div>
 
           <p className="text-[11px] text-zinc-600 mb-4">
-            Este é o interruptor global — também pode ser ligado automaticamente por uma regra de
+            Este é o interruptor deste agente — também pode ser ligado automaticamente por uma regra de
             etapa (Automações → Fluxos → Regras rápidas) ou por um Fluxo que termine em &quot;IA Assume&quot;.
           </p>
+
+          {/* Seletor de agente — cada número de WhatsApp pode ter seu próprio
+              Agente de IA (persona/scripts/objeções diferentes). */}
+          <div className="flex flex-wrap items-center gap-2 mb-4">
+            {agents.map(agent => {
+              const numberLabel = agentNumberLabel(agent);
+              return (
+                <button
+                  key={agent.id}
+                  onClick={() => handleSelectAgent(agent.id)}
+                  disabled={isLoadingAgent}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-bold border transition-colors flex items-center gap-1.5 disabled:opacity-50 ${
+                    agent.id === selectedAgentId
+                      ? 'bg-indigo-500/15 border-indigo-500/40 text-indigo-300'
+                      : 'bg-[#141414] border-[#262626] text-zinc-400 hover:text-zinc-200 hover:border-[#333]'
+                  }`}
+                >
+                  {agent.isActive && <span className="size-1.5 rounded-full bg-emerald-400 shrink-0" />}
+                  {agent.name}
+                  {numberLabel && <span className="text-zinc-600 font-normal">· {numberLabel}</span>}
+                </button>
+              );
+            })}
+            <button
+              onClick={() => { setShowNewAgentForm(v => !v); setNewAgentError(''); }}
+              className="px-3 py-1.5 rounded-lg text-xs font-bold border border-dashed border-[#333] text-zinc-500 hover:text-zinc-300 hover:border-[#444] transition-colors"
+            >
+              + Novo agente
+            </button>
+          </div>
+
+          {showNewAgentForm && (
+            <div className="mb-4 p-4 bg-[#141414] border border-[#262626] rounded-xl max-w-lg">
+              {availableIntegrations.length === 0 ? (
+                <p className="text-xs text-zinc-500">
+                  Todos os seus números de WhatsApp já têm um agente. Adicione um novo número em{' '}
+                  <a href="/integrations" className="text-indigo-400 hover:text-indigo-300 font-medium">Integrações</a> primeiro.
+                </p>
+              ) : (
+                <>
+                  <label className="text-xs font-bold text-zinc-400 mb-1.5 block">Vincular ao número</label>
+                  <select
+                    value={newAgentIntegrationId}
+                    onChange={(e) => setNewAgentIntegrationId(e.target.value)}
+                    className="w-full bg-[#0a0a0a] border border-[#2a2a2a] rounded-lg p-2 text-sm text-zinc-300 mb-3 focus:outline-none focus:border-indigo-500/50"
+                  >
+                    <option value="">Selecione um número...</option>
+                    {availableIntegrations.map(i => {
+                      const label = (() => {
+                        try {
+                          const parsed = i.config ? JSON.parse(i.config) : {};
+                          return parsed.profile?.displayPhoneNumber || `Número sem perfil sincronizado (${i.id.slice(0, 8)})`;
+                        } catch {
+                          return `Número sem perfil sincronizado (${i.id.slice(0, 8)})`;
+                        }
+                      })();
+                      return <option key={i.id} value={i.id}>{label}</option>;
+                    })}
+                  </select>
+                  <label className="text-xs font-bold text-zinc-400 mb-1.5 block">Nome do agente</label>
+                  <input
+                    value={newAgentName}
+                    onChange={(e) => setNewAgentName(e.target.value)}
+                    placeholder="Ex: Atendimento, Encomendas de peças..."
+                    className="w-full bg-[#0a0a0a] border border-[#2a2a2a] rounded-lg p-2 text-sm text-zinc-300 mb-3 focus:outline-none focus:border-indigo-500/50"
+                  />
+                  {newAgentError && <p className="text-xs text-red-400 mb-3">{newAgentError}</p>}
+                  <button
+                    onClick={handleCreateAgent}
+                    disabled={isCreatingAgent || !newAgentIntegrationId}
+                    className="px-4 py-2 rounded-lg text-xs font-bold bg-indigo-600 hover:bg-indigo-500 text-white disabled:opacity-50 transition-colors"
+                  >
+                    {isCreatingAgent ? 'Criando...' : 'Criar agente'}
+                  </button>
+                </>
+              )}
+            </div>
+          )}
 
           {/* Sub Navigation */}
           <div className="flex gap-6 overflow-x-auto custom-scrollbar">
@@ -722,6 +888,18 @@ export default function SalesbotPage() {
               {agentLoadError}
             </div>
           )}
+
+          {!isLoadingAgent && agents.length === 0 && !agentLoadError ? (
+            <div className="h-full flex flex-col items-center justify-center text-zinc-500 text-center max-w-md mx-auto">
+              <Bot className="size-12 mb-4 opacity-20" />
+              <h3 className="text-lg font-bold text-zinc-400 mb-2">Nenhum agente configurado ainda</h3>
+              <p className="text-sm">
+                Pra criar seu primeiro Agente de IA, adicione um número de WhatsApp em{' '}
+                <a href="/integrations" className="text-indigo-400 hover:text-indigo-300 font-medium">Integrações</a> primeiro.
+              </p>
+            </div>
+          ) : (
+          <>
 
           {activeTab === 'persona' && (
             <div className="max-w-3xl space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
@@ -1034,15 +1212,34 @@ export default function SalesbotPage() {
             </div>
           )}
 
-          {(activeTab === 'acoes' || activeTab === 'integracoes') && (
+          {activeTab === 'acoes' && (
             <div className="h-full flex flex-col items-center justify-center text-zinc-500 animate-in fade-in">
               <Database className="size-12 mb-4 opacity-20" />
               <h3 className="text-lg font-bold text-zinc-400">Em Desenvolvimento</h3>
               <p className="text-sm mt-2 max-w-sm text-center">
-                {activeTab === 'acoes' && 'Ferramentas que a IA poderá executar (function calling) — como abrir automaticamente uma Ordem de Serviço rascunho no modo Semiautomático. Próximo passo depois da gestão manual de Ordens de Serviço.'}
-                {activeTab === 'integracoes' && 'Vínculo deste agente com canais específicos (WhatsApp/Instagram) — hoje o agente vale para o workspace inteiro.'}
+                Ferramentas que a IA poderá executar (function calling) — como abrir automaticamente uma Ordem de Serviço rascunho no modo Semiautomático. Próximo passo depois da gestão manual de Ordens de Serviço.
               </p>
             </div>
+          )}
+
+          {activeTab === 'integracoes' && (() => {
+            const current = agents.find(a => a.id === selectedAgentId);
+            const numberLabel = current ? agentNumberLabel(current) : null;
+            return (
+              <div className="h-full flex flex-col items-center justify-center text-zinc-500 animate-in fade-in">
+                <Phone className="size-12 mb-4 opacity-20" />
+                <h3 className="text-lg font-bold text-zinc-400">Canal vinculado</h3>
+                <p className="text-sm mt-2 max-w-sm text-center">
+                  {numberLabel
+                    ? <>Este agente responde exclusivamente pelo número <span className="text-zinc-300 font-medium">{numberLabel}</span>.</>
+                    : 'Este agente está vinculado a um número de WhatsApp sem perfil sincronizado ainda — sincronize em Integrações para ver o número aqui.'}
+                  {' '}Pra adicionar outro número, use Integrações; pra atender por ele, crie um novo agente aqui em cima.
+                </p>
+              </div>
+            );
+          })()}
+
+          </>
           )}
 
         </div>
