@@ -1221,3 +1221,38 @@ não mudou nesta fase, então não há nada novo pra clicar ainda.
 **Próximo passo**: Fase 2 (`/integrations` como lista de números) e
 Fase 3 (seletor de agente em `/salesbot`), cada uma como seu próprio
 spec → plano → implementação.
+
+## Múltiplos Agentes de IA por número de WhatsApp — Fase 2: lista de números em /integrations (2026-07-27)
+
+Reformulação do modal do card WhatsApp em `src/app/integrations/
+page.tsx`. Antes: um único formulário de credenciais por provider —
+não dava pra ter mais de um número configurado na UI (mesmo já sendo
+possível no backend desde a Fase 1). Agora: se o tenant já tem 1+
+número de WhatsApp salvo, o modal mostra uma **lista de números**
+(foto/nome/telefone do perfil sincronizado, status ATIVO/pendente,
+botão "Configurar") em vez do formulário direto, com um botão
+"+ Adicionar número" no rodapé pra criar mais um. Cada número abre o
+mesmo formulário de credenciais de sempre (token, WABA ID, PIN,
+sincronizar perfil), agora escopado a esse `integrationId` específico
+em vez de "a integração de whatsapp do tenant".
+
+Sem número nenhum ainda configurado, o fluxo continua idêntico a antes
+(o card abre direto pro formulário) — só muda a partir do segundo
+número. Outros providers (n8n, tiktok, stripe, instagram) não foram
+tocados, continuam 1-por-provider como sempre — o problema de vários
+números é específico do WhatsApp/Agente de IA.
+
+Os 3 botões de ação da Meta (sincronizar perfil, registrar número,
+inscrever webhook) passaram a checar "estou editando um número já
+salvo" (`editingIntegrationId`) em vez de "o tenant tem algum WhatsApp
+instalado" — do jeito antigo, esses botões apareceriam errado ao
+abrir o formulário em branco pra adicionar um número novo.
+
+Verificado com `npx tsc --noEmit` e `npm run build`, ambos limpos.
+Teste real no navegador (abrir a lista, adicionar um segundo número,
+configurar cada um) pendente do Marcelo — este ambiente não tem uma
+sessão logada pra exercitar o fluxo ponta a ponta.
+
+**Próximo passo**: Fase 3 — seletor de agente em `/salesbot`, com um
+"+ Novo agente" que escolhe a qual número (Integration ainda sem
+agente) vincular.

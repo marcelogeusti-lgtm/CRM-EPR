@@ -51,6 +51,14 @@ export default function IntegrationsPage() {
   const [isRegistering, setIsRegistering] = useState(false);
   const [registerMessage, setRegisterMessage] = useState<{ ok: boolean; text: string } | null>(null);
 
+  // WhatsApp agora suporta vários números (um por Agente de IA) — ver
+  // docs/superpowers/specs/2026-07-21-multiplos-agentes-fase1-design.md.
+  // viewingNumbers = mostrando a lista de números em vez do formulário único;
+  // editingIntegrationId = qual número o formulário está editando (null =
+  // criando um novo).
+  const [viewingNumbers, setViewingNumbers] = useState(false);
+  const [editingIntegrationId, setEditingIntegrationId] = useState<string | null>(null);
+
   // DB State
   const [installedApps, setInstalledApps] = useState<any[]>([]);
   const [loadError, setLoadError] = useState('');
@@ -93,36 +101,41 @@ export default function IntegrationsPage() {
     }
 
     await saveIntegration(
-      selectedApp.id, 
-      apiKey, 
-      webhookUrl, 
-      Object.keys(configObj).length > 0 ? JSON.stringify(configObj) : undefined
+      selectedApp.id,
+      apiKey,
+      webhookUrl,
+      Object.keys(configObj).length > 0 ? JSON.stringify(configObj) : undefined,
+      editingIntegrationId ?? undefined
     );
 
     setInstalledApps(await getIntegrations());
     setIsSaving(false);
     setShowDeveloperConfig(false);
-    // Não fecha o app, só recarrega status
+    // WhatsApp agora é uma lista de números — volta pra lista em vez da
+    // tela de opções genérica, pra ver o número recém-salvo confirmado.
+    if (selectedApp.id === 'whatsapp') {
+      setViewingNumbers(true);
+    }
   };
 
   const getActiveIntegrationConfig = (appId: string) => {
     return installedApps.find(i => i.provider === appId);
   };
 
-  const openModal = (app: any) => {
-    setShowDeveloperConfig(false);
-    const config = getActiveIntegrationConfig(app.id);
+  const whatsappIntegrations = installedApps.filter(i => i.provider === 'whatsapp');
+
+  const fillFormFromIntegration = (appId: string, config: any) => {
     if (config) {
       setApiKey(config.apiKey || '');
       setWebhookUrl(config.webhookUrl || '');
-      
+
       const parsedConfig = config.config ? JSON.parse(config.config) : {};
-      if (app.id === 'instagram' || app.id === 'whatsapp') {
+      if (appId === 'instagram' || appId === 'whatsapp') {
         setMetaPhoneId(parsedConfig.metaPhoneId || '');
         setMetaWabaId(parsedConfig.metaWabaId || '');
         setMetaVerifyToken(parsedConfig.verifyToken || '');
         setWhatsappProfile(parsedConfig.profile || null);
-      } else if (app.id === 'tiktok') {
+      } else if (appId === 'tiktok') {
         setTiktokAppId(parsedConfig.appId || '');
         setTiktokAppSecret(parsedConfig.appSecret || '');
       }
@@ -140,13 +153,41 @@ export default function IntegrationsPage() {
     setSyncError('');
     setRegisterPin('');
     setRegisterMessage(null);
+  };
+
+  const openModal = (app: any) => {
+    setShowDeveloperConfig(false);
+    setEditingIntegrationId(null);
+
+    if (app.id === 'whatsapp') {
+      const numbers = installedApps.filter(i => i.provider === 'whatsapp');
+      if (numbers.length > 0) {
+        // Já tem número(s) configurado(s): mostra a lista em vez do
+        // formulário único de sempre.
+        setViewingNumbers(true);
+        fillFormFromIntegration(app.id, null);
+        setSelectedApp(app);
+        return;
+      }
+    }
+    setViewingNumbers(false);
+    fillFormFromIntegration(app.id, getActiveIntegrationConfig(app.id));
     setSelectedApp(app);
+  };
+
+  // Abre o formulário de credenciais pra um número específico da lista
+  // (integration = null → formulário em branco, pra adicionar um novo).
+  const openWhatsappNumberConfig = (integration: any | null) => {
+    setEditingIntegrationId(integration?.id ?? null);
+    fillFormFromIntegration('whatsapp', integration);
+    setViewingNumbers(false);
+    setShowDeveloperConfig(true);
   };
 
   const handleRegisterNumber = async () => {
     setIsRegistering(true);
     setRegisterMessage(null);
-    const result = await registerWhatsappNumber(registerPin);
+    const result = await registerWhatsappNumber(registerPin, editingIntegrationId ?? undefined);
     setRegisterMessage(
       result.success
         ? { ok: true, text: 'Número registrado na Cloud API! Já pode enviar e receber mensagens.' }
@@ -158,7 +199,7 @@ export default function IntegrationsPage() {
   const handleSubscribeWebhook = async () => {
     setIsSubscribing(true);
     setSubscribeMessage(null);
-    const result = await subscribeWhatsappWebhook();
+    const result = await subscribeWhatsappWebhook(editingIntegrationId ?? undefined);
     setSubscribeMessage(
       result.success
         ? { ok: true, text: 'App inscrito na WABA! O recebimento de mensagens deve funcionar agora.' }
@@ -170,7 +211,7 @@ export default function IntegrationsPage() {
   const handleSyncProfile = async () => {
     setIsSyncing(true);
     setSyncError('');
-    const result = await syncWhatsappProfile();
+    const result = await syncWhatsappProfile(editingIntegrationId ?? undefined);
     if (result.success) {
       setWhatsappProfile(result.profile || null);
     } else {
@@ -356,6 +397,66 @@ export default function IntegrationsPage() {
                     A integração com {selectedApp.name} ainda não está disponível. Hoje o WhatsApp Cloud API e o webhook do n8n são os canais totalmente funcionais no CRM.
                   </p>
                 </div>
+              ) : selectedApp.id === 'whatsapp' && viewingNumbers ? (
+                /* Lista de números de WhatsApp já configurados — cada um pode
+                   ter seu próprio Agente de IA (ver /salesbot). */
+                <div className="h-full flex flex-col">
+                  <h3 className="text-2xl font-bold text-gray-900 mb-2">Seus números de WhatsApp</h3>
+                  <p className="text-gray-500 text-sm mb-8">
+                    Cada número pode ter seu próprio Agente de IA, com persona e scripts diferentes.
+                  </p>
+
+                  <div className="space-y-3 overflow-y-auto pr-2 custom-scrollbar flex-1 mb-6">
+                    {whatsappIntegrations.map(integration => {
+                      const parsed = integration.config ? JSON.parse(integration.config) : {};
+                      const profile = parsed.profile;
+                      return (
+                        <div key={integration.id} className="flex items-center gap-4 p-4 border border-gray-200 rounded-xl hover:border-gray-300 transition-colors">
+                          {profile?.profilePictureUrl ? (
+                            <img src={profile.profilePictureUrl} alt="Foto do perfil" className="w-12 h-12 rounded-full object-cover border border-gray-200 shrink-0" />
+                          ) : (
+                            <div className="w-12 h-12 rounded-full bg-gray-100 flex items-center justify-center text-gray-400 shrink-0">
+                              <Phone className="size-5" />
+                            </div>
+                          )}
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-bold text-gray-900 truncate">
+                              {profile?.verifiedName || 'Número sem nome'}
+                            </p>
+                            <p className="text-xs text-gray-500">
+                              {profile?.displayPhoneNumber || (integration.apiKey ? 'Aguardando sincronização' : 'Configuração incompleta')}
+                            </p>
+                          </div>
+                          {integration.isActive && profile?.codeVerificationStatus && (
+                            <span className={cn(
+                              "text-[10px] font-bold px-2 py-1 rounded-md shrink-0",
+                              profile.codeVerificationStatus === 'VERIFIED'
+                                ? "bg-emerald-100 text-emerald-700"
+                                : "bg-amber-100 text-amber-700"
+                            )}>
+                              {profile.codeVerificationStatus === 'VERIFIED' ? 'ATIVO' : profile.codeVerificationStatus}
+                            </span>
+                          )}
+                          <button
+                            type="button"
+                            onClick={() => openWhatsappNumberConfig(integration)}
+                            className="bg-gray-100 hover:bg-gray-200 text-gray-700 px-4 py-2 rounded-lg text-xs font-bold transition-colors shrink-0"
+                          >
+                            Configurar
+                          </button>
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => openWhatsappNumberConfig(null)}
+                    className="w-full border-2 border-dashed border-gray-200 hover:border-gray-300 hover:bg-gray-50 rounded-xl py-4 text-sm font-bold text-gray-500 hover:text-gray-700 transition-colors"
+                  >
+                    + Adicionar número
+                  </button>
+                </div>
               ) : !showDeveloperConfig ? (
                 <>
                   <h3 className="text-2xl font-bold text-gray-900 mb-3">
@@ -407,11 +508,19 @@ export default function IntegrationsPage() {
               ) : (
                 /* Developer Config View (Technical Tokens) */
                 <div className="animate-in slide-in-from-right-4 duration-300 h-full flex flex-col">
-                  <div className="flex items-center gap-3 mb-8 cursor-pointer text-gray-500 hover:text-gray-900 transition-colors w-fit" onClick={() => setShowDeveloperConfig(false)}>
+                  <div
+                    className="flex items-center gap-3 mb-8 cursor-pointer text-gray-500 hover:text-gray-900 transition-colors w-fit"
+                    onClick={() => {
+                      setShowDeveloperConfig(false);
+                      if (selectedApp.id === 'whatsapp' && whatsappIntegrations.length > 0) {
+                        setViewingNumbers(true);
+                      }
+                    }}
+                  >
                     <div className="p-1.5 bg-gray-100 rounded-md">
                       <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m15 18-6-6 6-6"/></svg>
                     </div>
-                    <span className="font-medium text-sm">Voltar para Opções</span>
+                    <span className="font-medium text-sm">{selectedApp.id === 'whatsapp' && whatsappIntegrations.length > 0 ? 'Voltar para Números' : 'Voltar para Opções'}</span>
                   </div>
 
                   <h3 className="text-2xl font-bold text-gray-900 mb-2">Credenciais de Desenvolvedor</h3>
@@ -428,7 +537,7 @@ export default function IntegrationsPage() {
                           </p>
                         </div>
 
-                        {selectedApp.id === 'whatsapp' && installedApps.some(i => i.provider === 'whatsapp') && (
+                        {selectedApp.id === 'whatsapp' && !!editingIntegrationId && (
                           <div className="p-4 bg-gray-50 border border-gray-200 rounded-xl">
                             <div className="flex items-center gap-3 mb-3">
                               {whatsappProfile?.profilePictureUrl ? (
@@ -485,7 +594,7 @@ export default function IntegrationsPage() {
                           <input type="text" value={metaPhoneId} onChange={(e) => setMetaPhoneId(e.target.value)} placeholder="Ex: 1122334455" className="w-full bg-gray-50 border border-gray-200 rounded-lg p-3 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all" />
                         </div>
 
-                        {selectedApp.id === 'whatsapp' && installedApps.some(i => i.provider === 'whatsapp') && (
+                        {selectedApp.id === 'whatsapp' && !!editingIntegrationId && (
                           <div className="p-4 bg-indigo-50 border border-indigo-100 rounded-xl">
                             <p className="text-xs text-indigo-800 font-medium leading-relaxed mb-3">
                               Registre o número na Cloud API com um PIN de verificação em duas etapas (6 dígitos). Sem isso, um número real (fora do sandbox) não envia nem recebe mensagens pela API — se o número nunca teve PIN, o valor digitado aqui vira o PIN dele.
@@ -530,7 +639,7 @@ export default function IntegrationsPage() {
                           <label className="text-xs font-bold text-gray-700 mb-2 block">Token de Verificação (Webhook Verify Token)</label>
                           <input type="text" value={metaVerifyToken} onChange={(e) => setMetaVerifyToken(e.target.value)} placeholder="Sua senha para a Meta (ex: nexus2026)" className="w-full bg-gray-50 border border-gray-200 rounded-lg p-3 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all" />
                         </div>
-                        {selectedApp.id === 'whatsapp' && installedApps.some(i => i.provider === 'whatsapp') && (
+                        {selectedApp.id === 'whatsapp' && !!editingIntegrationId && (
                           <div className="p-4 bg-amber-50 border border-amber-100 rounded-xl">
                             <p className="text-xs text-amber-800 font-medium leading-relaxed mb-3">
                               Salvou o Token e o WABA ID? Clique abaixo para ativar o recebimento de mensagens deste número (passo obrigatório da Meta para números reais/produção).
