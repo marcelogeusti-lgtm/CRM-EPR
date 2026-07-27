@@ -15,7 +15,7 @@ export async function getInsightsStats() {
       select: { authorType: true, conversation: { select: { channel: { select: { provider: true, name: true } } } } },
     }),
     prisma.channel.findMany({ where: { tenantId } }),
-    prisma.aiAgent.findUnique({ where: { tenantId } }),
+    prisma.aiAgent.findFirst({ where: { tenantId } }),
     prisma.task.findMany({ where: { tenantId }, select: { isCompleted: true } }),
     prisma.deal.count({ where: { tenantId, createdAt: { gte: since } } }),
   ]);

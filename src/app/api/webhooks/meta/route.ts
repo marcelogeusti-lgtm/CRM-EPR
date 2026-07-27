@@ -238,6 +238,7 @@ async function processWhatsAppMessage(fromPhone: string, incoming: IncomingConte
   try {
     const replyContext = {
       tenantId,
+      integrationId: integration.id,
       dealId: deal.id,
       conversationId: conversation.id,
       contactId: contact.id,

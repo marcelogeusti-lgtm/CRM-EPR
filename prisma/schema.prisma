@@ -28,7 +28,7 @@ model Tenant {
   tasks            Task[]
   integrations     Integration[]
   tags             Tag[]
-  aiAgent          AiAgent?
+  aiAgents         AiAgent[]
   stageAutomations StageAutomation[]
   feedbacks        Feedback[]
   serviceOrders    ServiceOrder[]
@@ -274,9 +274,8 @@ model Integration {
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
 
-  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-
-  @@unique([tenantId, provider])
+  tenant  Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  aiAgent AiAgent?
 }
 
 // ==========================================
@@ -285,7 +284,8 @@ model Integration {
 
 model AiAgent {
   id                 String  @id @default(uuid())
-  tenantId           String  @unique
+  tenantId           String
+  integrationId      String? @unique // a qual número/integração este agente pertence (nulo = ainda não vinculado)
   name               String  @default("Assistente de Vendas")
   isActive           Boolean @default(false)
   systemPrompt       String? // O "Persona"
@@ -308,6 +308,7 @@ model AiAgent {
   updatedAt DateTime @updatedAt
 
   tenant           Tenant                 @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  integration      Integration?           @relation(fields: [integrationId], references: [id], onDelete: SetNull)
   scriptSteps      AgentScriptStep[]
   objections       AgentObjection[]
   knowledgeSources AgentKnowledgeSource[]

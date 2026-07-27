@@ -15,7 +15,7 @@ export async function getDashboardStats() {
     prisma.contact.count({ where: { tenantId } }),
     prisma.user.count({ where: { tenantId } }),
     prisma.integration.findFirst({ where: { tenantId, isActive: true } }),
-    prisma.aiAgent.findUnique({ where: { tenantId } }),
+    prisma.aiAgent.findFirst({ where: { tenantId } }),
   ]);
 
   const totalLeads = deals.length;

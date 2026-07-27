@@ -39,11 +39,10 @@ export async function runStageAutomations(tenantId: string, stageId: string, dea
     if (!automation) return;
 
     if (automation.activateAgent) {
-      await prisma.aiAgent.upsert({
-        where: { tenantId },
-        update: { isActive: true },
-        create: { tenantId, isActive: true },
-      });
+      // Tenant pode ter mais de um Agente de IA (um por número/integração)
+      // — ativa todos. Refinar pra "qual agente ativar" é decisão de
+      // produto separada, fora de escopo desta automação por etapa.
+      await prisma.aiAgent.updateMany({ where: { tenantId }, data: { isActive: true } });
     }
 
     if (automation.fireN8nWebhook) {

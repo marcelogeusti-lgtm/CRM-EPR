@@ -7,6 +7,7 @@ import { buildSystemPrompt } from '@/lib/agentPrompt';
 
 export interface AiReplyContext {
   tenantId: string;
+  integrationId: string;
   dealId: string;
   conversationId: string;
   toPhone: string;
@@ -24,8 +25,8 @@ export interface AiReplyContext {
 export async function sendAiAgentReply(params: AiReplyContext) {
   if (!params.accessToken) return;
 
-  const agent = await prisma.aiAgent.findUnique({
-    where: { tenantId: params.tenantId },
+  const agent = await prisma.aiAgent.findFirst({
+    where: { integrationId: params.integrationId },
     include: {
       scriptSteps: { include: { blocks: { orderBy: { order: 'asc' } } } },
       objections: true,

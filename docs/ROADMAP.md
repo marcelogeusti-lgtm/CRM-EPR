@@ -3,7 +3,7 @@
 > Documento de acompanhamento. Estado do projeto, o que já foi feito e o
 > próximo passo detalhado. Atualizar ao concluir cada fase.
 >
-> Última atualização: **2026-07-13**
+> Última atualização: **2026-07-27**
 
 ---
 
@@ -1143,3 +1143,81 @@ Deal e conferir o timeline, reabrir OS como AGENT vs. ADMIN, trocar
 responsável) pendente do Marcelo — nenhuma das 5 tasks de código pôde
 ser clicada de ponta a ponta numa sessão logada de verdade a partir
 deste ambiente.
+
+## Múltiplos Agentes de IA por número de WhatsApp — Fase 1: schema + backend (2026-07-27)
+
+**Pedido do Marcelo**: qualquer conta deve poder ter mais de um número de
+WhatsApp, cada um com seu próprio Agente de IA (persona/scripts/objeções
+próprios) — ex.: um número pra vendas e outro pra seguros numa empresa de
+esquadrias, ou atendimento vs. encomenda de peças numa oficina. Ele
+generalizou explicitamente: não é feature de nicho de um segmento
+específico. Dividido em 3 fases (ver spec completa em
+`docs/superpowers/specs/2026-07-21-multiplos-agentes-fase1-design.md`):
+Fase 1 (esta, concluída) = schema + backend; Fase 2 (a fazer) = UI de
+`/integrations` como lista de números; Fase 3 (a fazer) = seletor de
+agente em `/salesbot`.
+
+**O que travava**: `Integration` só permitia 1 registro por
+`(tenantId, provider)`; `AiAgent` só permitia 1 por `tenantId`. Ambos
+implementados no banco como índices únicos (`Integration_tenantId_
+provider_key`, `AiAgent_tenantId_key`), não constraints de tabela —
+detalhe que importou pra escrever a migration certa (`DROP INDEX`, não
+`DROP CONSTRAINT`).
+
+**Implementado**:
+
+1. Migration `20260727120000_multi_agentes_por_numero_fase1` (aplicada
+   via Supabase MCP): remove os dois índices únicos, adiciona
+   `AiAgent.integrationId` (nullable, único, FK `ON DELETE SET NULL`
+   pra `Integration`), e faz backfill ligando cada `AiAgent` existente
+   à `Integration` de whatsapp do mesmo tenant — confirmado sem perda
+   de dado (o agente do Marcelo ficou corretamente vinculado).
+2. `prisma/schema.prisma`: `Integration` ganha relation reversa
+   `aiAgent AiAgent?`, perde o `@@unique([tenantId, provider])`;
+   `AiAgent.tenantId` deixa de ser `@unique`, ganha `integrationId
+   String? @unique` + relation; `Tenant.aiAgent AiAgent?` virou
+   `aiAgents AiAgent[]` (não é mais 1-pra-1).
+3. `src/actions/salesbot.ts`: `getAiAgent`, `saveAiAgent` e
+   `setAiAgentActive` passam a aceitar um `agentId` opcional — se
+   informado, operam nesse agente específico; se omitido, caem no
+   primeiro agente do tenant (mantém `/salesbot` funcionando sem
+   nenhuma mudança de UI antes da Fase 3). Novas `getAiAgents()`
+   (lista todos os agentes do tenant, com a integração vinculada) e
+   `createAiAgent(integrationId, name)` (cria um agente novo preso a
+   um número específico, validando que o número é do tenant e ainda
+   não tem agente) — prontas pra Fase 3 consumir.
+4. `src/lib/aiReply.ts`: `AiReplyContext` ganha `integrationId`;
+   `sendAiAgentReply` busca o agente pelo número que recebeu a
+   mensagem (`integrationId`), não mais "o agente do tenant".
+   `src/app/api/webhooks/meta/route.ts` já resolvia qual `Integration`
+   bateu com o `phoneNumberId` do payload — só precisou passar
+   `integration.id` adiante.
+5. `src/app/api/chat/route.ts` (simulador do `/salesbot`): aceita
+   `agentId` opcional no body, mesma lógica de fallback.
+6. `src/actions/dashboard.ts`/`insights.ts`: `findUnique` → `findFirst`
+   (tenantId deixou de ser único em `AiAgent`) — sem mudança de
+   comportamento visível, só corrige o tipo.
+7. `src/actions/automations.ts` (`runStageAutomations`): o toggle
+   "ativar agente" de uma automação por etapa do Pipeline passou de
+   upsert único pra `updateMany` (ativa todos os agentes do tenant) —
+   com 1 agente só, comportamento idêntico a hoje.
+8. `src/actions/integrations.ts`: as 5 funções (`saveIntegration`,
+   `getIntegrations`, `subscribeWhatsappWebhook`, `syncWhatsappProfile`,
+   `registerWhatsappNumber`) usavam a chave composta `tenantId_provider`
+   que deixou de existir — reescritas com um `integrationId` opcional
+   (mesmo padrão de fallback dos itens acima).
+
+**Decisão explícita de escopo**: `getAiAgentStats()` continua agregado
+por tenant, não por agente — `Message`/`Deal` não têm vínculo com qual
+Agente de IA atendeu no schema atual, e inventar essa atribuição é
+mudança maior, fora do que a Fase 1 pediu.
+
+Verificado com `npx tsc --noEmit` (limpo) e `npm run build` (limpo).
+Nenhum call site antigo de `aiAgent.findUnique`/`upsert` restante
+(conferido via grep). Teste real do fluxo do Marcelo (WhatsApp
+continua respondendo exatamente como antes) pendente dele mesmo — a UI
+não mudou nesta fase, então não há nada novo pra clicar ainda.
+
+**Próximo passo**: Fase 2 (`/integrations` como lista de números) e
+Fase 3 (seletor de agente em `/salesbot`), cada uma como seu próprio
+spec → plano → implementação.

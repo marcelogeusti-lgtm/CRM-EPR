@@ -4,10 +4,12 @@ import { prisma } from '@/lib/prisma';
 import { requireTenantId } from '@/lib/auth';
 import { revalidatePath } from 'next/cache';
 
-export async function getAiAgent() {
+// agentId omitido = compatibilidade com contas que ainda não migraram pra UI
+// multiagente (Fase 3): resolve o primeiro agente do tenant.
+export async function getAiAgent(agentId?: string) {
   const tenantId = await requireTenantId();
-  return prisma.aiAgent.findUnique({
-    where: { tenantId },
+  return prisma.aiAgent.findFirst({
+    where: agentId ? { id: agentId, tenantId } : { tenantId },
     include: {
       scriptSteps: {
         orderBy: { order: 'asc' },
@@ -17,6 +19,33 @@ export async function getAiAgent() {
       knowledgeSources: { orderBy: { order: 'asc' } },
     },
   });
+}
+
+export async function getAiAgents() {
+  const tenantId = await requireTenantId();
+  return prisma.aiAgent.findMany({
+    where: { tenantId },
+    include: { integration: true },
+    orderBy: { createdAt: 'asc' },
+  });
+}
+
+export async function createAiAgent(integrationId: string, name: string) {
+  const tenantId = await requireTenantId();
+
+  const integration = await prisma.integration.findFirst({
+    where: { id: integrationId, tenantId },
+    include: { aiAgent: true },
+  });
+  if (!integration) throw new Error('Integração não encontrada.');
+  if (integration.aiAgent) throw new Error('Este número já tem um agente vinculado.');
+
+  const agent = await prisma.aiAgent.create({
+    data: { tenantId, integrationId, name },
+  });
+
+  revalidatePath('/salesbot');
+  return agent;
 }
 
 export async function getCompanySettings() {
@@ -72,7 +101,10 @@ interface SaveAiAgentInput {
   serviceOrderMode: string;
 }
 
-export async function saveAiAgent(data: SaveAiAgentInput) {
+// agentId omitido = compatibilidade com contas que ainda não migraram pra UI
+// multiagente (Fase 3): resolve (ou cria, se ainda não existir) o primeiro
+// agente do tenant.
+export async function saveAiAgent(data: SaveAiAgentInput, agentId?: string) {
   const tenantId = await requireTenantId();
 
   const payload = {
@@ -87,11 +119,14 @@ export async function saveAiAgent(data: SaveAiAgentInput) {
     serviceOrderMode: data.serviceOrderMode,
   };
 
-  const agent = await prisma.aiAgent.upsert({
-    where: { tenantId },
-    update: payload,
-    create: { tenantId, ...payload },
-  });
+  const existing = agentId
+    ? await prisma.aiAgent.findFirst({ where: { id: agentId, tenantId } })
+    : await prisma.aiAgent.findFirst({ where: { tenantId } });
+  if (agentId && !existing) throw new Error('Agente não encontrado.');
+
+  const agent = existing
+    ? await prisma.aiAgent.update({ where: { id: existing.id }, data: payload })
+    : await prisma.aiAgent.create({ data: { tenantId, ...payload } });
 
   // Substitui o conjunto inteiro de etapas/objeções a cada salvamento — a UI
   // edita tudo localmente (adicionar/remover/reordenar) e manda o estado
@@ -187,14 +222,20 @@ export async function getAiAgentStats() {
   };
 }
 
-export async function setAiAgentActive(isActive: boolean) {
+// agentId omitido = compatibilidade com contas que ainda não migraram pra UI
+// multiagente (Fase 3): resolve (ou cria, se ainda não existir) o primeiro
+// agente do tenant.
+export async function setAiAgentActive(isActive: boolean, agentId?: string) {
   const tenantId = await requireTenantId();
 
-  const agent = await prisma.aiAgent.upsert({
-    where: { tenantId },
-    update: { isActive },
-    create: { tenantId, isActive },
-  });
+  const existing = agentId
+    ? await prisma.aiAgent.findFirst({ where: { id: agentId, tenantId } })
+    : await prisma.aiAgent.findFirst({ where: { tenantId } });
+  if (agentId && !existing) throw new Error('Agente não encontrado.');
+
+  const agent = existing
+    ? await prisma.aiAgent.update({ where: { id: existing.id }, data: { isActive } })
+    : await prisma.aiAgent.create({ data: { tenantId, isActive } });
 
   revalidatePath('/salesbot');
   return agent;

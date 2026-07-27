@@ -10,35 +10,45 @@ import { subscribeAppToWaba, getWhatsappProfile, registerPhoneNumber } from '@/l
 // bloqueado aqui pra não deixar o tenant "instalar" algo que não faz nada.
 const IMPLEMENTED_PROVIDERS = ['whatsapp', 'n8n'];
 
-export async function saveIntegration(provider: string, apiKey?: string, webhookUrl?: string, config?: string) {
+// Um tenant agora pode ter várias integrações do mesmo provider (ex.: vários
+// números de WhatsApp, um por Agente de IA — ver docs/superpowers/specs/
+// 2026-07-21-multiplos-agentes-fase1-design.md). integrationId ausente =
+// compatibilidade com a UI atual (Fase 2 ainda não implementada), que só
+// conhece "a integração de whatsapp do tenant": resolve a primeira.
+async function resolveIntegration(tenantId: string, provider: string, integrationId?: string) {
+  return integrationId
+    ? prisma.integration.findFirst({ where: { id: integrationId, tenantId } })
+    : prisma.integration.findFirst({ where: { tenantId, provider } });
+}
+
+export async function saveIntegration(
+  provider: string,
+  apiKey?: string,
+  webhookUrl?: string,
+  config?: string,
+  integrationId?: string
+) {
   const tenantId = await requireTenantId();
 
   if (!IMPLEMENTED_PROVIDERS.includes(provider)) {
     return { success: false, error: 'Esta integração ainda não está disponível.' };
   }
 
-  await prisma.integration.upsert({
-    where: {
-      tenantId_provider: {
-        tenantId,
-        provider: provider
-      }
-    },
-    update: {
-      apiKey: apiKey,
-      webhookUrl: webhookUrl,
-      config: config,
-      isActive: true
-    },
-    create: {
-      tenantId,
-      provider: provider,
-      apiKey: apiKey,
-      webhookUrl: webhookUrl,
-      config: config,
-      isActive: true
-    }
-  });
+  const existing = await resolveIntegration(tenantId, provider, integrationId);
+  if (integrationId && !existing) {
+    return { success: false, error: 'Integração não encontrada.' };
+  }
+
+  if (existing) {
+    await prisma.integration.update({
+      where: { id: existing.id },
+      data: { apiKey, webhookUrl, config, isActive: true },
+    });
+  } else {
+    await prisma.integration.create({
+      data: { tenantId, provider, apiKey, webhookUrl, config, isActive: true },
+    });
+  }
 
   revalidatePath('/integrations');
   return { success: true };
@@ -48,18 +58,16 @@ export async function getIntegrations() {
   const tenantId = await requireTenantId();
 
   return prisma.integration.findMany({
-    where: { tenantId }
+    where: { tenantId },
   });
 }
 
 // Inscreve o app na WABA do tenant pra ativar o recebimento de webhooks
 // (necessário uma vez por número real/produção — ver src/lib/whatsapp.ts).
-export async function subscribeWhatsappWebhook() {
+export async function subscribeWhatsappWebhook(integrationId?: string) {
   const tenantId = await requireTenantId();
 
-  const integration = await prisma.integration.findUnique({
-    where: { tenantId_provider: { tenantId, provider: 'whatsapp' } },
-  });
+  const integration = await resolveIntegration(tenantId, 'whatsapp', integrationId);
 
   if (!integration?.apiKey) {
     return { success: false, error: 'Salve o Token de Acesso antes de inscrever o webhook.' };
@@ -76,12 +84,10 @@ export async function subscribeWhatsappWebhook() {
 // Puxa da Meta o estado atual do número (foto, nome verificado, se está
 // ativo/verificado, qualidade) e guarda no config da integração — pra
 // exibir sem o dono do CRM precisar abrir o painel da Meta.
-export async function syncWhatsappProfile() {
+export async function syncWhatsappProfile(integrationId?: string) {
   const tenantId = await requireTenantId();
 
-  const integration = await prisma.integration.findUnique({
-    where: { tenantId_provider: { tenantId, provider: 'whatsapp' } },
-  });
+  const integration = await resolveIntegration(tenantId, 'whatsapp', integrationId);
 
   if (!integration?.apiKey) {
     return { success: false, error: 'Salve o Token de Acesso antes de sincronizar.' };
@@ -100,7 +106,7 @@ export async function syncWhatsappProfile() {
   config.profile = { ...result.profile, syncedAt: new Date().toISOString() };
 
   await prisma.integration.update({
-    where: { tenantId_provider: { tenantId, provider: 'whatsapp' } },
+    where: { id: integration.id },
     data: { config: JSON.stringify(config) },
   });
 
@@ -111,16 +117,14 @@ export async function syncWhatsappProfile() {
 // Registra o número na Cloud API (POST /{phone-number-id}/register) — sem
 // isso a Meta não deixa o número enviar/receber mensagens pela API, mesmo
 // com token, WABA ID e webhook certos.
-export async function registerWhatsappNumber(pin: string) {
+export async function registerWhatsappNumber(pin: string, integrationId?: string) {
   const tenantId = await requireTenantId();
 
   if (!/^\d{6}$/.test(pin)) {
     return { success: false, error: 'O PIN deve ter exatamente 6 dígitos.' };
   }
 
-  const integration = await prisma.integration.findUnique({
-    where: { tenantId_provider: { tenantId, provider: 'whatsapp' } },
-  });
+  const integration = await resolveIntegration(tenantId, 'whatsapp', integrationId);
 
   if (!integration?.apiKey) {
     return { success: false, error: 'Salve o Token de Acesso antes de registrar o número.' };

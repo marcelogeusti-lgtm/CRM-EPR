@@ -11,7 +11,7 @@ export const maxDuration = 30;
 
 export async function POST(req: Request) {
   try {
-    const { messages } = await req.json();
+    const { messages, agentId } = await req.json();
 
     // 1. Buscar a Chave Mestre da OpenAI no Banco de Dados
     const openaiConfig = await prisma.systemConfig.findUnique({
@@ -27,9 +27,11 @@ export async function POST(req: Request) {
 
     // 2. Buscar as regras (Persona) do Agente de IA do tenant logado.
     const user = await getCurrentUser();
+    // agentId ausente (tela ainda não migrada pra multiagente) = cai no
+    // primeiro agente do tenant, mesmo comportamento de sempre.
     const agent = user
-      ? await prisma.aiAgent.findUnique({
-          where: { tenantId: user.tenantId },
+      ? await prisma.aiAgent.findFirst({
+          where: agentId ? { id: agentId, tenantId: user.tenantId } : { tenantId: user.tenantId },
           include: {
             scriptSteps: { include: { blocks: { orderBy: { order: 'asc' } } } },
             objections: true,
